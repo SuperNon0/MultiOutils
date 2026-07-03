@@ -25,10 +25,11 @@ de nouvelles fonctions par la suite (vidéo, OCR, etc.).
 |---|---|
 | **Application bureau** | Electron + TypeScript |
 | **Éditeur d'images** | Canvas HTML (Konva.js ou Fabric.js) |
-| **Serveur auto-hébergé** | Node.js (Express) + SQLite + stockage fichiers |
+| **Serveur auto-hébergé** | Node.js (Express) + SQLite + stockage fichiers, sur **Proxmox** (VM/LXC) |
+| **Accès distant** | **Cloudflare Tunnel** (`cloudflared`) + Cloudflare Access |
 | **Plugin Stream Deck** | SDK officiel Elgato (JS/HTML) |
 | **Dépôt GitHub** | Public, en monorepo |
-| **Mises à jour** | Auto via GitHub Releases (`electron-updater`) |
+| **Mises à jour** | À la demande (bouton) — logiciel via `electron-updater`, site via `git pull` |
 | **CI/CD** | GitHub Actions (build automatique de l'installeur `.exe`) |
 
 ### Organisation du dépôt (monorepo)
@@ -115,10 +116,27 @@ MultiOutils/
 |---|---|---|
 | **Lancement au démarrage** | Activable / désactivable dans les paramètres | MVP |
 | **Icône barre des tâches** | System tray + menu clic-droit | MVP |
-| **Mise à jour automatique** | Détecte une nouvelle version sur GitHub → télécharge → installe | V1 |
+| **Mise à jour à la demande** | Bouton « Mettre à jour » → télécharge et installe la dernière version depuis GitHub Releases | V1 |
 | Paramètres | Raccourcis, dossier de sauvegarde, options | MVP |
 | Thème clair / sombre | Choix de l'apparence | V1 |
 | Langues | Français / Anglais | V1 |
+
+### Stratégie de mise à jour (logiciel ET site)
+
+Le dépôt GitHub étant **public**, aucune authentification supplémentaire (token,
+deploy key) n'est nécessaire. Deux mises à jour **déclenchées à la demande, via un
+bouton** :
+
+| Cible | Déclencheur | Mécanisme |
+|---|---|---|
+| **Logiciel** (app Electron) | Bouton « Mettre à jour » dans l'app | `electron-updater` télécharge la dernière **GitHub Release** et installe |
+| **Site** (serveur Proxmox) | Bouton « Mettre à jour le site » dans l'interface admin | `git pull` du dépôt public + redémarrage du service |
+
+> Une mise à jour **automatique du site** (GitHub Actions / webhook à chaque `push`)
+> reste possible en option, mais le mode par défaut est **manuel (bouton)**.
+>
+> Note : si le dépôt passait un jour en **privé**, il faudrait ajouter une *deploy key*
+> (clé SSH en lecture seule) pour que le serveur puisse se mettre à jour.
 
 ---
 
@@ -145,17 +163,23 @@ via un **serveur hébergé chez soi** (PC, Raspberry Pi, NAS).
 | App ↔ Serveur | L'app pousse les captures sélectionnées via une API sécurisée |
 | Interface web | Galerie responsive, recherche, tags, téléchargement |
 
-### Accès depuis l'extérieur (options)
+### Hébergement (infrastructure de l'utilisateur)
 
-1. **Tailscale / VPN** 🥇 *(recommandé)* — accès privé chiffré, sans ouvrir de port.
-2. **Reverse proxy + domaine** (Nginx/Caddy + HTTPS Let's Encrypt) — URL type
-   `screens.mondomaine.fr`.
-3. **Redirection de port** sur la box — le plus simple, le moins sécurisé.
+- **Proxmox** : le serveur tourne dans une **VM ou un conteneur LXC** (éventuellement
+  en Docker à l'intérieur) sur l'hyperviseur Proxmox de l'utilisateur.
+
+### Accès depuis l'extérieur (méthode retenue)
+
+1. **Cloudflare Tunnel** (`cloudflared`) 🥇 *(retenu)* — accès distant **sans ouvrir de
+   port** sur la box, **HTTPS automatique**, et **Cloudflare Access** possible en amont
+   (authentification par email / code).
+2. *(alternatives)* Reverse proxy + domaine (Nginx/Caddy + Let's Encrypt) ou redirection
+   de port — non retenues, Cloudflare Tunnel est privilégié.
 
 ### Sécurité
 
-- Authentification par **login / mot de passe** obligatoire.
-- **HTTPS** obligatoire.
+- Authentification par **login / mot de passe** obligatoire (+ Cloudflare Access en amont).
+- **HTTPS** obligatoire (fourni par Cloudflare).
 - Aucune capture accessible publiquement sans authentification.
 
 ---
@@ -215,7 +239,8 @@ Communication app ↔ Stream Deck via l'**API officielle Elgato**.
 - **Export / partage** : PNG / JPG, presse-papier, glisser-déposer
 - **Système** : lancement au démarrage, system tray, mise à jour auto GitHub, paramètres,
   thème clair/sombre, FR/EN
-- **Accès distant** : serveur auto-hébergé, synchro à la demande, interface web sécurisée
+- **Accès distant** : serveur auto-hébergé sur Proxmox, accès via Cloudflare Tunnel,
+  synchro à la demande, interface web sécurisée, mise à jour du site par bouton
 - **Stream Deck** : boutons pour déclencher les captures
 - **Bonus** : OCR, color picker
 
