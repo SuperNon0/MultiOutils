@@ -32,6 +32,7 @@ export function App(): ReactNode {
   const [active, setActive] = useState<string>(modules[0]?.id ?? 'settings');
   const [settingsSection, setSettingsSection] = useState<string | undefined>();
   const [navCaptureId, setNavCaptureId] = useState<string | null>(null);
+  const [navAction, setNavAction] = useState<'select' | 'edit'>('select');
   const [toasts, setToasts] = useState<Toast[]>([]);
   const settingsRef = useRef<AppSettings | null>(null);
   const activatedRef = useRef(false);
@@ -53,7 +54,10 @@ export function App(): ReactNode {
         setSettingsSection(nav.section);
       } else {
         setActive(nav.toolId);
-        if (nav.captureId) setNavCaptureId(nav.captureId);
+        if (nav.captureId) {
+          setNavCaptureId(nav.captureId);
+          setNavAction(nav.action ?? 'select');
+        }
       }
     });
     return () => {
@@ -84,9 +88,10 @@ export function App(): ReactNode {
       notify,
       openTool: setActive,
       navCaptureId,
+      navAction,
       consumeNavCapture: () => setNavCaptureId(null)
     }),
-    [notify, navCaptureId]
+    [notify, navCaptureId, navAction]
   );
 
   if (!settings) return null;

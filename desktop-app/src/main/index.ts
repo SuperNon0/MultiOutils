@@ -9,7 +9,7 @@ import type { MainHostContext } from './module-registry';
 import { MainModuleRegistry } from './module-registry';
 import { createScreenshotMainModule } from './modules/screenshot';
 import { SettingsStore } from './settings';
-import { CaptureRepo, thumbPathFor } from './storage/captures';
+import { CaptureRepo, originalPathFor, thumbPathFor } from './storage/captures';
 import { openDb } from './storage/db';
 import { ShortcutManager } from './shortcuts';
 import { TrayController } from './tray';
@@ -74,8 +74,15 @@ async function bootstrap(): Promise<void> {
     const id = decodeURIComponent(url.pathname.replace(/^\//, ''));
     const capture = repo.get(id);
     if (!capture) return new Response('not found', { status: 404 });
-    const thumb = thumbPathFor(capture);
-    const file = url.host === 'thumb' && fs.existsSync(thumb) ? thumb : capture.path;
+    let file = capture.path;
+    if (url.host === 'thumb') {
+      const thumb = thumbPathFor(capture);
+      if (fs.existsSync(thumb)) file = thumb;
+    } else if (url.host === 'original') {
+      // image d'origine pour la ré-édition (le fichier principal est aplati)
+      const original = originalPathFor(capture);
+      if (fs.existsSync(original)) file = original;
+    }
     if (!fs.existsSync(file)) return new Response('gone', { status: 404 });
     return net.fetch(pathToFileURL(file).toString());
   });

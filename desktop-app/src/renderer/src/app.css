@@ -607,3 +607,234 @@
   height: 16px;
   flex-shrink: 0;
 }
+
+/* ── Éditeur (Phase 2) ──────────────────────────────────────────────── */
+
+.editor-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+}
+
+.editor-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.editor-title {
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 1;
+}
+.editor-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.editor-zoom {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 4px;
+}
+.zoom-value {
+  min-width: 58px;
+  justify-content: center;
+  padding: 6px 8px;
+}
+
+.editor-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.editor-toolbar {
+  width: 46px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 6px;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  overflow-y: auto;
+}
+.tool-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.tool-btn:hover {
+  background: var(--card);
+}
+.tool-btn.active {
+  background: var(--card);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.editor-canvas-wrap {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  position: relative;
+  background:
+    repeating-conic-gradient(#131519 0% 25%, #0e0f11 0% 50%) 0 0 / 22px 22px;
+  display: grid;
+  place-items: center;
+}
+.editor-stage-inner {
+  position: relative;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.55);
+}
+.editor-loading {
+  font-size: 13px;
+}
+
+.editor-props {
+  width: 230px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  padding: 16px 14px;
+  overflow-y: auto;
+}
+.editor-props h3 {
+  font-size: 17px;
+  margin-bottom: 10px;
+}
+
+.prop-block {
+  margin-bottom: 14px;
+}
+.prop-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.prop-mini {
+  font-size: 10px;
+}
+.prop-wide {
+  width: 100%;
+}
+.prop-inline {
+  display: flex;
+  gap: 6px;
+}
+.prop-hint {
+  font-size: 10.5px;
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.text-style-btn {
+  width: 34px;
+  justify-content: center;
+  font-weight: 700;
+}
+.text-style-btn.italic {
+  font-style: italic;
+}
+
+.color-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+.color-recents {
+  margin-top: 6px;
+}
+.color-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  padding: 0;
+}
+.color-swatch.small {
+  width: 15px;
+  height: 15px;
+}
+.color-swatch.active {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.color-input {
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.crop-bar {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  padding: 8px 10px;
+  z-index: 10;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.editor-text-input {
+  background: transparent;
+  border: 1px dashed var(--accent);
+  outline: none;
+  padding: 0;
+  margin: 0;
+  resize: none;
+  overflow: hidden;
+  line-height: 1;
+  min-width: 40px;
+  min-height: 1em;
+  white-space: pre;
+  z-index: 60;
+}
+
+.export-dialog {
+  width: 380px;
+  padding: 20px 22px;
+}
+.export-dialog h3 {
+  font-size: 19px;
+  margin-bottom: 14px;
+}
+.export-formats {
+  display: flex;
+  gap: 14px;
+}
+.export-format {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+.export-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}

@@ -1,4 +1,6 @@
-import { ipcMain, screen, shell } from 'electron';
+import { clipboard, dialog, ipcMain, nativeImage, screen, shell } from 'electron';
+import fs from 'node:fs';
+import path from 'node:path';
 import type { CaptureType } from '@multioutils/shared';
 import type {
   AppSettings,
@@ -11,7 +13,8 @@ import type {
   SortKey
 } from '../../../common/types';
 import type { MainHostContext, MainToolModule } from '../../module-registry';
-import { CaptureRepo } from '../../storage/captures';
+import { CaptureRepo, originalPathFor, thumbPathFor } from '../../storage/captures';
+import { getMainWindow } from '../../windows';
 import { CaptureEngine } from './capture';
 import { QuickBarController } from './quickbar';
 import { RegionFlow } from './region';
@@ -113,7 +116,12 @@ export function createScreenshotMainModule(): MainToolModule {
           switch (action) {
             case 'edit':
               quickbar.closeNow();
-              ctx.showMainWindow({ view: 'tool', toolId: 'screenshot', captureId });
+              ctx.showMainWindow({
+                view: 'tool',
+                toolId: 'screenshot',
+                captureId,
+                action: 'edit'
+              });
               break;
             case 'copy':
               engine.copyToClipboard(captureId);
@@ -176,6 +184,93 @@ export function createScreenshotMainModule(): MainToolModule {
       ipcMain.handle('library:resolvePath', (_event, id: string) => {
         const capture = repo.get(id);
         return capture?.path ?? null;
+      });
+
+      // ── Éditeur (docs/00 §2.3) ───────────────────────────────────────
+      // Enregistre le calque d'annotations et, si fourni, écrase le fichier
+      // image aplati (+ vignette + métadonnées).
+      ipcMain.handle(
+        'editor:save',
+        (
+          _event,
+          payload: { id: string; annotations: string | null; dataUrl?: string }
+        ) => {
+          const capture = repo.get(payload.id);
+          if (!capture) return false;
+          repo.setAnnotations(payload.id, payload.annotations);
+          if (payload.dataUrl) {
+            // Préserve l'image ORIGINALE avant le premier écrasement : la
+            // ré-édition repart toujours des pixels d'origine (docs/06).
+            const original = originalPathFor(capture);
+            if (!fs.existsSync(original) && fs.existsSync(capture.path)) {
+              fs.mkdirSync(path.dirname(original), { recursive: true });
+              fs.copyFileSync(capture.path, original);
+            }
+            const image = nativeImage.createFromDataURL(payload.dataUrl);
+            if (!image.isEmpty()) {
+              const ext = path.extname(capture.path).toLowerCase();
+              const buffer =
+                ext === '.jpg' || ext === '.jpeg'
+                  ? image.toJPEG(ctx.settings.get().jpgQuality)
+                  : image.toPNG();
+              fs.writeFileSync(capture.path, buffer);
+              const { width, height } = image.getSize();
+              repo.updateImageMeta(payload.id, {
+                width,
+                height,
+                sizeBytes: buffer.byteLength
+              });
+              try {
+                const thumb = thumbPathFor(capture);
+                fs.mkdirSync(path.dirname(thumb), { recursive: true });
+                const resized =
+                  width > 480 ? image.resize({ width: 480 }) : image;
+                fs.writeFileSync(thumb, resized.toPNG());
+              } catch {
+                // vignette = cache, ne bloque pas l'enregistrement
+              }
+            }
+          }
+          ctx.broadcast('library:changed');
+          return true;
+        }
+      );
+
+      // « Enregistrer sous… » / « Exporter » depuis l'éditeur.
+      ipcMain.handle(
+        'editor:export',
+        async (
+          _event,
+          payload: { id: string; dataUrl: string; ext: 'png' | 'jpg' | 'webp' }
+        ) => {
+          const capture = repo.get(payload.id);
+          const base = capture
+            ? path.basename(capture.filename, path.extname(capture.filename))
+            : 'capture';
+          const parent = getMainWindow();
+          const options = {
+            defaultPath: `${base}.${payload.ext}`,
+            filters: [
+              { name: payload.ext.toUpperCase(), extensions: [payload.ext] }
+            ]
+          };
+          const result = parent
+            ? await dialog.showSaveDialog(parent, options)
+            : await dialog.showSaveDialog(options);
+          if (result.canceled || !result.filePath) return false;
+          const base64 = payload.dataUrl.split(',')[1] ?? '';
+          fs.writeFileSync(result.filePath, Buffer.from(base64, 'base64'));
+          return true;
+        }
+      );
+
+      // Copie de l'image aplatie dans le presse-papier.
+      ipcMain.handle('editor:copy', (_event, dataUrl: string) => {
+        const image = nativeImage.createFromDataURL(dataUrl);
+        if (!image.isEmpty()) {
+          clipboard.writeImage(image);
+          ctx.notify(ctx.i18n.t('notif.copied'));
+        }
       });
     },
 

@@ -222,7 +222,12 @@ export class CaptureEngine {
     this.onCaptureSaved?.(capture);
 
     if (settings.openEditorAfterCapture) {
-      this.ctx.showMainWindow({ view: 'tool', toolId: 'screenshot', captureId: capture.id });
+      this.ctx.showMainWindow({
+        view: 'tool',
+        toolId: 'screenshot',
+        captureId: capture.id,
+        action: 'edit'
+      });
     }
     return capture;
   }

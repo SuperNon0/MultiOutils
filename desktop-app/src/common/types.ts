@@ -97,6 +97,12 @@ export interface ShortcutStatus {
 
 export type NavigateMsg =
   | { view: 'settings'; section?: string }
-  | { view: 'tool'; toolId: string; captureId?: string };
+  | {
+      view: 'tool';
+      toolId: string;
+      captureId?: string;
+      /** 'edit' ouvre l'éditeur sur la capture, 'select' la met en avant. */
+      action?: 'select' | 'edit';
+    };
 
 export type { Capture };

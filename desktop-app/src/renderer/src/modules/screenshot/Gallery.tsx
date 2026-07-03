@@ -13,8 +13,8 @@ import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
 import { displayAccelerator, formatBytes, formatDate } from '../../lib/format';
 
-/** Galerie de base (Phase 1) : grille, tri, renommage, corbeille, aperçu. */
-export function Gallery(): ReactNode {
+/** Galerie : grille, tri, renommage, corbeille, aperçu, ouverture éditeur. */
+export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNode {
   const { t, lang } = useI18n();
   const host = useHost();
   const [view, setView] = useState<LibraryView>('library');
@@ -51,13 +51,21 @@ export function Gallery(): ReactNode {
     };
   }, [refresh]);
 
-  // Navigation depuis une notification / le tray : sélectionne la capture.
+  // Navigation depuis une notification / la barre rapide : sélectionne la
+  // capture, ou ouvre directement l'éditeur (action 'edit').
   useEffect(() => {
     if (!host.navCaptureId) return;
     setView('library');
     setSelectedId(host.navCaptureId);
+    if (host.navAction === 'edit') {
+      const capture = items.find((c) => c.id === host.navCaptureId);
+      if (!capture) return; // attend le rafraîchissement de la liste
+      host.consumeNavCapture();
+      onEdit(capture);
+      return;
+    }
     host.consumeNavCapture();
-  }, [host, host.navCaptureId]);
+  }, [host, host.navCaptureId, items, onEdit]);
 
   useEffect(() => {
     if (!selectedId) return;
@@ -176,7 +184,9 @@ export function Gallery(): ReactNode {
               aria-selected={selectedId === capture.id}
               className={`shot-card card${selectedId === capture.id ? ' selected' : ''}`}
               onClick={() => setSelectedId(capture.id)}
-              onDoubleClick={() => setPreviewId(capture.id)}
+              onDoubleClick={() =>
+                view === 'library' ? onEdit(capture) : setPreviewId(capture.id)
+              }
             >
               <div className="shot-thumb">
                 <img
@@ -188,9 +198,10 @@ export function Gallery(): ReactNode {
                 <div className="shot-actions">
                   {view === 'library' ? (
                     <>
+                      <IconBtn name="edit" title={t('quickbar.edit')} onClick={() => onEdit(capture)} />
                       <IconBtn name="copy" title={t('gallery.copy')} onClick={() => void window.api.library.update({ action: 'copy', id: capture.id })} />
                       <IconBtn name="save" title={t('gallery.saveAs')} onClick={() => void window.api.library.update({ action: 'saveAs', id: capture.id })} />
-                      <IconBtn name="edit" title={t('gallery.rename')} onClick={() => startRename(capture)} />
+                      <IconBtn name="textTool" title={t('gallery.rename')} onClick={() => startRename(capture)} />
                       <IconBtn name="reveal" title={t('gallery.reveal')} onClick={() => void window.api.library.update({ action: 'reveal', id: capture.id })} />
                       <IconBtn name="trash" title={t('gallery.delete')} onClick={() => void window.api.library.update({ action: 'trash', id: capture.id })} />
                     </>
@@ -237,6 +248,14 @@ export function Gallery(): ReactNode {
         <PreviewModal
           capture={preview}
           onClose={() => setPreviewId(null)}
+          onEdit={
+            view === 'library'
+              ? () => {
+                  setPreviewId(null);
+                  onEdit(preview);
+                }
+              : undefined
+          }
         />
       )}
     </section>
@@ -270,10 +289,12 @@ function IconBtn({
 
 function PreviewModal({
   capture,
-  onClose
+  onClose,
+  onEdit
 }: {
   capture: Capture;
   onClose(): void;
+  onEdit?: () => void;
 }): ReactNode {
   const { t, lang } = useI18n();
 
@@ -297,10 +318,15 @@ function PreviewModal({
                 ? ` · ${capture.width}×${capture.height}`
                 : ''}
               {` · ${formatBytes(capture.sizeBytes)}`}
-              {` · ${t('gallery.editSoon')}`}
             </div>
           </div>
           <div className="preview-actions">
+            {onEdit && (
+              <button type="button" className="btn btn-primary" onClick={onEdit}>
+                <Icon name="edit" />
+                {t('quickbar.edit')}
+              </button>
+            )}
             <button
               type="button"
               className="btn"

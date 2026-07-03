@@ -74,3 +74,35 @@ Dictionnaires JSON uniques (`desktop-app/src/i18n/{fr,en}.json`) consommés par 
   react-refresh de Vite) ; en prod tous les scripts sont des fichiers externes.
 - Renommer une capture change son **nom affiché** (`filename` en base) ; le fichier sur
   disque garde son nom (le chemin reste la vérité de stockage).
+
+## Phase 2 — Éditeur
+
+### Modèle « original + calque vectoriel »
+`Enregistrer` écrase le fichier de la bibliothèque avec l'image **aplatie**
+(annotations incluses), comme le veut la spec. Pour que la **ré-édition** reparte
+toujours des pixels d'origine, l'image originale est copiée dans
+`.originals/<id>.<ext>` **avant le premier écrasement**. L'éditeur charge
+`mo-media://original/<id>` (l'original s'il existe, sinon le fichier courant) et le
+calque JSON (`captures.annotations`). Suppression définitive = image + vignette +
+original.
+
+### Choix d'implémentation
+- **Konva + react-konva** ; les objets sont du **state React** (déclaratif), l'historique
+  undo/redo est une pile de snapshots du document (illimité). Les déplacements /
+  redimensionnements ne committent qu'au relâchement (dragend / transformend).
+- **Flou / pixellisation** : nœud `Konva.Image` recadré sur la zone + filtre
+  `Blur`/`Pixelate` avec cache — le rendu masque réellement les pixels exportés.
+- **Recadrage non destructif** : stocké dans le document (`doc.crop`), l'export et
+  l'affichage découpent ; modifiable/annulable à tout moment (le crop participe à
+  l'undo).
+- **WebP disponible à l'export** de l'éditeur (encodage canvas Chromium), alors que le
+  format de capture par défaut reste PNG/JPG (limite `nativeImage`, cf. Phase 1).
+- **Export** : `stage.toDataURL(pixelRatio = 1/zoom)` → toujours à la résolution
+  native, quel que soit le zoom d'affichage. L'image de base est chargée via
+  `fetch(mo-media://…) → blob:` pour éviter tout canvas « tainted ».
+- **Gomme** = suppression d'objets au clic (les pixels de fond ne sont jamais gommés),
+  conformément à la spec.
+- **Presets de style** : reportés (les couleurs récentes sont là) ; « calques » et
+  « effet cadre » sont marqués *Avancé* dans la spec → hors Phase 2.
+- Raccourcis éditeur conformes à docs/00 §3 (+ `G` triangle et `E` gomme, non listés
+  dans la spec).

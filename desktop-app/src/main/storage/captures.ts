@@ -100,6 +100,23 @@ export class CaptureRepo {
     this.db.prepare('UPDATE captures SET filename = ? WHERE id = ?').run(filename, id);
   }
 
+  /** Calque d'annotations (JSON) pour la ré-édition (docs/00 §4.4). */
+  setAnnotations(id: string, annotations: string | null): void {
+    this.db
+      .prepare('UPDATE captures SET annotations = ? WHERE id = ?')
+      .run(annotations, id);
+  }
+
+  /** Après « Enregistrer » depuis l'éditeur : le fichier aplati a changé. */
+  updateImageMeta(
+    id: string,
+    meta: { width: number; height: number; sizeBytes: number }
+  ): void {
+    this.db
+      .prepare('UPDATE captures SET width = ?, height = ?, size_bytes = ? WHERE id = ?')
+      .run(meta.width, meta.height, meta.sizeBytes, id);
+  }
+
   trash(id: string): void {
     this.db
       .prepare('UPDATE captures SET deleted_at = ? WHERE id = ?')
@@ -116,7 +133,7 @@ export class CaptureRepo {
     if (!capture) return;
     this.db.prepare('DELETE FROM capture_tags WHERE capture_id = ?').run(id);
     this.db.prepare('DELETE FROM captures WHERE id = ?').run(id);
-    for (const file of [capture.path, thumbPathFor(capture)]) {
+    for (const file of [capture.path, thumbPathFor(capture), originalPathFor(capture)]) {
       try {
         fs.unlinkSync(file);
       } catch {
@@ -138,4 +155,14 @@ export class CaptureRepo {
  */
 export function thumbPathFor(capture: Pick<Capture, 'id' | 'path'>): string {
   return path.join(path.dirname(capture.path), '.thumbs', `${capture.id}.png`);
+}
+
+/**
+ * Image ORIGINALE d'une capture éditée : conservée dans `.originals/` avant le
+ * premier « Enregistrer » de l'éditeur, pour que la ré-édition reparte
+ * toujours des pixels d'origine (le fichier principal est aplati).
+ */
+export function originalPathFor(capture: Pick<Capture, 'id' | 'path'>): string {
+  const ext = path.extname(capture.path) || '.png';
+  return path.join(path.dirname(capture.path), '.originals', `${capture.id}${ext}`);
 }

@@ -105,6 +105,87 @@ const PATHS: Record<string, ReactNode> = {
       <rect x="2.5" y="6" width="19" height="12" rx="1.5" />
       <path d="M6 10h.01M9.5 10h.01M13 10h.01M16.5 10h.01M7.5 14h9" />
     </>
+  ),
+  cursor: <path d="M5 3l14 8-6.5 1.5L9 19 5 3Z" />,
+  rectTool: <rect x="4" y="5" width="16" height="14" rx="1" />,
+  ellipseTool: <ellipse cx="12" cy="12" rx="8.5" ry="6.5" />,
+  triangleTool: <path d="M12 4.5 20.5 19h-17L12 4.5Z" />,
+  lineTool: <path d="M4.5 19.5 19.5 4.5" />,
+  arrowTool: (
+    <>
+      <path d="M5 19 19 5" />
+      <path d="M10.5 5H19v8.5" />
+    </>
+  ),
+  textTool: <path d="M5 6V4h14v2M12 4v16m-3.5 0h7" />,
+  penTool: (
+    <>
+      <path d="M4 20c1-4 3.5-8.5 8-13l3-3 5 5-3 3c-4.5 4.5-9 7-13 8l-1 1 1-1Z" />
+    </>
+  ),
+  highlightTool: (
+    <>
+      <path d="m9 15-3 3-2.5 1.5L5 17l3-3" />
+      <path d="M9 15 19.5 4.5 22 7 11.5 17.5 9 15Z" />
+    </>
+  ),
+  blurTool: (
+    <>
+      <path d="M12 3.5c3.5 4.5 6 8 6 11a6 6 0 0 1-12 0c0-3 2.5-6.5 6-11Z" />
+      <path d="M9.5 14.5a2.5 2.5 0 0 0 2.5 2.5" />
+    </>
+  ),
+  stepsTool: (
+    <>
+      <circle cx="7" cy="7" r="3.5" />
+      <circle cx="16.5" cy="16.5" r="3.5" />
+      <path d="M10 10.5 13.5 14" />
+    </>
+  ),
+  cropTool: (
+    <>
+      <path d="M7 3v14a2 2 0 0 0 2 2h12" />
+      <path d="M3 7h14a2 2 0 0 1 2 2v12" />
+    </>
+  ),
+  eraserTool: (
+    <>
+      <path d="m8 19-4.5-4.5a1.5 1.5 0 0 1 0-2.1l8-8a1.5 1.5 0 0 1 2.1 0l6 6a1.5 1.5 0 0 1 0 2.1L13 19H8Z" />
+      <path d="M6.5 10.5 14 18" />
+      <path d="M8 19h13" />
+    </>
+  ),
+  undo: (
+    <>
+      <path d="M4 8h11a5.5 5.5 0 1 1 0 11H8" />
+      <path d="M8 4 4 8l4 4" />
+    </>
+  ),
+  redo: (
+    <>
+      <path d="M20 8H9a5.5 5.5 0 1 0 0 11h7" />
+      <path d="m16 4 4 4-4 4" />
+    </>
+  ),
+  zoomIn: (
+    <>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="m20 20-4.8-4.8M8 10.5h5m-2.5-2.5v5" />
+    </>
+  ),
+  zoomOut: (
+    <>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="m20 20-4.8-4.8M8 10.5h5" />
+    </>
+  ),
+  back: <path d="M14.5 5 8 12l6.5 7M8 12h12" />,
+  export: (
+    <>
+      <path d="M12 15V3" />
+      <path d="m7.5 7 4.5-4 4.5 4" />
+      <path d="M4 13v6a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-6" />
+    </>
   )
 };
 

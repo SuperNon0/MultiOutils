@@ -19,6 +19,8 @@
     "better-sqlite3": "^11.10.0"
   },
   "devDependencies": {
+    "konva": "^9.3.22",
+    "react-konva": "^18.2.16",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.19.0",
     "@types/react": "^18.3.12",

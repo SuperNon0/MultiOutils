@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import type { CaptureType } from '@multioutils/shared';
+import type { Capture, CaptureType } from '@multioutils/shared';
 import type { AppSettings, DisplayInfo } from '../../../../common/types';
 import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
 import { displayAccelerator } from '../../lib/format';
+import { EditorView } from './editor/EditorView';
 import { Gallery } from './Gallery';
 
-/** Panneau principal de l'outil : barre de capture + bibliothèque. */
+/** Panneau principal de l'outil : barre de capture + bibliothèque, ou
+ * l'éditeur quand une capture est en cours d'édition (docs/00 §2). */
 export function ScreenshotPanel(): ReactNode {
   const { t, lang } = useI18n();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [displays, setDisplays] = useState<DisplayInfo[]>([]);
   const [screenMenuOpen, setScreenMenuOpen] = useState(false);
+  const [editing, setEditing] = useState<Capture | null>(null);
   const screenMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -35,6 +38,10 @@ export function ScreenshotPanel(): ReactNode {
     setScreenMenuOpen(false);
     void window.api.capture.take(type, displayId != null ? { displayId } : undefined);
   };
+
+  if (editing) {
+    return <EditorView capture={editing} onClose={() => setEditing(null)} />;
+  }
 
   const hint =
     settings &&
@@ -104,7 +111,7 @@ export function ScreenshotPanel(): ReactNode {
         {hint && <div className="capture-hint muted">{hint}</div>}
       </header>
 
-      <Gallery />
+      <Gallery onEdit={setEditing} />
     </div>
   );
 }

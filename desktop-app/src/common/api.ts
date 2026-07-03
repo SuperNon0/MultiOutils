@@ -61,4 +61,19 @@ export interface PreloadApi {
     action(captureId: string, action: QuickbarAction): Promise<void>;
     hover(hovering: boolean): void;
   };
+  editor: {
+    /** Annotations (JSON) + éventuel écrasement du fichier aplati. */
+    save(payload: {
+      id: string;
+      annotations: string | null;
+      dataUrl?: string;
+    }): Promise<boolean>;
+    /** « Enregistrer sous… » / « Exporter » (PNG/JPG/WebP). */
+    exportAs(payload: {
+      id: string;
+      dataUrl: string;
+      ext: 'png' | 'jpg' | 'webp';
+    }): Promise<boolean>;
+    copy(dataUrl: string): Promise<void>;
+  };
 }
