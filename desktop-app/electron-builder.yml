@@ -1,0 +1,24 @@
+# Build & distribution Windows (docs/01 §7).
+# La publication GitHub Releases sera branchée en Phase 4 (CI sur tag vX.Y.Z).
+appId: com.supernon0.multioutils
+productName: MultiOutils
+directories:
+  buildResources: resources
+  output: release
+files:
+  - out/**
+  - resources/**
+  - package.json
+win:
+  target:
+    - nsis
+  icon: resources/icon.png
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: MultiOutils-Setup-${version}.${ext}
+  shortcutName: MultiOutils
+publish:
+  provider: github
+  owner: SuperNon0
+  repo: MultiOutils

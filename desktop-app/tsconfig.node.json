@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "emitDeclarationOnly": false,
+    "types": ["node"],
+    "outDir": "out/types-node"
+  },
+  "include": [
+    "electron.vite.config.ts",
+    "src/main/**/*",
+    "src/preload/**/*",
+    "src/common/**/*",
+    "src/i18n/**/*.json"
+  ]
+}

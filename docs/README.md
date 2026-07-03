@@ -15,6 +15,7 @@ limites et des critères d'acceptation.
 | 03 | [`03-organisation-captures.md`](03-organisation-captures.md) | Le système de **dossiers, tags et tri** des captures (local + serveur). |
 | 04 | [`04-api-serveur.md`](04-api-serveur.md) | Le **contrat d'API** entre l'app et le serveur (endpoints, formats, authentification). |
 | 05 | [`05-prompt-pour-ia.md`](05-prompt-pour-ia.md) | Le **prompt prêt à copier-coller** à donner à l'IA qui développera le projet. |
+| 06 | [`06-decisions-techniques.md`](06-decisions-techniques.md) | **Journal des décisions techniques** prises pendant le développement (compléments à la spec, limitations assumées, améliorations prévues). |
 
 Pour l'installation du serveur sur Proxmox, voir le dossier [`../install/`](../install/).
 

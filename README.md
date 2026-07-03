@@ -4,8 +4,21 @@
 d'écran** (capturer, éditer/annoter, ranger, partager) — et conçue pour accueillir
 d'autres outils par la suite. Accès distant optionnel via un serveur auto-hébergé.
 
-> ⚠️ Projet en phase de **spécification** : le code n'est pas encore développé. Ce dépôt
-> contient le cahier des charges et la documentation complète prêts pour le développement.
+> 🚧 **Phase 1 (MVP capture) développée** : app Electron avec captures plein écran /
+> zone / fenêtre / multi-écran / différée, raccourcis globaux, system tray, galerie de
+> base, paramètres, i18n FR/EN. Suite du plan : éditeur (2), bibliothèque avancée (3),
+> mises à jour (4), serveur (5), Stream Deck (6), bonus (7). Voir
+> [`docs/06-decisions-techniques.md`](docs/06-decisions-techniques.md).
+
+## 🚀 Développer / lancer depuis les sources
+
+```bash
+git clone https://github.com/SuperNon0/MultiOutils.git
+cd MultiOutils
+npm install         # installe tout le monorepo (workspaces)
+npm run dev:app     # lance l'app Electron en mode développement
+npm test            # tests · npm run typecheck · npm run build:app
+```
 
 ## 📖 Par où commencer
 

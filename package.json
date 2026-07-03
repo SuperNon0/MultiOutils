@@ -1,0 +1,20 @@
+{
+  "name": "multioutils",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Boîte à outils modulaire pour Windows — capture et gestion d'écran",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "packages/shared",
+    "desktop-app"
+  ],
+  "scripts": {
+    "dev:app": "npm run dev -w desktop-app",
+    "build:app": "npm run build -w desktop-app",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
