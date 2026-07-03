@@ -1,0 +1,31 @@
+# MultiOutils · serveur en Docker
+# Utilisation :
+#   cp .env.example .env      # ajuste le port et le dossier de données
+#   docker compose up -d
+#
+# À faire tourner dans une VM/LXC Debian sur Proxmox, ou n'importe quel hôte Docker.
+
+services:
+  multioutils-server:
+    build:
+      context: ../server        # Dockerfile fourni avec le code serveur
+      dockerfile: Dockerfile
+    image: multioutils/server:latest
+    container_name: multioutils-server
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - ${DATA_DIR:-./data}:/app/data   # images + base SQLite persistées
+
+  # (Optionnel) Cloudflare Tunnel pour l'accès distant sans ouvrir de port.
+  # Décommente et renseigne ton token de tunnel (créé sur le dashboard Cloudflare).
+  #
+  # cloudflared:
+  #   image: cloudflare/cloudflared:latest
+  #   container_name: multioutils-tunnel
+  #   restart: unless-stopped
+  #   command: tunnel --no-autoupdate run --token ${CLOUDFLARED_TOKEN}
+  #   depends_on:
+  #     - multioutils-server

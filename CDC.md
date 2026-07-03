@@ -2,20 +2,28 @@
 
 > Logiciel multi-fonctions de capture et de gestion d'écran pour Windows
 >
-> **Version du CDC :** 1.0 · **Date :** 2026-07-03 · **Statut :** Validé (avant développement)
+> **Version du CDC :** 1.2 · **Date :** 2026-07-03 · **Statut :** Validé (avant développement)
+
+> 📚 **Ce fichier est la vue d'ensemble.** La **spécification détaillée pour développer**
+> (chaque fonction décrite précisément, pour un dev humain ou une IA) est dans le dossier
+> [`docs/`](docs/), et l'installation du serveur dans [`install/`](install/).
+> Commence par [`docs/README.md`](docs/README.md).
 
 ---
 
 ## 1. Vision du projet
 
-**MultiOutils** est une application Windows légère qui vit dans la **barre des tâches**
-(system tray), se lance au démarrage du PC, et sert de **couteau suisse** autour de la
-capture d'écran :
+**MultiOutils** est une **boîte à outils modulaire** pour Windows : une application légère
+qui vit dans la **barre des tâches** (system tray), se lance au démarrage du PC, et
+accueille plusieurs **outils indépendants**. Le **premier outil** est la **capture
+d'écran** (capturer → éditer/annoter → gérer → partager → accéder à distance) :
 
 > Capturer → Éditer / Annoter → Gérer dans une bibliothèque → Partager / Accéder à distance
 
-L'application est conçue dès le départ de façon **modulaire** afin d'ajouter facilement
-de nouvelles fonctions par la suite (vidéo, OCR, etc.).
+**Point clé :** la capture n'est **pas le seul système**. L'app est un **hôte** conçu pour
+**ajouter d'autres outils sans toucher aux existants** (voir
+[`docs/01-architecture.md`](docs/01-architecture.md) §2). Modules à venir : OCR, pipette
+de couleur, puis d'autres.
 
 ---
 
