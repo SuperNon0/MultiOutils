@@ -4,11 +4,12 @@
 d'écran** (capturer, éditer/annoter, ranger, partager) — et conçue pour accueillir
 d'autres outils par la suite. Accès distant optionnel via un serveur auto-hébergé.
 
-> 🚧 **Phase 1 (MVP capture) développée** : app Electron avec captures plein écran /
-> zone / fenêtre / multi-écran / différée, raccourcis globaux, system tray, galerie de
-> base, paramètres, i18n FR/EN. Suite du plan : éditeur (2), bibliothèque avancée (3),
-> mises à jour (4), serveur (5), Stream Deck (6), bonus (7). Voir
-> [`docs/06-decisions-techniques.md`](docs/06-decisions-techniques.md).
+> 🚧 **Phases 1 à 3 développées** : captures (plein écran / zone / fenêtre /
+> multi-écran / différée), raccourcis globaux, system tray, **éditeur complet**
+> (formes, flèches, texte, flou, numérotation, undo/redo, ré-édition), **bibliothèque
+> avancée** (dossiers imbriqués, tags, favoris, recherche, corbeille, sélection
+> multiple, glisser-déposer). Suite : mises à jour (4), serveur (5), Stream Deck (6),
+> bonus (7). Décisions techniques : [`docs/06`](docs/06-decisions-techniques.md).
 
 ## 🚀 Développer / lancer depuis les sources
 

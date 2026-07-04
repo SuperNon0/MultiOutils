@@ -323,6 +323,22 @@ function StorageSection({
         />
       </div>
       <p className="muted section-note">{t('settings.storage.templateHelp')}</p>
+
+      <div className="setting-row">
+        <span>{t('settings.storage.trashRetention')}</span>
+        <select
+          className="select"
+          value={settings.trashRetentionDays}
+          onChange={(e) => void update({ trashRetentionDays: Number(e.target.value) })}
+        >
+          <option value={0}>{t('settings.storage.trashRetentionNever')}</option>
+          {[7, 14, 30, 90].map((days) => (
+            <option key={days} value={days}>
+              {days}
+            </option>
+          ))}
+        </select>
+      </div>
     </div>
   );
 }

@@ -180,6 +180,36 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   back: <path d="M14.5 5 8 12l6.5 7M8 12h12" />,
+  folder: (
+    <path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z" />
+  ),
+  plus: <path d="M12 5v14M5 12h14" />,
+  tag: (
+    <>
+      <path d="m3.5 12.5 8-8H20v8.5l-8 8a1.4 1.4 0 0 1-2 0l-6.5-6.5a1.4 1.4 0 0 1 0-2Z" />
+      <circle cx="15.5" cy="8.5" r="1.2" />
+    </>
+  ),
+  grid: (
+    <>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1" />
+      <rect x="13.5" y="13.5" width="7" height="7" rx="1" />
+    </>
+  ),
+  list: (
+    <>
+      <path d="M8.5 6h12M8.5 12h12M8.5 18h12" />
+      <path d="M4 6h.01M4 12h.01M4 18h.01" />
+    </>
+  ),
+  starFilled: (
+    <path
+      fill="currentColor"
+      d="m12 3 2.7 5.8 6.3.8-4.6 4.3 1.2 6.1L12 17l-5.6 3 1.2-6.1L3 9.6l6.3-.8L12 3Z"
+    />
+  ),
   export: (
     <>
       <path d="M12 15V3" />

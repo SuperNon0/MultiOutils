@@ -2,20 +2,20 @@
  * Contrat de l'API exposée au renderer par le preload (window.api).
  * Implémentée dans src/preload/index.ts via contextBridge (docs/01 §5).
  */
-import type { Capture, CaptureType } from '@multioutils/shared';
+import type { Capture, CaptureType, Folder, Tag } from '@multioutils/shared';
 import type {
   AppSettings,
+  CaptureListItem,
   CaptureTakeOptions,
   DisplayInfo,
   LibraryAction,
-  LibraryView,
+  LibraryQuery,
   NavigateMsg,
   PickerItem,
   QuickbarAction,
   RegionRect,
   RegionShot,
-  ShortcutStatus,
-  SortKey
+  ShortcutStatus
 } from './types';
 
 export type Unsubscribe = () => void;
@@ -32,9 +32,29 @@ export interface PreloadApi {
     onDone(cb: (capture: Capture) => void): Unsubscribe;
   };
   library: {
-    list(view: LibraryView, sort: SortKey): Promise<Capture[]>;
+    list(query: LibraryQuery): Promise<CaptureListItem[]>;
     update(action: LibraryAction): Promise<void>;
     onChanged(cb: () => void): Unsubscribe;
+    /** Drag natif : fichiers réels, déposables sur un dossier interne ou une autre app. */
+    startDrag(ids: string[]): void;
+    /** Retrouve les ids de captures depuis des chemins déposés. */
+    dropPaths(paths: string[]): Promise<string[]>;
+  };
+  folders: {
+    list(): Promise<Folder[]>;
+    create(name: string, parentId: string | null, color: string | null): Promise<Folder>;
+    update(id: string, patch: { name?: string; color?: string | null }): Promise<void>;
+    remove(id: string): Promise<void>;
+  };
+  tags: {
+    list(): Promise<Tag[]>;
+    create(name: string, color: string | null): Promise<Tag>;
+    update(id: string, patch: { name?: string; color?: string | null }): Promise<void>;
+    remove(id: string): Promise<void>;
+  };
+  files: {
+    /** Chemins réels de fichiers déposés (webUtils.getPathForFile). */
+    pathsFor(files: File[]): string[];
   };
   shortcuts: {
     set(id: string, accelerator: string): Promise<ShortcutStatus | null>;

@@ -1,8 +1,13 @@
 import type Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Capture, RemoteState } from '@multioutils/shared';
-import type { LibraryView, SortKey } from '../../common/types';
+import type { Capture, RemoteState, Tag } from '@multioutils/shared';
+import type {
+  CaptureListItem,
+  LibraryQuery,
+  LibraryView,
+  SortKey
+} from '../../common/types';
 
 interface Row {
   id: string;
@@ -86,6 +91,124 @@ export class CaptureRepo {
       .prepare(`SELECT * FROM captures WHERE ${where} ORDER BY ${ORDER_BY[sort]}`)
       .all() as Row[];
     return rows.map(rowToCapture);
+  }
+
+  /** Recherche/filtres combinables (docs/03 §5) + étiquettes jointes. */
+  query(query: LibraryQuery): CaptureListItem[] {
+    const where: string[] = [
+      query.view === 'trash' ? 'deleted_at IS NOT NULL' : 'deleted_at IS NULL'
+    ];
+    const params: unknown[] = [];
+    if (query.folderId) {
+      where.push('folder_id = ?');
+      params.push(query.folderId);
+    }
+    if (query.unsorted) where.push('folder_id IS NULL');
+    if (query.favorites) where.push('favorite = 1');
+    if (query.sent) where.push("remote_state = 'sent'");
+    if (query.dateFrom) {
+      where.push('created_at >= ?');
+      params.push(query.dateFrom);
+    }
+    if (query.search) {
+      where.push('filename LIKE ?');
+      params.push(`%${query.search}%`);
+    }
+    if (query.tagIds && query.tagIds.length > 0) {
+      const marks = query.tagIds.map(() => '?').join(', ');
+      where.push(
+        `id IN (SELECT capture_id FROM capture_tags WHERE tag_id IN (${marks})
+          GROUP BY capture_id HAVING COUNT(DISTINCT tag_id) = ?)`
+      );
+      params.push(...query.tagIds, query.tagIds.length);
+    }
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM captures WHERE ${where.join(' AND ')} ORDER BY ${ORDER_BY[query.sort]}`
+      )
+      .all(...params) as Row[];
+
+    const tagsByCapture = this.tagsByCapture();
+    return rows.map((row) => ({
+      ...rowToCapture(row),
+      tags: tagsByCapture.get(row.id) ?? []
+    }));
+  }
+
+  private tagsByCapture(): Map<string, Tag[]> {
+    const rows = this.db
+      .prepare(
+        `SELECT ct.capture_id AS cid, t.id, t.name, t.color
+         FROM capture_tags ct JOIN tags t ON t.id = ct.tag_id
+         ORDER BY t.name COLLATE NOCASE`
+      )
+      .all() as Array<{ cid: string; id: string; name: string; color: string | null }>;
+    const map = new Map<string, Tag[]>();
+    for (const row of rows) {
+      const list = map.get(row.cid) ?? [];
+      list.push({ id: row.id, name: row.name, color: row.color });
+      map.set(row.cid, list);
+    }
+    return map;
+  }
+
+  // ── Opérations en lot (docs/03 §6) ────────────────────────────────────
+
+  setFolder(ids: string[], folderId: string | null): void {
+    const stmt = this.db.prepare('UPDATE captures SET folder_id = ? WHERE id = ?');
+    const tx = this.db.transaction(() => {
+      for (const id of ids) stmt.run(folderId, id);
+    });
+    tx();
+  }
+
+  setFavorite(ids: string[], value: boolean): void {
+    const stmt = this.db.prepare('UPDATE captures SET favorite = ? WHERE id = ?');
+    const tx = this.db.transaction(() => {
+      for (const id of ids) stmt.run(value ? 1 : 0, id);
+    });
+    tx();
+  }
+
+  addTag(ids: string[], tagId: string): void {
+    const stmt = this.db.prepare(
+      'INSERT OR IGNORE INTO capture_tags (capture_id, tag_id) VALUES (?, ?)'
+    );
+    const tx = this.db.transaction(() => {
+      for (const id of ids) stmt.run(id, tagId);
+    });
+    tx();
+  }
+
+  removeTag(ids: string[], tagId: string): void {
+    const stmt = this.db.prepare(
+      'DELETE FROM capture_tags WHERE capture_id = ? AND tag_id = ?'
+    );
+    const tx = this.db.transaction(() => {
+      for (const id of ids) stmt.run(id, tagId);
+    });
+    tx();
+  }
+
+  /** Retrouve les captures à partir de chemins de fichiers (drag natif). */
+  idsByPaths(paths: string[]): string[] {
+    if (paths.length === 0) return [];
+    const marks = paths.map(() => '?').join(', ');
+    const rows = this.db
+      .prepare(`SELECT id FROM captures WHERE path IN (${marks})`)
+      .all(...paths) as Array<{ id: string }>;
+    return rows.map((row) => row.id);
+  }
+
+  /** Vidage automatique de la corbeille après N jours (docs/03 §7). */
+  purgeTrash(retentionDays: number): number {
+    if (retentionDays <= 0) return 0;
+    const cutoff = new Date(Date.now() - retentionDays * 86_400_000).toISOString();
+    const rows = this.db
+      .prepare('SELECT id FROM captures WHERE deleted_at IS NOT NULL AND deleted_at < ?')
+      .all(cutoff) as Array<{ id: string }>;
+    for (const row of rows) this.destroy(row.id);
+    return rows.length;
   }
 
   /** Dernière capture active (pour « Dernière capture → presse-papier »). */

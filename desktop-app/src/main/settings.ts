@@ -19,6 +19,7 @@ export function buildDefaults(defaultStorageDir: string): AppSettings {
     captureAllScreens: false,
     delayedSeconds: 5,
     counter: 1,
+    trashRetentionDays: 30,
     firstRunDone: false,
     shortcuts: { ...DEFAULT_SHORTCUTS }
   };

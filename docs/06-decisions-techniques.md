@@ -106,3 +106,33 @@ original.
   « effet cadre » sont marqués *Avancé* dans la spec → hors Phase 2.
 - Raccourcis éditeur conformes à docs/00 §3 (+ `G` triangle et `E` gomme, non listés
   dans la spec).
+
+## Phase 3 — Bibliothèque avancée
+
+### Requêtes combinables
+`library:list` prend une requête à filtres orthogonaux (dossier OU favoris OU non
+triées OU envoyées, + date, + recherche nom, + tags en ET logique, + tri) traduite en
+SQL dans `CaptureRepo.query`. Les dossiers intelligents datés (« Aujourd'hui », « Cette
+semaine » = depuis lundi, « Ce mois-ci ») calculent leur borne côté renderer en heure
+locale ; le filtre de date de la barre d'outils est combinable avec n'importe quelle
+source (docs/03 §5).
+
+### Glisser-déposer : un seul geste, deux usages
+Le drag d'une carte démarre un **drag natif** (`webContents.startDrag`, fichiers
+réels) :
+- déposé sur un dossier de la barre latérale → les chemins sont relus via
+  `webUtils.getPathForFile` puis résolus en ids (`library:dropPaths`) → rangement ;
+- déposé sur une autre application (Explorateur, mail…) → copie du fichier, ce qui
+  couvre « Glisser-déposer vers une autre application » (docs/00 §6, V1).
+
+### Autres décisions
+- **Suppression d'un dossier** : ses sous-dossiers remontent d'un niveau, ses captures
+  redeviennent « Non triées » — aucune image supprimée.
+- **Tags** : nom unique en base ; créer un tag existant renvoie l'existant.
+- **Corbeille** : réglage « vider automatiquement après N jours » (0 = jamais,
+  défaut 30), purge au démarrage du module.
+- `window.prompt` n'existe pas dans Electron → création/renommage des dossiers et
+  tags via des **éditeurs inline** dans la barre latérale (nom + couleur).
+- Vue **grille/liste** et **taille des vignettes** persistées en localStorage.
+- « Récemment envoyées au serveur » existe déjà (filtre `remote_state = 'sent'`) et se
+  remplira en Phase 5.

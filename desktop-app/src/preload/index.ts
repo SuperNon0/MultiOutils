@@ -1,14 +1,13 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { Capture, CaptureType } from '@multioutils/shared';
 import type { PreloadApi, Unsubscribe } from '../common/api';
 import type {
   AppSettings,
   CaptureTakeOptions,
   LibraryAction,
-  LibraryView,
+  LibraryQuery,
   NavigateMsg,
-  RegionRect,
-  SortKey
+  RegionRect
 } from '../common/types';
 
 function subscribe<T>(channel: string, cb: (payload: T) => void): Unsubscribe {
@@ -31,10 +30,27 @@ const api: PreloadApi = {
     onDone: (cb) => subscribe<Capture>('capture:done', cb)
   },
   library: {
-    list: (view: LibraryView, sort: SortKey) =>
-      ipcRenderer.invoke('library:list', view, sort),
+    list: (query: LibraryQuery) => ipcRenderer.invoke('library:list', query),
     update: (action: LibraryAction) => ipcRenderer.invoke('library:update', action),
-    onChanged: (cb) => subscribe<void>('library:changed', cb)
+    onChanged: (cb) => subscribe<void>('library:changed', cb),
+    startDrag: (ids: string[]) => ipcRenderer.send('library:startDrag', ids),
+    dropPaths: (paths: string[]) => ipcRenderer.invoke('library:dropPaths', paths)
+  },
+  folders: {
+    list: () => ipcRenderer.invoke('folders:list'),
+    create: (name, parentId, color) =>
+      ipcRenderer.invoke('folders:create', name, parentId, color),
+    update: (id, patch) => ipcRenderer.invoke('folders:update', id, patch),
+    remove: (id) => ipcRenderer.invoke('folders:delete', id)
+  },
+  tags: {
+    list: () => ipcRenderer.invoke('tags:list'),
+    create: (name, color) => ipcRenderer.invoke('tags:create', name, color),
+    update: (id, patch) => ipcRenderer.invoke('tags:update', id, patch),
+    remove: (id) => ipcRenderer.invoke('tags:delete', id)
+  },
+  files: {
+    pathsFor: (files: File[]) => files.map((file) => webUtils.getPathForFile(file))
   },
   shortcuts: {
     set: (id: string, accelerator: string) =>

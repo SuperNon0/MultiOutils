@@ -2,7 +2,7 @@
  * Types communs aux trois cibles de l'app (main / preload / renderer).
  * Les types partagés app ↔ serveur restent dans @multioutils/shared.
  */
-import type { Capture } from '@multioutils/shared';
+import type { Capture, Folder, Tag } from '@multioutils/shared';
 
 export type Language = 'fr' | 'en';
 
@@ -35,6 +35,8 @@ export interface AppSettings {
   delayedSeconds: number;
   /** Compteur pour la variable {counter} du modèle de nom. */
   counter: number;
+  /** Vidage auto de la corbeille après N jours (0 = jamais, docs/03 §7). */
+  trashRetentionDays: number;
   firstRunDone: boolean;
   shortcuts: Record<ShortcutId, string>;
 }
@@ -55,15 +57,44 @@ export interface CaptureTakeOptions {
 export type LibraryView = 'library' | 'trash';
 export type SortKey = 'date' | 'name' | 'size';
 
+/** Requête de la bibliothèque : filtres orthogonaux et combinables (docs/03 §5). */
+export interface LibraryQuery {
+  view: LibraryView;
+  sort: SortKey;
+  search?: string;
+  folderId?: string;
+  favorites?: boolean;
+  /** Dossier intelligent « Non triées » (aucun dossier). */
+  unsorted?: boolean;
+  /** Dossier intelligent « Récemment envoyées au serveur ». */
+  sent?: boolean;
+  /** Filtre de date : créées après cet instant (ISO). */
+  dateFrom?: string;
+  /** Toutes les étiquettes exigées (ET logique). */
+  tagIds?: string[];
+}
+
+/** Capture + ses étiquettes, telle que rendue par library:list. */
+export interface CaptureListItem extends Capture {
+  tags: Tag[];
+}
+
 export type LibraryAction =
   | { action: 'rename'; id: string; name: string }
-  | { action: 'trash'; id: string }
-  | { action: 'restore'; id: string }
-  | { action: 'destroy'; id: string }
+  | { action: 'trash'; ids: string[] }
+  | { action: 'restore'; ids: string[] }
+  | { action: 'destroy'; ids: string[] }
   | { action: 'emptyTrash' }
   | { action: 'copy'; id: string }
   | { action: 'saveAs'; id: string }
-  | { action: 'reveal'; id: string };
+  | { action: 'reveal'; id: string }
+  | { action: 'setFolder'; ids: string[]; folderId: string | null }
+  | { action: 'favorite'; ids: string[]; value: boolean }
+  | { action: 'addTag'; ids: string[]; tagId: string }
+  | { action: 'removeTag'; ids: string[]; tagId: string }
+  | { action: 'export'; ids: string[] };
+
+export type { Folder, Tag };
 
 export type QuickbarAction = 'edit' | 'copy' | 'saveAs' | 'send' | 'delete';
 

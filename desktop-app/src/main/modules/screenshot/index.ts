@@ -6,14 +6,15 @@ import type {
   AppSettings,
   CaptureTakeOptions,
   LibraryAction,
-  LibraryView,
+  LibraryQuery,
   QuickbarAction,
   RegionRect,
-  ShortcutId,
-  SortKey
+  ShortcutId
 } from '../../../common/types';
 import type { MainHostContext, MainToolModule } from '../../module-registry';
 import { CaptureRepo, originalPathFor, thumbPathFor } from '../../storage/captures';
+import { FolderRepo } from '../../storage/folders';
+import { TagRepo } from '../../storage/tags';
 import { getMainWindow } from '../../windows';
 import { CaptureEngine } from './capture';
 import { QuickBarController } from './quickbar';
@@ -34,13 +35,24 @@ export function createScreenshotMainModule(): MainToolModule {
   let picker: WindowPickerFlow;
   let quickbar: QuickBarController;
   let repo: CaptureRepo;
+  let folders: FolderRepo;
+  let tags: TagRepo;
 
   return {
     id: 'screenshot',
 
     activate(ctx: MainHostContext): void {
       repo = new CaptureRepo(ctx.db);
+      folders = new FolderRepo(ctx.db);
+      tags = new TagRepo(ctx.db);
       quickbar = new QuickBarController();
+
+      // Vidage automatique de la corbeille après N jours (docs/03 §7)
+      try {
+        repo.purgeTrash(ctx.settings.get().trashRetentionDays);
+      } catch {
+        // la purge ne doit jamais empêcher le démarrage
+      }
       engine = new CaptureEngine(ctx, repo);
       region = new RegionFlow((image) => {
         try {
@@ -145,8 +157,12 @@ export function createScreenshotMainModule(): MainToolModule {
       );
 
       // ── Bibliothèque (docs/01 §5 : library:list / library:update) ───
-      ipcMain.handle('library:list', (_event, view: LibraryView, sort: SortKey) =>
-        repo.list(view ?? 'library', sort ?? 'date')
+      ipcMain.handle('library:list', (_event, query: LibraryQuery) =>
+        repo.query({
+          ...query,
+          view: query?.view ?? 'library',
+          sort: query?.sort ?? 'date'
+        })
       );
       ipcMain.handle('library:update', async (_event, update: LibraryAction) => {
         switch (update.action) {
@@ -154,13 +170,13 @@ export function createScreenshotMainModule(): MainToolModule {
             repo.rename(update.id, update.name);
             break;
           case 'trash':
-            repo.trash(update.id);
+            for (const id of update.ids) repo.trash(id);
             break;
           case 'restore':
-            repo.restore(update.id);
+            for (const id of update.ids) repo.restore(id);
             break;
           case 'destroy':
-            repo.destroy(update.id);
+            for (const id of update.ids) repo.destroy(id);
             break;
           case 'emptyTrash':
             repo.emptyTrash();
@@ -176,9 +192,104 @@ export function createScreenshotMainModule(): MainToolModule {
             if (capture) shell.showItemInFolder(capture.path);
             break;
           }
+          case 'setFolder':
+            repo.setFolder(update.ids, update.folderId);
+            break;
+          case 'favorite':
+            repo.setFavorite(update.ids, update.value);
+            break;
+          case 'addTag':
+            repo.addTag(update.ids, update.tagId);
+            break;
+          case 'removeTag':
+            repo.removeTag(update.ids, update.tagId);
+            break;
+          case 'export': {
+            // export en lot : choisir un dossier, copier les fichiers
+            const parent = getMainWindow();
+            const options = {
+              properties: ['openDirectory', 'createDirectory'] as Array<
+                'openDirectory' | 'createDirectory'
+              >
+            };
+            const result = parent
+              ? await dialog.showOpenDialog(parent, options)
+              : await dialog.showOpenDialog(options);
+            const target = result.canceled ? null : (result.filePaths[0] ?? null);
+            if (target) {
+              for (const id of update.ids) {
+                const capture = repo.get(id);
+                if (!capture || !fs.existsSync(capture.path)) continue;
+                let dest = path.join(target, path.basename(capture.path));
+                for (let i = 2; fs.existsSync(dest); i++) {
+                  const ext = path.extname(capture.path);
+                  const base = path.basename(capture.path, ext);
+                  dest = path.join(target, `${base}_${i}${ext}`);
+                }
+                fs.copyFileSync(capture.path, dest);
+              }
+            }
+            break;
+          }
         }
         ctx.broadcast('library:changed');
       });
+
+      // ── Dossiers & étiquettes (docs/03) ─────────────────────────────
+      ipcMain.handle('folders:list', () => folders.list());
+      ipcMain.handle(
+        'folders:create',
+        (_event, name: string, parentId: string | null, color: string | null) =>
+          folders.create(name, parentId, color)
+      );
+      ipcMain.handle(
+        'folders:update',
+        (_event, id: string, patch: { name?: string; color?: string | null }) => {
+          folders.update(id, patch);
+          ctx.broadcast('library:changed');
+        }
+      );
+      ipcMain.handle('folders:delete', (_event, id: string) => {
+        folders.delete(id);
+        ctx.broadcast('library:changed');
+      });
+
+      ipcMain.handle('tags:list', () => tags.list());
+      ipcMain.handle('tags:create', (_event, name: string, color: string | null) =>
+        tags.create(name, color)
+      );
+      ipcMain.handle(
+        'tags:update',
+        (_event, id: string, patch: { name?: string; color?: string | null }) => {
+          tags.update(id, patch);
+          ctx.broadcast('library:changed');
+        }
+      );
+      ipcMain.handle('tags:delete', (_event, id: string) => {
+        tags.delete(id);
+        ctx.broadcast('library:changed');
+      });
+
+      // ── Glisser-déposer natif (vers un dossier interne OU une autre app,
+      //     docs/00 §6 « Glisser-déposer ») ──────────────────────────────
+      ipcMain.on('library:startDrag', (event, ids: string[]) => {
+        const captures = ids
+          .map((id) => repo.get(id))
+          .filter((c): c is NonNullable<typeof c> => c != null && fs.existsSync(c.path));
+        if (captures.length === 0) return;
+        let icon = nativeImage.createFromPath(thumbPathFor(captures[0]));
+        if (icon.isEmpty()) icon = nativeImage.createFromPath(captures[0].path);
+        if (!icon.isEmpty() && icon.getSize().width > 128) {
+          icon = icon.resize({ width: 128 });
+        }
+        event.sender.startDrag({
+          files: captures.map((c) => c.path),
+          icon
+        } as Electron.Item);
+      });
+      ipcMain.handle('library:dropPaths', (_event, paths: string[]) =>
+        repo.idsByPaths(paths)
+      );
 
       // Résolution des fichiers pour le protocole mo-media:// de l'hôte
       ipcMain.handle('library:resolvePath', (_event, id: string) => {
