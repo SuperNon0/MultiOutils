@@ -4,7 +4,7 @@
 d'écran** (capturer, éditer/annoter, ranger, partager) — et conçue pour accueillir
 d'autres outils par la suite. Accès distant optionnel via un serveur auto-hébergé.
 
-> 🚧 **Phases 1 à 5 développées** : captures (plein écran / zone / fenêtre /
+> 🚧 **Phases 1 à 6 développées** : captures (plein écran / zone / fenêtre /
 > multi-écran / différée) + raccourcis + tray, **éditeur complet** (formes, flèches,
 > texte, flou, numérotation, undo/redo, ré-édition), **bibliothèque avancée**
 > (dossiers, tags, favoris, recherche, corbeille, lots), **mises à jour par bouton**
