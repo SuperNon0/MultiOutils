@@ -21,6 +21,9 @@ jobs:
       - name: Installer les dépendances
         run: npm ci
 
+      - name: Recompiler better-sqlite3 pour Electron
+        run: npx electron-rebuild -v 33.4.11 -f -w better-sqlite3 -m .
+
       - name: Construire l'installeur (sans publication)
         run: npm run dist -w desktop-app
 

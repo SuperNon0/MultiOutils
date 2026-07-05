@@ -2,6 +2,10 @@
 # La publication GitHub Releases sera branchée en Phase 4 (CI sur tag vX.Y.Z).
 appId: com.supernon0.multioutils
 productName: MultiOutils
+# La recompilation native (better-sqlite3 → ABI Electron) est faite par
+# `npm run rebuild:electron` (racine) AVANT le packaging ; electron-builder ne
+# relance donc pas d'installation (récursif en monorepo npm workspaces).
+npmRebuild: false
 directories:
   buildResources: resources
   output: release
