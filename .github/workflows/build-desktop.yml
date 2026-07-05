@@ -6,6 +6,9 @@ name: Build desktop
 on:
   push:
     tags: ['v*.*.*']
+  # Déclenchement manuel (onglet Actions → Build desktop → Run workflow) :
+  # construit l'installeur depuis la branche choisie et publie la release.
+  workflow_dispatch:
 
 permissions:
   contents: write # publication de la release + des artefacts
