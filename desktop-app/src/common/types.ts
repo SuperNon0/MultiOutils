@@ -92,7 +92,8 @@ export type LibraryAction =
   | { action: 'favorite'; ids: string[]; value: boolean }
   | { action: 'addTag'; ids: string[]; tagId: string }
   | { action: 'removeTag'; ids: string[]; tagId: string }
-  | { action: 'export'; ids: string[] };
+  | { action: 'export'; ids: string[] }
+  | { action: 'send'; ids: string[] };
 
 export type { Folder, Tag };
 
@@ -125,6 +126,16 @@ export interface ShortcutStatus {
   accelerator: string;
   ok: boolean;
 }
+
+/** Configuration du serveur distant (le jeton n'est jamais relu en clair). */
+export interface RemoteConfig {
+  url: string;
+  hasToken: boolean;
+}
+
+export type RemoteTestResult =
+  | { ok: true; version: string }
+  | { ok: false; error: 'unreachable' | 'badToken'; version?: string };
 
 /** État du flux de mise à jour à la demande (docs/00 §5.3). */
 export type UpdateStatus =

@@ -80,6 +80,13 @@ const api: PreloadApi = {
       ipcRenderer.invoke('quickbar:action', captureId, action),
     hover: (hovering: boolean) => ipcRenderer.send('quickbar:hover', hovering)
   },
+  remote: {
+    getConfig: () => ipcRenderer.invoke('remote:getConfig'),
+    setConfig: (url: string, token?: string) =>
+      ipcRenderer.invoke('remote:setConfig', url, token),
+    test: () => ipcRenderer.invoke('remote:test'),
+    onConfigChanged: (cb) => subscribe('remote:configChanged', cb)
+  },
   update: {
     check: () => ipcRenderer.invoke('update:check'),
     download: () => ipcRenderer.invoke('update:download'),

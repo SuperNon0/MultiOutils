@@ -4,12 +4,14 @@
 d'écran** (capturer, éditer/annoter, ranger, partager) — et conçue pour accueillir
 d'autres outils par la suite. Accès distant optionnel via un serveur auto-hébergé.
 
-> 🚧 **Phases 1 à 3 développées** : captures (plein écran / zone / fenêtre /
-> multi-écran / différée), raccourcis globaux, system tray, **éditeur complet**
-> (formes, flèches, texte, flou, numérotation, undo/redo, ré-édition), **bibliothèque
-> avancée** (dossiers imbriqués, tags, favoris, recherche, corbeille, sélection
-> multiple, glisser-déposer). Suite : mises à jour (4), serveur (5), Stream Deck (6),
-> bonus (7). Décisions techniques : [`docs/06`](docs/06-decisions-techniques.md).
+> 🚧 **Phases 1 à 5 développées** : captures (plein écran / zone / fenêtre /
+> multi-écran / différée) + raccourcis + tray, **éditeur complet** (formes, flèches,
+> texte, flou, numérotation, undo/redo, ré-édition), **bibliothèque avancée**
+> (dossiers, tags, favoris, recherche, corbeille, lots), **mises à jour par bouton**
+> (GitHub Releases + installeur auto à chaque tag), **serveur auto-hébergé**
+> (API + galerie web sécurisée + jetons + mise à jour par bouton) et envoi explicite
+> depuis l'app. Reste : Stream Deck (6), bonus OCR/pipette (7).
+> Décisions techniques : [`docs/06`](docs/06-decisions-techniques.md).
 
 ## 🚀 Développer / lancer depuis les sources
 

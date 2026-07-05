@@ -69,6 +69,16 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   const [renameValue, setRenameValue] = useState('');
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
   const [fullscreenShortcut, setFullscreenShortcut] = useState('PrintScreen');
+  const [remoteReady, setRemoteReady] = useState(false);
+
+  useEffect(() => {
+    void window.api.remote
+      .getConfig()
+      .then((c) => setRemoteReady(Boolean(c.url) && c.hasToken));
+    return window.api.remote.onConfigChanged((c) =>
+      setRemoteReady(Boolean(c.url) && c.hasToken)
+    );
+  }, []);
 
   useEffect(() => localStorage.setItem(VIEWMODE_KEY, viewMode), [viewMode]);
   useEffect(() => localStorage.setItem(THUMB_KEY, thumbSize), [thumbSize]);
@@ -464,6 +474,18 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
                   <Icon name="export" size={13} />
                   {t('library.export')}
                 </button>
+                {remoteReady && (
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() =>
+                      void window.api.library.update({ action: 'send', ids: selectedIds })
+                    }
+                  >
+                    <Icon name="send" size={13} />
+                    {t('library.send')}
+                  </button>
+                )}
                 <button
                   type="button"
                   className="btn btn-danger"
@@ -540,6 +562,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
                   key={capture.id}
                   capture={capture}
                   view={view}
+                  remoteReady={remoteReady}
                   selected={selectedIds.includes(capture.id)}
                   renaming={renamingId === capture.id}
                   renameValue={renameValue}
@@ -594,6 +617,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
 function GridCard({
   capture,
   view,
+  remoteReady,
   selected,
   renaming,
   renameValue,
@@ -609,6 +633,7 @@ function GridCard({
 }: {
   capture: CaptureListItem;
   view: LibraryView;
+  remoteReady: boolean;
   selected: boolean;
   renaming: boolean;
   renameValue: string;
@@ -665,6 +690,9 @@ function GridCard({
               <IconBtn name="save" title={t('gallery.saveAs')} onClick={() => void window.api.library.update({ action: 'saveAs', id: capture.id })} />
               <IconBtn name="textTool" title={t('gallery.rename')} onClick={onRename} />
               <IconBtn name="reveal" title={t('gallery.reveal')} onClick={() => void window.api.library.update({ action: 'reveal', id: capture.id })} />
+              {remoteReady && (
+                <IconBtn name="send" title={t('library.send')} onClick={() => void window.api.library.update({ action: 'send', ids: [capture.id] })} />
+              )}
               <IconBtn name="trash" title={t('gallery.delete')} onClick={() => void window.api.library.update({ action: 'trash', ids: [capture.id] })} />
             </>
           ) : (
@@ -699,7 +727,7 @@ function GridCard({
           {capture.width && capture.height ? ` · ${capture.width}×${capture.height}` : ''}
           {` · ${formatBytes(capture.sizeBytes)}`}
         </div>
-        {capture.tags.length > 0 && (
+        {(capture.tags.length > 0 || capture.remoteState !== 'none') && (
           <div className="shot-tags">
             {capture.tags.map((tag) => (
               <span
@@ -709,6 +737,12 @@ function GridCard({
                 style={{ background: tag.color ?? 'var(--muted)' }}
               />
             ))}
+            {capture.remoteState !== 'none' && (
+              <span
+                className={`remote-dot ${capture.remoteState}`}
+                title={t(`remote.state.${capture.remoteState}`)}
+              />
+            )}
           </div>
         )}
       </div>

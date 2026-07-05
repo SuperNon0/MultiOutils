@@ -190,6 +190,24 @@ export class CaptureRepo {
     tx();
   }
 
+  /** État d'envoi vers le serveur distant (⚪ none / 🟢 sent / 🔴 error). */
+  setRemoteState(id: string, state: RemoteState, remoteId: string | null): void {
+    this.db
+      .prepare('UPDATE captures SET remote_state = ?, remote_id = ? WHERE id = ?')
+      .run(state, remoteId, id);
+  }
+
+  /** Étiquettes d'une capture (méta d'envoi au serveur). */
+  tagsFor(id: string): Tag[] {
+    return this.db
+      .prepare(
+        `SELECT t.id, t.name, t.color FROM capture_tags ct
+         JOIN tags t ON t.id = ct.tag_id WHERE ct.capture_id = ?
+         ORDER BY t.name COLLATE NOCASE`
+      )
+      .all(id) as Tag[];
+  }
+
   /** Retrouve les captures à partir de chemins de fichiers (drag natif). */
   idsByPaths(paths: string[]): string[] {
     if (paths.length === 0) return [];

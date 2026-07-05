@@ -19,6 +19,7 @@ import { getMainWindow } from '../../windows';
 import { CaptureEngine } from './capture';
 import { QuickBarController } from './quickbar';
 import { RegionFlow } from './region';
+import { RemoteClient } from './remote';
 import { physicalSize } from './utils';
 import { WindowPickerFlow } from './window-picker';
 
@@ -37,6 +38,7 @@ export function createScreenshotMainModule(): MainToolModule {
   let repo: CaptureRepo;
   let folders: FolderRepo;
   let tags: TagRepo;
+  let remote: RemoteClient;
 
   return {
     id: 'screenshot',
@@ -45,6 +47,7 @@ export function createScreenshotMainModule(): MainToolModule {
       repo = new CaptureRepo(ctx.db);
       folders = new FolderRepo(ctx.db);
       tags = new TagRepo(ctx.db);
+      remote = new RemoteClient(ctx, repo, folders);
       quickbar = new QuickBarController();
 
       // Vidage automatique de la corbeille après N jours (docs/03 §7)
@@ -150,7 +153,8 @@ export function createScreenshotMainModule(): MainToolModule {
               quickbar.closeNow();
               break;
             case 'send':
-              // Envoi au serveur : Phase 5 (bouton désactivé côté renderer)
+              quickbar.closeNow();
+              await remote.sendMany([captureId]);
               break;
           }
         }
@@ -203,6 +207,9 @@ export function createScreenshotMainModule(): MainToolModule {
             break;
           case 'removeTag':
             repo.removeTag(update.ids, update.tagId);
+            break;
+          case 'send':
+            await remote.sendMany(update.ids);
             break;
           case 'export': {
             // export en lot : choisir un dossier, copier les fichiers
@@ -290,6 +297,15 @@ export function createScreenshotMainModule(): MainToolModule {
       ipcMain.handle('library:dropPaths', (_event, paths: string[]) =>
         repo.idsByPaths(paths)
       );
+
+      // ── Serveur distant (docs/00 §6) ─────────────────────────────────
+      ipcMain.handle('remote:getConfig', () => remote.getConfig());
+      ipcMain.handle('remote:setConfig', (_event, url: string, token?: string) => {
+        remote.setConfig(url, token);
+        ctx.broadcast('remote:configChanged', remote.getConfig());
+        return remote.getConfig();
+      });
+      ipcMain.handle('remote:test', () => remote.test());
 
       // Résolution des fichiers pour le protocole mo-media:// de l'hôte
       ipcMain.handle('library:resolvePath', (_event, id: string) => {

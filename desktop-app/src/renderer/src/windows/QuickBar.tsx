@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import type { QuickbarAction } from '../../../common/types';
 import { Icon } from '../host/Icon';
 import { useI18n } from '../i18n';
@@ -9,9 +9,13 @@ import { useI18n } from '../i18n';
  */
 export function QuickBar({ captureId }: { captureId: string }): ReactNode {
   const { t } = useI18n();
+  const [remoteReady, setRemoteReady] = useState(false);
 
   useEffect(() => {
     document.body.classList.add('transparent-bg');
+    void window.api.remote
+      .getConfig()
+      .then((c) => setRemoteReady(Boolean(c.url) && c.hasToken));
     return () => document.body.classList.remove('transparent-bg');
   }, []);
 
@@ -40,8 +44,9 @@ export function QuickBar({ captureId }: { captureId: string }): ReactNode {
       <button
         type="button"
         className="quickbar-btn"
-        disabled
-        title={t('quickbar.sendSoon')}
+        disabled={!remoteReady}
+        title={remoteReady ? t('quickbar.send') : t('quickbar.sendNotConfigured')}
+        onClick={() => act('send')}
       >
         <Icon name="send" />
         <span>{t('quickbar.send')}</span>

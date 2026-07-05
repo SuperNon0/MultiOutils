@@ -6,11 +6,14 @@
   "license": "UNLICENSED",
   "workspaces": [
     "packages/shared",
-    "desktop-app"
+    "desktop-app",
+    "server"
   ],
   "scripts": {
     "dev:app": "npm run dev -w desktop-app",
     "build:app": "npm run build -w desktop-app",
+    "dev:server": "npm run dev -w server",
+    "build:server": "npm run build -w server",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"
   },

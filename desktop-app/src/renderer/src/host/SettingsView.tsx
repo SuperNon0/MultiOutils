@@ -9,6 +9,7 @@ import {
   type AppSettings,
   type Language,
   type ShortcutId,
+  type RemoteTestResult,
   type ShortcutStatus,
   type UpdateStatus
 } from '../../../common/types';
@@ -78,7 +79,7 @@ export function SettingsView({
         {activeModule?.settingsPanel?.()}
         {active === 'shortcuts' && <ShortcutsSection />}
         {active === 'storage' && <StorageSection settings={settings} update={update} />}
-        {active === 'server' && <p className="muted section-note">{t('settings.server.phase')}</p>}
+        {active === 'server' && <ServerSection />}
         {active === 'updates' && <UpdatesSection version={version} />}
         {active === 'about' && (
           <div>
@@ -95,6 +96,102 @@ export function SettingsView({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ServerSection(): ReactNode {
+  const { t } = useI18n();
+  const [url, setUrl] = useState('');
+  const [hasToken, setHasToken] = useState(false);
+  const [tokenInput, setTokenInput] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [result, setResult] = useState<RemoteTestResult | null>(null);
+
+  useEffect(() => {
+    void window.api.remote.getConfig().then((config) => {
+      setUrl(config.url);
+      setHasToken(config.hasToken);
+    });
+  }, []);
+
+  const save = async (): Promise<void> => {
+    const config = await window.api.remote.setConfig(
+      url,
+      tokenInput ? tokenInput : undefined
+    );
+    setHasToken(config.hasToken);
+    setUrl(config.url);
+    setTokenInput('');
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  const test = async (): Promise<void> => {
+    setTesting(true);
+    setResult(null);
+    // enregistre d'abord ce qui est saisi, puis teste la config effective
+    await save();
+    setResult(await window.api.remote.test());
+    setTesting(false);
+  };
+
+  return (
+    <div>
+      <p className="muted section-note">{t('settings.server.help')}</p>
+
+      <div className="setting-row">
+        <span>{t('settings.server.url')}</span>
+        <input
+          className="input template-input"
+          type="text"
+          value={url}
+          spellCheck={false}
+          placeholder={t('settings.server.urlPlaceholder')}
+          onChange={(e) => setUrl(e.target.value)}
+        />
+      </div>
+
+      <div className="setting-row">
+        <span>
+          {t('settings.server.token')}
+          {hasToken && <div className="check-note">{t('settings.server.tokenSaved')}</div>}
+        </span>
+        <input
+          className="input template-input"
+          type="password"
+          value={tokenInput}
+          placeholder="mo_…"
+          onChange={(e) => setTokenInput(e.target.value)}
+        />
+      </div>
+      <p className="muted section-note">{t('settings.server.howTo')}</p>
+
+      <div className="field-row">
+        <button type="button" className="btn" onClick={() => void save()}>
+          {t('common.save')}
+        </button>
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={testing}
+          onClick={() => void test()}
+        >
+          {testing ? t('settings.server.testing') : t('settings.server.test')}
+        </button>
+        {saved && <span className="accent">{t('settings.server.saved')}</span>}
+      </div>
+
+      {result && (
+        <p className={result.ok ? 'ok accent' : 'shortcut-conflict'} style={{ marginTop: 12 }}>
+          {result.ok
+            ? t('settings.server.testOk', { v: result.version })
+            : result.error === 'badToken'
+              ? t('settings.server.testBadToken')
+              : t('settings.server.testUnreachable')}
+        </p>
+      )}
     </div>
   );
 }

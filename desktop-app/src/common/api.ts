@@ -81,6 +81,15 @@ export interface PreloadApi {
     action(captureId: string, action: QuickbarAction): Promise<void>;
     hover(hovering: boolean): void;
   };
+  remote: {
+    getConfig(): Promise<import('./types').RemoteConfig>;
+    /** token : undefined = inchangé · '' = effacé · sinon remplacé. */
+    setConfig(url: string, token?: string): Promise<import('./types').RemoteConfig>;
+    test(): Promise<import('./types').RemoteTestResult>;
+    onConfigChanged(
+      cb: (config: import('./types').RemoteConfig) => void
+    ): Unsubscribe;
+  };
   update: {
     check(): Promise<import('./types').UpdateStatus>;
     download(): Promise<void>;

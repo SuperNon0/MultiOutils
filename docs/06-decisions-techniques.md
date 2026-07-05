@@ -155,3 +155,34 @@ s'applique qu'à l'app installée.
 
 Dépôt public → aucun jeton côté utilisateur ; le workflow utilise le
 `GITHUB_TOKEN` fourni par Actions (permission `contents: write`).
+
+## Phase 5 — Serveur auto-hébergé & envoi
+
+### Côté serveur (`server/`)
+- **Autonome** (aucune dépendance workspace) pour que le Dockerfile fonctionne avec le
+  contexte `server/` seul (install/docker-compose.yml). Node 20 + Express 4 + SQLite.
+- **Sécurité** (docs/00 §7.3) : mots de passe **et** jetons hachés **argon2id** (la
+  vérification du jeton itère sur les jetons actifs — adapté au petit nombre de
+  jetons) ; le jeton n'est affiché **qu'une fois** ; helmet + CSP ; `/media/:id`
+  exige session OU jeton — **aucune image publique** ; upload limité
+  (`MAX_UPLOAD_MB`, défaut 25) et types MIME png/jpeg/webp uniquement.
+- **Sessions** : express-session (MemoryStore — mono-admin auto-hébergé ; un
+  redémarrage déconnecte, documenté), secret persistant `data/.session-secret`,
+  cookies HttpOnly/SameSite=Lax, `trust proxy` en production (Cloudflare Tunnel).
+- **Bouton « Mettre à jour le site »** : `git pull --ff-only` + `npm install` +
+  `npm run build -w server`, journal affiché, puis `process.exit(0)` → systemd/Docker
+  relance sur le nouveau code. « Vérifier » = nombre de commits de retard.
+- La galerie web sert l'image telle quelle (pas de vignettes serveur, pour éviter une
+  dépendance native type sharp) — amélioration possible.
+- Interface web en français (l'i18n FR/EN de la spec concerne l'application).
+
+### Côté app
+- Le **jeton** saisi dans Paramètres → Serveur distant est chiffré via
+  `safeStorage` (DPAPI Windows) et **jamais renvoyé au renderer** (seul « un jeton
+  est enregistré » est exposé).
+- « Tester la connexion » vérifie `/api/health` (URL) puis un appel authentifié
+  (jeton) — messages distincts « injoignable » / « jeton invalide ».
+- Envoi TOUJOURS explicite : barre rapide, survol d'une carte, ou sélection en lot.
+  États ⚪ (rien) / 🟢 / 🔴 sur les cartes ; ré-essai = re-cliquer « Envoyer ».
+- Méta transmises : nom, date, dimensions, **chemin de dossier** (« Travail /
+  Projet A ») et **noms de tags** (docs/03 §8) — le site filtre dessus.
