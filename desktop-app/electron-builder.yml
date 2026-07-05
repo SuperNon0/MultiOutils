@@ -26,3 +26,4 @@ publish:
   provider: github
   owner: SuperNon0
   repo: MultiOutils
+  releaseType: release
