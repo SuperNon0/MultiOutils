@@ -10,7 +10,7 @@ d'autres outils par la suite. Accès distant optionnel via un serveur auto-hébe
 > (dossiers, tags, favoris, recherche, corbeille, lots), **mises à jour par bouton**
 > (GitHub Releases + installeur auto à chaque tag), **serveur auto-hébergé**
 > (API + galerie web sécurisée + jetons + mise à jour par bouton) et envoi explicite
-> depuis l'app. Reste : Stream Deck (6), bonus OCR/pipette (7).
+> depuis l'app, **plugin Stream Deck** (6 actions via le service localhost). Reste : bonus OCR / pipette (7).
 > Décisions techniques : [`docs/06`](docs/06-decisions-techniques.md).
 
 ## 🚀 Développer / lancer depuis les sources

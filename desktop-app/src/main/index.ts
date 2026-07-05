@@ -5,6 +5,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { I18n } from './i18n';
 import { applySettings, registerHostIpc } from './ipc';
+import { LocalService } from './local-service';
 import type { MainHostContext } from './module-registry';
 import { MainModuleRegistry } from './module-registry';
 import { createScreenshotMainModule } from './modules/screenshot';
@@ -55,6 +56,8 @@ async function bootstrap(): Promise<void> {
 
   setCloseToTray(settings.get().closeToTray);
 
+  const localService = new LocalService();
+
   const ctx: MainHostContext = {
     db,
     settings,
@@ -65,7 +68,8 @@ async function bootstrap(): Promise<void> {
       new Notification({ title, body, silent: true }).show();
     },
     showMainWindow,
-    broadcast
+    broadcast,
+    registerLocalCommand: (id, run) => localService.register(id, run)
   };
 
   // Résolution des images (l'accès fichier reste confiné au process main).
@@ -94,6 +98,7 @@ async function bootstrap(): Promise<void> {
 
   registerHostIpc(ctx);
   setupUpdater(ctx);
+  localService.start();
 
   const statuses = shortcuts.applyAll();
   const conflicts = statuses.filter((s) => !s.ok);
@@ -119,6 +124,7 @@ async function bootstrap(): Promise<void> {
   app.on('will-quit', () => {
     shortcuts.dispose();
     registry.deactivateAll();
+    localService.stop();
     tray.destroy();
   });
 

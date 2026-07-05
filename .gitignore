@@ -6,6 +6,7 @@ dist/
 out/
 release/
 *.tsbuildinfo
+streamdeck-plugin/com.supernon0.multioutils.sdPlugin/bin/
 
 # Données locales de dev
 desktop-app/data/

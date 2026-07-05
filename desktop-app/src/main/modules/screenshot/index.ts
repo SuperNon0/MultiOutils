@@ -95,6 +95,16 @@ export function createScreenshotMainModule(): MainToolModule {
         });
       }
 
+      // Commandes du service localhost (Stream Deck, docs/00 §8)
+      ctx.registerLocalCommand('capture.fullscreen', () => engine.take('fullscreen'));
+      ctx.registerLocalCommand('capture.region', () => engine.take('region'));
+      ctx.registerLocalCommand('capture.window', () => engine.take('window'));
+      ctx.registerLocalCommand('capture.delayed', () => engine.take('delayed'));
+      ctx.registerLocalCommand('library.open', () =>
+        ctx.showMainWindow({ view: 'tool', toolId: 'screenshot' })
+      );
+      ctx.registerLocalCommand('clipboard.last', () => engine.lastToClipboard());
+
       // Réglages modifiés → resynchronise les accélérateurs
       ctx.events.on('settings-changed', (next: AppSettings) => {
         for (const id of SHORTCUT_IDS) {

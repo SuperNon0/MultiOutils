@@ -1,0 +1,23 @@
+{
+  "name": "@multioutils/streamdeck-plugin",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Plugin Stream Deck MultiOutils — déclenche les captures via le service localhost de l'app",
+  "scripts": {
+    "build": "rollup -c",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@elgato/streamdeck": "^1.2.1"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^28.0.1",
+    "@rollup/plugin-node-resolve": "^15.3.0",
+    "@rollup/plugin-typescript": "^12.1.1",
+    "@types/node": "^20.19.0",
+    "rollup": "^4.24.0",
+    "tslib": "^2.8.0",
+    "typescript": "^5.5.4"
+  }
+}

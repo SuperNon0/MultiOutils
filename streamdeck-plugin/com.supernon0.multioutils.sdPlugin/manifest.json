@@ -1,0 +1,70 @@
+{
+  "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+  "Name": "MultiOutils",
+  "Version": "0.1.0.0",
+  "Author": "SuperNon0",
+  "UUID": "com.supernon0.multioutils",
+  "Description": "Pilote MultiOutils : captures plein écran / zone / fenêtre / différée, ouverture de la bibliothèque, dernière capture dans le presse-papier. Nécessite l'application MultiOutils lancée.",
+  "Icon": "imgs/plugin",
+  "Category": "MultiOutils",
+  "CategoryIcon": "imgs/plugin",
+  "CodePath": "bin/plugin.js",
+  "SDKVersion": 2,
+  "Nodejs": {
+    "Version": "20",
+    "Debug": "disabled"
+  },
+  "Software": {
+    "MinimumVersion": "6.5"
+  },
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Actions": [
+    {
+      "UUID": "com.supernon0.multioutils.capture-fullscreen",
+      "Name": "Capture plein écran",
+      "Tooltip": "Capture l'écran entier dans MultiOutils",
+      "Icon": "imgs/fullscreen",
+      "States": [{ "Image": "imgs/key-fullscreen" }]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.capture-region",
+      "Name": "Capture de zone",
+      "Tooltip": "Ouvre la sélection de zone de MultiOutils",
+      "Icon": "imgs/region",
+      "States": [{ "Image": "imgs/key-region" }]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.capture-window",
+      "Name": "Capture de fenêtre",
+      "Tooltip": "Ouvre le sélecteur de fenêtre de MultiOutils",
+      "Icon": "imgs/window",
+      "States": [{ "Image": "imgs/key-window" }]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.capture-delayed",
+      "Name": "Capture différée",
+      "Tooltip": "Lance le compte à rebours puis capture",
+      "Icon": "imgs/delayed",
+      "States": [{ "Image": "imgs/key-delayed" }]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.open-library",
+      "Name": "Ouvrir la bibliothèque",
+      "Tooltip": "Met MultiOutils au premier plan sur la galerie",
+      "Icon": "imgs/library",
+      "States": [{ "Image": "imgs/key-library" }]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.copy-last",
+      "Name": "Dernière capture → presse-papier",
+      "Tooltip": "Copie la dernière capture dans le presse-papier",
+      "Icon": "imgs/clipboard",
+      "States": [{ "Image": "imgs/key-clipboard" }]
+    }
+  ]
+}

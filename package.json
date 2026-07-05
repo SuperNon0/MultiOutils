@@ -7,7 +7,8 @@
   "workspaces": [
     "packages/shared",
     "desktop-app",
-    "server"
+    "server",
+    "streamdeck-plugin"
   ],
   "scripts": {
     "dev:app": "npm run dev -w desktop-app",

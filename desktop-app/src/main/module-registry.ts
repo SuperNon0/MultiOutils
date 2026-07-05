@@ -22,6 +22,8 @@ export interface MainHostContext {
   showMainWindow(nav?: NavigateMsg): void;
   /** Envoie un message IPC à toutes les fenêtres du renderer. */
   broadcast(channel: string, payload?: unknown): void;
+  /** Commandes exposées au service localhost (Stream Deck, docs/00 §8). */
+  registerLocalCommand(id: string, run: () => void | Promise<void>): void;
 }
 
 /** Contrat d'un outil côté process main. */

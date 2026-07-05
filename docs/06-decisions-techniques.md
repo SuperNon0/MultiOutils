@@ -186,3 +186,21 @@ Dépôt public → aucun jeton côté utilisateur ; le workflow utilise le
   États ⚪ (rien) / 🟢 / 🔴 sur les cartes ; ré-essai = re-cliquer « Envoyer ».
 - Méta transmises : nom, date, dimensions, **chemin de dossier** (« Travail /
   Projet A ») et **noms de tags** (docs/03 §8) — le site filtre dessus.
+
+## Phase 6 — Stream Deck
+
+- **HTTP plutôt que WebSocket** pour le service local (docs/00 §8 laissait le
+  choix) : plus simple, sans état, suffisant pour des déclenchements de commandes.
+  Port fixe **41320**, lié à `127.0.0.1` (inaccessible depuis le réseau) ; si le port
+  est pris, le service se désactive sans gêner l'app.
+- **L'hôte reste générique** : `LocalService` n'expose que `GET /ping` et
+  `POST /command/<id>` ; les commandes (`capture.fullscreen`, `library.open`,
+  `clipboard.last`…) sont enregistrées par les modules via
+  `ctx.registerLocalCommand` — un futur outil peut ajouter les siennes.
+- Plugin **SDK Elgato v2** (`@elgato/streamdeck`, runtime Node 20, Stream Deck ≥ 6.5),
+  **6 actions fixes** (une par entrée du tableau de la spec — pas d'inspecteur de
+  propriétés nécessaire). Touche → POST localhost ; app absente → alerte ⚠ sur la
+  touche. Icônes générées dans le thème (doré/sombre).
+- Build : `npm run build -w streamdeck-plugin` (rollup) → `…sdPlugin/bin/plugin.js` ;
+  installation par `streamdeck link` ou copie dans
+  `%appdata%\Elgato\StreamDeck\Plugins` (voir streamdeck-plugin/README.md).
