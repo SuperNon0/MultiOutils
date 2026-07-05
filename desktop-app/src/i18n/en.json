@@ -90,7 +90,6 @@
   "settings.shortcuts.reset": "Reset",
   "settings.server.phase": "The remote server (sending captures, remote viewing) arrives in Phase 5. The app works 100% offline: nothing is ever sent automatically.",
   "settings.updates.current": "Installed version: {v}",
-  "settings.updates.phase": "One-click updates (GitHub Releases) arrive in Phase 4.",
   "settings.updates.check": "Check for updates",
   "settings.about.blurb": "Modular toolbox for Windows — screen capture and management. Local-first, no telemetry.",
   "settings.about.version": "Version {v}",
@@ -196,5 +195,15 @@
   "library.export": "Export",
   "library.noResults": "No capture matches the filters.",
   "settings.storage.trashRetention": "Automatically empty trash after (days)",
-  "settings.storage.trashRetentionNever": "Never"
+  "settings.storage.trashRetentionNever": "Never",
+  "settings.updates.how": "The app checks the public repository's GitHub Releases, only when you click. Updates are never forced.",
+  "settings.updates.checking": "Checking…",
+  "settings.updates.upToDate": "MultiOutils is up to date.",
+  "settings.updates.available": "Version {v} available",
+  "settings.updates.download": "Download and install",
+  "settings.updates.downloading": "Downloading… {p}%",
+  "settings.updates.ready": "Version {v} downloaded — ready to install.",
+  "settings.updates.install": "Restart and install",
+  "settings.updates.devMode": "Unavailable in development mode (app launched from sources, without an installer).",
+  "settings.updates.error": "Check failed: {msg}"
 }

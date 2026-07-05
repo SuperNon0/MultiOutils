@@ -81,6 +81,13 @@ export interface PreloadApi {
     action(captureId: string, action: QuickbarAction): Promise<void>;
     hover(hovering: boolean): void;
   };
+  update: {
+    check(): Promise<import('./types').UpdateStatus>;
+    download(): Promise<void>;
+    install(): Promise<void>;
+    status(): Promise<import('./types').UpdateStatus>;
+    onStatus(cb: (status: import('./types').UpdateStatus) => void): Unsubscribe;
+  };
   editor: {
     /** Annotations (JSON) + éventuel écrasement du fichier aplati. */
     save(payload: {

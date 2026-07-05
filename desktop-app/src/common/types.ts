@@ -126,6 +126,17 @@ export interface ShortcutStatus {
   ok: boolean;
 }
 
+/** État du flux de mise à jour à la demande (docs/00 §5.3). */
+export type UpdateStatus =
+  | { state: 'idle' }
+  | { state: 'dev' }
+  | { state: 'checking' }
+  | { state: 'none'; version: string }
+  | { state: 'available'; version: string; notes?: string }
+  | { state: 'downloading'; percent: number }
+  | { state: 'downloaded'; version: string }
+  | { state: 'error'; message: string };
+
 export type NavigateMsg =
   | { view: 'settings'; section?: string }
   | {

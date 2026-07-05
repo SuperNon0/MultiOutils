@@ -136,3 +136,22 @@ réels) :
 - Vue **grille/liste** et **taille des vignettes** persistées en localStorage.
 - « Récemment envoyées au serveur » existe déjà (filtre `remote_state = 'sent'`) et se
   remplira en Phase 5.
+
+## Phase 4 — Mises à jour & distribution
+
+### Flux (docs/00 §5.3, respecté à la lettre)
+`electron-updater` avec `autoDownload = false` : rien ne se télécharge sans clic.
+Paramètres → Mises à jour : « Vérifier » → si version plus récente sur les GitHub
+Releases → version + notes + « Télécharger et installer » → progression → « Redémarrer
+et installer ». En mode dev (non packagé), le bouton explique que la mise à jour ne
+s'applique qu'à l'app installée.
+
+### Publier une version (mainteneur)
+1. Monter `version` dans `desktop-app/package.json` (ex. `0.2.0`).
+2. Commit, puis tag `v0.2.0` poussé sur GitHub.
+3. Le workflow `build-desktop.yml` (runner Windows) construit
+   `MultiOutils-Setup-0.2.0.exe` + `latest.yml` et publie la GitHub Release.
+4. Les apps installées voient la mise à jour au prochain clic sur « Vérifier ».
+
+Dépôt public → aucun jeton côté utilisateur ; le workflow utilise le
+`GITHUB_TOKEN` fourni par Actions (permission `contents: write`).

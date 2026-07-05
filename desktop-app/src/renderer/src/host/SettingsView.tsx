@@ -9,7 +9,8 @@ import {
   type AppSettings,
   type Language,
   type ShortcutId,
-  type ShortcutStatus
+  type ShortcutStatus,
+  type UpdateStatus
 } from '../../../common/types';
 import { useI18n } from '../i18n';
 import { displayAccelerator } from '../lib/format';
@@ -78,15 +79,7 @@ export function SettingsView({
         {active === 'shortcuts' && <ShortcutsSection />}
         {active === 'storage' && <StorageSection settings={settings} update={update} />}
         {active === 'server' && <p className="muted section-note">{t('settings.server.phase')}</p>}
-        {active === 'updates' && (
-          <div>
-            <p>{t('settings.updates.current', { v: version })}</p>
-            <p className="muted section-note">{t('settings.updates.phase')}</p>
-            <button type="button" className="btn" disabled>
-              {t('settings.updates.check')}
-            </button>
-          </div>
-        )}
+        {active === 'updates' && <UpdatesSection version={version} />}
         {active === 'about' && (
           <div>
             <div className="about-brand">
@@ -102,6 +95,80 @@ export function SettingsView({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function UpdatesSection({ version }: { version: string }): ReactNode {
+  const { t } = useI18n();
+  const [status, setStatus] = useState<UpdateStatus>({ state: 'idle' });
+
+  useEffect(() => {
+    void window.api.update.status().then(setStatus);
+    return window.api.update.onStatus(setStatus);
+  }, []);
+
+  return (
+    <div>
+      <p>{t('settings.updates.current', { v: version })}</p>
+      <p className="muted section-note">{t('settings.updates.how')}</p>
+
+      {status.state === 'available' ? (
+        <div className="card update-card">
+          <p className="accent">
+            {t('settings.updates.available', { v: status.version })}
+          </p>
+          {status.notes && <p className="muted update-notes">{status.notes}</p>}
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => void window.api.update.download()}
+          >
+            {t('settings.updates.download')}
+          </button>
+        </div>
+      ) : status.state === 'downloading' ? (
+        <p className="accent">
+          {t('settings.updates.downloading', { p: status.percent })}
+        </p>
+      ) : status.state === 'downloaded' ? (
+        <div className="card update-card">
+          <p className="accent">
+            {t('settings.updates.ready', { v: status.version })}
+          </p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => void window.api.update.install()}
+          >
+            {t('settings.updates.install')}
+          </button>
+        </div>
+      ) : (
+        <>
+          {status.state === 'none' && (
+            <p className="accent">{t('settings.updates.upToDate')}</p>
+          )}
+          {status.state === 'dev' && (
+            <p className="muted">{t('settings.updates.devMode')}</p>
+          )}
+          {status.state === 'error' && (
+            <p className="shortcut-conflict">
+              {t('settings.updates.error', { msg: status.message })}
+            </p>
+          )}
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={status.state === 'checking'}
+            onClick={() => void window.api.update.check()}
+          >
+            {status.state === 'checking'
+              ? t('settings.updates.checking')
+              : t('settings.updates.check')}
+          </button>
+        </>
+      )}
     </div>
   );
 }

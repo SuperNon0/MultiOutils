@@ -13,6 +13,7 @@ import { CaptureRepo, originalPathFor, thumbPathFor } from './storage/captures';
 import { openDb } from './storage/db';
 import { ShortcutManager } from './shortcuts';
 import { TrayController } from './tray';
+import { setupUpdater } from './updater';
 import {
   broadcast,
   createMainWindow,
@@ -92,6 +93,7 @@ async function bootstrap(): Promise<void> {
   await registry.activateAll(ctx);
 
   registerHostIpc(ctx);
+  setupUpdater(ctx);
 
   const statuses = shortcuts.applyAll();
   const conflicts = statuses.filter((s) => !s.ok);

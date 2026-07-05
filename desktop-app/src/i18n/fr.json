@@ -90,7 +90,6 @@
   "settings.shortcuts.reset": "Réinitialiser",
   "settings.server.phase": "Le serveur distant (envoi des captures, consultation à distance) arrive en Phase 5. L'application fonctionne à 100 % hors-ligne : rien n'est jamais envoyé automatiquement.",
   "settings.updates.current": "Version installée : {v}",
-  "settings.updates.phase": "La mise à jour par bouton (GitHub Releases) arrive en Phase 4.",
   "settings.updates.check": "Vérifier les mises à jour",
   "settings.about.blurb": "Boîte à outils modulaire pour Windows — capture et gestion d'écran. Local d'abord, sans télémétrie.",
   "settings.about.version": "Version {v}",
@@ -196,5 +195,15 @@
   "library.export": "Exporter",
   "library.noResults": "Aucune capture ne correspond aux filtres.",
   "settings.storage.trashRetention": "Vider automatiquement la corbeille après (jours)",
-  "settings.storage.trashRetentionNever": "Jamais"
+  "settings.storage.trashRetentionNever": "Jamais",
+  "settings.updates.how": "L'application vérifie les GitHub Releases du dépôt public, uniquement quand tu cliques. Aucune mise à jour n'est jamais forcée.",
+  "settings.updates.checking": "Vérification…",
+  "settings.updates.upToDate": "MultiOutils est à jour.",
+  "settings.updates.available": "Version {v} disponible",
+  "settings.updates.download": "Télécharger et installer",
+  "settings.updates.downloading": "Téléchargement… {p} %",
+  "settings.updates.ready": "Version {v} téléchargée — prête à installer.",
+  "settings.updates.install": "Redémarrer et installer",
+  "settings.updates.devMode": "Indisponible en mode développement (application lancée depuis les sources, sans installeur).",
+  "settings.updates.error": "Échec de la vérification : {msg}"
 }

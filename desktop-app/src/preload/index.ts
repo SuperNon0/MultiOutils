@@ -80,6 +80,13 @@ const api: PreloadApi = {
       ipcRenderer.invoke('quickbar:action', captureId, action),
     hover: (hovering: boolean) => ipcRenderer.send('quickbar:hover', hovering)
   },
+  update: {
+    check: () => ipcRenderer.invoke('update:check'),
+    download: () => ipcRenderer.invoke('update:download'),
+    install: () => ipcRenderer.invoke('update:install'),
+    status: () => ipcRenderer.invoke('update:status'),
+    onStatus: (cb) => subscribe('update:status', cb)
+  },
   editor: {
     save: (payload) => ipcRenderer.invoke('editor:save', payload),
     exportAs: (payload) => ipcRenderer.invoke('editor:export', payload),
