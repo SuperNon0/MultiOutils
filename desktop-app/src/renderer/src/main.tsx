@@ -6,6 +6,7 @@ import './theme.css';
 import './app.css';
 import { App } from './host/App';
 import { I18nProvider } from './i18n';
+import { Eyedropper } from './windows/Eyedropper';
 import { QuickBar } from './windows/QuickBar';
 import { RegionOverlay } from './windows/RegionOverlay';
 import { WindowPicker } from './windows/WindowPicker';
@@ -17,7 +18,7 @@ import { WindowPicker } from './windows/WindowPicker';
  */
 function Root(): ReactNode {
   const match = window.location.hash.match(
-    /^#\/(region|quickbar|picker)(?:\/(.+))?$/
+    /^#\/(region|quickbar|picker|eyedropper)(?:\/(.+))?$/
   );
   const [lang, setLang] = useState<Language | null>(null);
 
@@ -34,6 +35,8 @@ function Root(): ReactNode {
     <I18nProvider lang={lang}>
       {route === 'region' && param ? (
         <RegionOverlay displayId={param} />
+      ) : route === 'eyedropper' && param ? (
+        <Eyedropper displayId={param} />
       ) : route === 'quickbar' && param ? (
         <QuickBar captureId={param} />
       ) : route === 'picker' ? (

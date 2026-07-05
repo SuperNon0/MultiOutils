@@ -59,7 +59,23 @@ const api: PreloadApi = {
   },
   system: {
     displays: () => ipcRenderer.invoke('system:displays'),
-    version: () => ipcRenderer.invoke('app:version')
+    version: () => ipcRenderer.invoke('app:version'),
+    copyText: (text: string) => ipcRenderer.invoke('system:copyText', text)
+  },
+  colorpicker: {
+    start: () => ipcRenderer.invoke('colorpicker:start'),
+    cancel: () => ipcRenderer.send('colorpicker:cancel'),
+    shot: (displayId: string) => ipcRenderer.invoke('colorpicker:shot', displayId),
+    pick: (payload) => ipcRenderer.send('colorpicker:pick', payload),
+    history: () => ipcRenderer.invoke('colorpicker:history'),
+    clearHistory: () => ipcRenderer.invoke('colorpicker:clearHistory'),
+    getFormat: () => ipcRenderer.invoke('colorpicker:getFormat'),
+    setFormat: (format) => ipcRenderer.invoke('colorpicker:setFormat', format),
+    onHistoryChanged: (cb) => subscribe('colorpicker:historyChanged', cb)
+  },
+  ocr: {
+    extract: (captureId: string, lang: 'fra' | 'eng') =>
+      ipcRenderer.invoke('ocr:extract', captureId, lang)
   },
   host: {
     onNavigate: (cb) => subscribe<NavigateMsg>('host:navigate', cb)

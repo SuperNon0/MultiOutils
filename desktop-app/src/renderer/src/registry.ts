@@ -4,8 +4,12 @@
  * Rien d'autre à modifier.
  */
 import type { ToolModule } from './host/types';
+import { colorPickerModule } from './modules/color-picker';
+import { ocrModule } from './modules/ocr';
 import { screenshotModule } from './modules/screenshot';
 
-export const modules: ToolModule[] = [screenshotModule].sort(
-  (a, b) => a.order - b.order
-);
+export const modules: ToolModule[] = [
+  screenshotModule,
+  colorPickerModule,
+  ocrModule
+].sort((a, b) => a.order - b.order);

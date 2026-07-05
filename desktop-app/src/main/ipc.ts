@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, screen } from 'electron';
+import { app, clipboard, dialog, ipcMain, screen } from 'electron';
 import fs from 'node:fs';
 import type { AppSettings, DisplayInfo, ShortcutStatus } from '../common/types';
 import type { MainHostContext } from './module-registry';
@@ -93,4 +93,9 @@ export function registerHostIpc(ctx: MainHostContext): void {
   });
 
   ipcMain.handle('app:version', () => app.getVersion());
+
+  // utilitaire générique pour les modules (copie de texte)
+  ipcMain.handle('system:copyText', (_event, text: string) => {
+    clipboard.writeText(text);
+  });
 }

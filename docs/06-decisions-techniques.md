@@ -204,3 +204,35 @@ Dépôt public → aucun jeton côté utilisateur ; le workflow utilise le
 - Build : `npm run build -w streamdeck-plugin` (rollup) → `…sdPlugin/bin/plugin.js` ;
   installation par `streamdeck link` ou copie dans
   `%appdata%\Elgato\StreamDeck\Plugins` (voir streamdeck-plugin/README.md).
+
+## Phase 7 — Modules bonus (pipette & OCR)
+
+Les deux bonus sont de **vrais modules** : un dossier renderer + un dossier main
+chacun, une ligne dans chaque registre — le module capture n'a pas été modifié
+(critère docs/00 §11 « ajouter un outil sans modifier les autres » ✅). Au passage,
+les utilitaires écran génériques (`captureDisplay`, `hideAppWindows`…) ont été
+remontés dans `src/main/screen-utils.ts` (infra hôte) pour que la pipette ne dépende
+pas du module screenshot.
+
+### Pipette (`color-picker`)
+- Overlay plein écran par moniteur sur image gelée (même patron que la capture de
+  zone), **loupe pixel-perfect**, code couleur en direct sous le curseur.
+- Clic = copie au format choisi (**HEX / RGB / HSL**, réglable dans le panneau et
+  dans Paramètres → Pipette), **historique des 12 dernières couleurs** (re-copie au
+  clic, re-formaté selon le format courant).
+- Accessible depuis la barre latérale, le menu du tray, et la commande locale
+  `colorpicker.start` (utilisable depuis un bouton Stream Deck personnalisé).
+
+### OCR (`ocr`)
+- Tesseract (**tesseract.js**) exécuté **côté main** (aucune ouverture de la CSP du
+  renderer), import paresseux au premier usage, worker terminé après chaque analyse.
+- **Compromis hors-ligne** : le modèle de langue (fra/eng, ~15 Mo) est téléchargé à
+  la **première** utilisation puis mis en cache dans `userData/ocr-cache` — les
+  analyses suivantes sont 100 % locales. C'est la seule fonctionnalité qui touche le
+  réseau en dehors du serveur de l'utilisateur et des mises à jour, toujours sur
+  action explicite.
+- `asarUnpack` sur tesseract.js/tesseract.js-core (le worker thread doit charger ses
+  fichiers hors de l'asar).
+- Le panneau choisit une capture via l'**API bibliothèque de l'hôte** (pas de
+  référence au module capture) ; langue FR/EN, texte affiché sélectionnable +
+  bouton Copier.

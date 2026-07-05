@@ -8,6 +8,8 @@ import { applySettings, registerHostIpc } from './ipc';
 import { LocalService } from './local-service';
 import type { MainHostContext } from './module-registry';
 import { MainModuleRegistry } from './module-registry';
+import { createColorPickerMainModule } from './modules/color-picker';
+import { createOcrMainModule } from './modules/ocr';
 import { createScreenshotMainModule } from './modules/screenshot';
 import { SettingsStore } from './settings';
 import { CaptureRepo, originalPathFor, thumbPathFor } from './storage/captures';
@@ -94,6 +96,8 @@ async function bootstrap(): Promise<void> {
 
   // Modules : la capture est le premier outil, l'hôte n'en code aucun en dur.
   registry.register(createScreenshotMainModule());
+  registry.register(createColorPickerMainModule());
+  registry.register(createOcrMainModule());
   await registry.activateAll(ctx);
 
   registerHostIpc(ctx);

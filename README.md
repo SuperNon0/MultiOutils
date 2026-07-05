@@ -4,13 +4,11 @@
 d'écran** (capturer, éditer/annoter, ranger, partager) — et conçue pour accueillir
 d'autres outils par la suite. Accès distant optionnel via un serveur auto-hébergé.
 
-> 🚧 **Phases 1 à 6 développées** : captures (plein écran / zone / fenêtre /
-> multi-écran / différée) + raccourcis + tray, **éditeur complet** (formes, flèches,
-> texte, flou, numérotation, undo/redo, ré-édition), **bibliothèque avancée**
-> (dossiers, tags, favoris, recherche, corbeille, lots), **mises à jour par bouton**
-> (GitHub Releases + installeur auto à chaque tag), **serveur auto-hébergé**
-> (API + galerie web sécurisée + jetons + mise à jour par bouton) et envoi explicite
-> depuis l'app, **plugin Stream Deck** (6 actions via le service localhost). Reste : bonus OCR / pipette (7).
+> ✅ **Les 7 phases du CDC sont développées** : captures complètes + raccourcis +
+> tray (1), éditeur Konva avec ré-édition (2), bibliothèque avancée — dossiers,
+> tags, favoris, recherche, corbeille (3), mises à jour par bouton + installeur
+> auto à chaque tag (4), serveur auto-hébergé + envoi explicite (5), plugin
+> Stream Deck (6), pipette de couleur & OCR (7).
 > Décisions techniques : [`docs/06`](docs/06-decisions-techniques.md).
 
 ## 🚀 Développer / lancer depuis les sources

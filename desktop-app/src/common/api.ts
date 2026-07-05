@@ -63,6 +63,32 @@ export interface PreloadApi {
   system: {
     displays(): Promise<DisplayInfo[]>;
     version(): Promise<string>;
+    copyText(text: string): Promise<void>;
+  };
+  colorpicker: {
+    start(): Promise<void>;
+    cancel(): void;
+    shot(displayId: string): Promise<RegionShot | null>;
+    pick(payload: {
+      r: number;
+      g: number;
+      b: number;
+      hex: string;
+      formatted: string;
+    }): void;
+    history(): Promise<
+      Array<{ r: number; g: number; b: number; hex: string; formatted: string; pickedAt: string }>
+    >;
+    clearHistory(): Promise<void>;
+    getFormat(): Promise<'hex' | 'rgb' | 'hsl'>;
+    setFormat(format: 'hex' | 'rgb' | 'hsl'): Promise<void>;
+    onHistoryChanged(cb: () => void): Unsubscribe;
+  };
+  ocr: {
+    extract(
+      captureId: string,
+      lang: 'fra' | 'eng'
+    ): Promise<{ ok: true; text: string } | { ok: false; error: string }>;
   };
   host: {
     onNavigate(cb: (nav: NavigateMsg) => void): Unsubscribe;

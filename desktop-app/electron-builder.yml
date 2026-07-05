@@ -9,6 +9,10 @@ files:
   - out/**
   - resources/**
   - package.json
+# tesseract.js lance un worker thread depuis ses fichiers : hors asar
+asarUnpack:
+  - node_modules/tesseract.js/**
+  - node_modules/tesseract.js-core/**
 win:
   target:
     - nsis
