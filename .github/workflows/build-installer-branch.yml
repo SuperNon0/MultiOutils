@@ -16,10 +16,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
       - name: Installer les dépendances
-        run: npm ci
+        # Le package-lock.json est généré sur Linux : sur le runner Windows,
+        # npm ci ne réinstalle pas les binaires optionnels propres à la
+        # plateforme (rollup/esbuild win32 — bug npm #4828). On repart donc
+        # d'une résolution propre.
+        shell: bash
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install --no-audit --no-fund
 
       - name: Recompiler better-sqlite3 pour Electron
         run: npx electron-rebuild -v 33.4.11 -f -w better-sqlite3 -m .

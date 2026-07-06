@@ -22,12 +22,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: npm
 
-      # Installation complète : télécharge Electron et recompile les modules
-      # natifs (better-sqlite3) pour l'ABI d'Electron.
+      # Le package-lock.json est généré sur Linux : sur le runner Windows,
+      # npm ci ne réinstalle pas les binaires optionnels propres à la
+      # plateforme (rollup/esbuild win32 — bug npm #4828). On repart d'une
+      # résolution propre, qui télécharge aussi Electron.
       - name: Installer les dépendances
-        run: npm ci
+        shell: bash
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install --no-audit --no-fund
 
       - name: Tests + typecheck
         run: |
