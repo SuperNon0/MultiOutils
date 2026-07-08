@@ -34,7 +34,7 @@ des valeurs par défaut — Entrée pour accepter. Il :
 **Mode non-interactif** (tout pré-rempli, sans questions) :
 ```bash
 ASSUME_YES=1 CTID=150 HOSTNAME=multioutils RAM_MB=1024 DISK_GB=8 CORES=2 \
-BRIDGE=vmbr0 STORAGE=local-lvm APP_PORT=3000 \
+BRIDGE=vmbr0 STORAGE=local-lvm APP_PORT=3010 \
 REPO_BRANCH=claude/multioutils-screenshot-app-sxyf9r \
 CF_TUNNEL_TOKEN=eyJ...ton-token... \
 bash -c "$(curl -fsSL .../install/proxmox-lxc.sh)"
@@ -73,14 +73,14 @@ git clone https://github.com/SuperNon0/MultiOutils.git
 cd MultiOutils/server
 npm install
 npm run build
-npm start                 # écoute sur le port 3000
+npm start                 # écoute sur le port 3010
 ```
 
 ---
 
 ## Première configuration (identique aux 3 méthodes)
 
-1. Ouvre `http://IP:3000` sur le réseau local.
+1. Ouvre `http://IP:3010` sur le réseau local.
 2. **Crée le compte admin** (identifiant + mot de passe).
 3. **Administration → Jetons d'API → Générer** — ⚠️ copie le jeton (affiché une seule fois).
 4. Garde ce jeton pour connecter le logiciel (Paramètres → Serveur distant).
@@ -108,7 +108,7 @@ C'est celle qu'utilise le script Proxmox (question « token du tunnel »). Aucun
    ```
 4. Toujours dans le tunnel → **Public Hostname → Add** :
    - *Subdomain / Domain* : ex. `screens.tondomaine.fr`
-   - *Service* : `HTTP` → `localhost:3000` (ou le port choisi)
+   - *Service* : `HTTP` → `localhost:3010` (ou le port choisi)
 5. **(Recommandé)** Zero Trust → **Access → Applications** : protège l'URL par e-mail
    (2ᵉ barrière avant la page de connexion du site).
 
@@ -139,7 +139,7 @@ tunnel: multioutils
 credentials-file: /root/.cloudflared/<ID-DU-TUNNEL>.json
 ingress:
   - hostname: screens.tondomaine.fr
-    service: http://localhost:3000
+    service: http://localhost:3010
   - service: http_status:404
 ```
 Puis lance en service :

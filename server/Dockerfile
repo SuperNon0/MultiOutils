@@ -15,9 +15,9 @@ RUN npm install --no-audit --no-fund \
 
 ENV NODE_ENV=production \
     DATA_DIR=/app/data \
-    PORT=3000
+    PORT=3010
 
-EXPOSE 3000
+EXPOSE 3010
 VOLUME ["/app/data"]
 
 CMD ["node", "dist/index.js"]

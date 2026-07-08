@@ -76,7 +76,7 @@ Sur l'**hôte Proxmox** (shell du nœud), lance :
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/SuperNon0/MultiOutils/main/install/proxmox-lxc.sh)"
 ```
 Le script crée un conteneur Debian, installe Node + le serveur, et affiche à la fin
-l'**adresse IP** et le **port** (par défaut `http://IP:3000`). Voir `../install/`.
+l'**adresse IP** et le **port** (par défaut `http://IP:3010`). Voir `../install/`.
 
 ### 3.2 Alternative — Docker (dans une VM/LXC)
 ```bash
@@ -91,11 +91,11 @@ git clone https://github.com/SuperNon0/MultiOutils.git
 cd MultiOutils/server
 npm install
 npm run build
-npm start                   # écoute sur le port 3000 par défaut
+npm start                   # écoute sur le port 3010 par défaut
 ```
 
 ### 3.4 Première connexion au site
-1. Ouvre `http://IP:3000` dans un navigateur (sur le réseau local d'abord).
+1. Ouvre `http://IP:3010` dans un navigateur (sur le réseau local d'abord).
 2. Le site demande de **créer le compte admin** (identifiant + mot de passe). Fais-le.
 3. Tu arrives sur la **galerie** (vide pour l'instant).
 4. Va dans **Administration → Jetons d'API** et clique **« Générer un jeton »**.
@@ -107,7 +107,7 @@ Résumé (détails dans `../install/README.md`) :
 1. Installe `cloudflared` dans le conteneur/VM.
 2. `cloudflared tunnel login` puis crée un tunnel et une route DNS
    (`cloudflared tunnel route dns <tunnel> screens.tondomaine.fr`).
-3. Fais pointer le tunnel vers `http://localhost:3000`.
+3. Fais pointer le tunnel vers `http://localhost:3010`.
 4. (Recommandé) protège l'URL avec **Cloudflare Access** (email/code).
 5. Le site est alors accessible en **HTTPS** depuis partout, **sans ouvrir de port**.
 
@@ -119,7 +119,7 @@ Résumé (détails dans `../install/README.md`) :
 
 1. Dans le **logiciel** → **Paramètres → Serveur distant**.
 2. **URL du serveur** : mets l'adresse du site
-   - en local : `http://IP:3000`
+   - en local : `http://IP:3010`
    - à distance : `https://screens.tondomaine.fr`
 3. **Jeton d'API** : colle le jeton généré en §3.4.
 4. Clique **« Tester la connexion »** → doit afficher ✅ *Connecté*.

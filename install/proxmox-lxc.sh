@@ -77,7 +77,7 @@ ask NET         "Réseau ('dhcp' ou 'IP/masque,gw=passerelle')" "dhcp"
 
 # ─── Questions : application ──────────────────────────────────────────────────
 echo
-ask APP_PORT    "Port du serveur MultiOutils (interne au conteneur)" "3000"
+ask APP_PORT    "Port du serveur MultiOutils (interne au conteneur)" "3010"
 ask REPO_URL    "Dépôt Git à installer"                  "https://github.com/SuperNon0/MultiOutils.git"
 ask REPO_BRANCH "Branche à installer (le serveur est sur cette branche tant que la PR n'est pas fusionnée dans main)" "claude/multioutils-screenshot-app-sxyf9r"
 

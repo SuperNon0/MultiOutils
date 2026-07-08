@@ -3,7 +3,7 @@
 Décrit les échanges **app ↔ serveur**. L'app est un **client** qui pousse des captures ;
 l'interface web est servie par le même serveur pour la consultation humaine.
 
-- **Base URL** : `http://IP:3000` (local) ou `https://screens.tondomaine.fr` (distant).
+- **Base URL** : `http://IP:3010` (local) ou `https://screens.tondomaine.fr` (distant).
 - **Format** : JSON, sauf l'upload d'image (multipart/form-data).
 - **Fuseau/dates** : ISO 8601 (UTC).
 

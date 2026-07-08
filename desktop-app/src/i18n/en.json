@@ -206,7 +206,7 @@
   "settings.updates.error": "Check failed: {msg}",
   "settings.server.help": "The server is OPTIONAL: the app works 100% offline. A capture is only sent when you click “Send to server” — never automatically.",
   "settings.server.url": "Server URL",
-  "settings.server.urlPlaceholder": "http://192.168.1.10:3000",
+  "settings.server.urlPlaceholder": "http://192.168.1.10:3010",
   "settings.server.token": "API token",
   "settings.server.tokenSaved": "A token is saved (encrypted). Leave empty to keep it.",
   "settings.server.howTo": "Generate the token on the site: Administration → API tokens → “Generate a token” (see docs/02 §3.4).",

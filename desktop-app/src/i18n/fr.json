@@ -206,7 +206,7 @@
   "settings.updates.error": "Échec de la vérification : {msg}",
   "settings.server.help": "Le serveur est OPTIONNEL : l'application fonctionne à 100 % hors-ligne. Une capture ne part que quand tu cliques « Envoyer au serveur » — jamais automatiquement.",
   "settings.server.url": "URL du serveur",
-  "settings.server.urlPlaceholder": "http://192.168.1.10:3000",
+  "settings.server.urlPlaceholder": "http://192.168.1.10:3010",
   "settings.server.token": "Jeton d'API",
   "settings.server.tokenSaved": "Un jeton est enregistré (chiffré). Laisse vide pour le conserver.",
   "settings.server.howTo": "Génère le jeton sur le site : Administration → Jetons d'API → « Générer un jeton » (voir docs/02 §3.4).",
