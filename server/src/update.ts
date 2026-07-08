@@ -48,8 +48,15 @@ export async function runUpdate(): Promise<UpdateResult> {
   };
   try {
     await step('git', ['pull', '--ff-only'], repoRoot);
-    await step('npm', ['install', '--no-audit', '--no-fund'], repoRoot);
-    await step('npm', ['run', 'build', '-w', 'server'], repoRoot);
+    // On installe/compile UNIQUEMENT le serveur, en ignorant le monorepo
+    // (--no-workspaces) : inutile — et coûteux — d'installer l'app Electron
+    // sur le serveur. --no-package-lock garde l'arbre git propre pour git pull.
+    await step(
+      'npm',
+      ['install', '--no-workspaces', '--no-package-lock', '--no-audit', '--no-fund'],
+      serverDir
+    );
+    await step('npm', ['run', 'build'], serverDir);
     return { ok: true, log: log.join('\n') };
   } catch (err) {
     log.push(err instanceof Error ? err.message : String(err));

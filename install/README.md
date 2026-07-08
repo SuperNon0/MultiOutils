@@ -17,23 +17,39 @@ Sur le **shell de ton hôte Proxmox** (le nœud, en root) :
 bash -c "$(curl -fsSL https://raw.githubusercontent.com/SuperNon0/MultiOutils/main/install/proxmox-lxc.sh)"
 ```
 
-Le script ([`proxmox-lxc.sh`](proxmox-lxc.sh)) :
+Le script ([`proxmox-lxc.sh`](proxmox-lxc.sh)) est **interactif** : il pose les
+questions (CTID, RAM, disque, réseau, **port**, branche, **token Cloudflare**) avec
+des valeurs par défaut — Entrée pour accepter. Il :
 1. crée un conteneur **LXC Debian 12** (non privilégié) ;
-2. installe **Node.js 20** + le serveur ;
+2. installe **Node.js 20** + le serveur (isolé du monorepo, pas d'Electron) ;
 3. crée un **service systemd** (`multioutils`) qui redémarre tout seul ;
-4. affiche l'**IP** et le **port** d'accès (par défaut `:3000`).
+4. **(optionnel)** installe **Cloudflare Tunnel** avec ton token → accès distant
+   HTTPS **sans ouvrir de port** ;
+5. affiche l'**IP**, le **port** et les étapes suivantes.
 
-**Personnaliser** (avant de lancer, exporte des variables) :
+> ⚠️ **Branche** : tant que la PR n'est pas fusionnée dans `main`, le code serveur vit
+> sur la branche de développement. Le script propose donc cette branche par défaut ;
+> mets `main` une fois la fusion faite.
+
+**Mode non-interactif** (tout pré-rempli, sans questions) :
 ```bash
-CTID=150 HOSTNAME=multioutils RAM_MB=1024 DISK_GB=8 CORES=2 \
+ASSUME_YES=1 CTID=150 HOSTNAME=multioutils RAM_MB=1024 DISK_GB=8 CORES=2 \
 BRIDGE=vmbr0 STORAGE=local-lvm APP_PORT=3000 \
+REPO_BRANCH=claude/multioutils-screenshot-app-sxyf9r \
+CF_TUNNEL_TOKEN=eyJ...ton-token... \
 bash -c "$(curl -fsSL .../install/proxmox-lxc.sh)"
 ```
 
-> 💡 **Style community-scripts.org** : ce script suit le même principe (exécution sur
-> l'hôte PVE, création d'un LXC), mais il est **autonome et lisible** pour que tu puisses
-> le relire. Quand tu m'enverras le lien du framework community-scripts, je pourrai
-> l'empaqueter au format exact (`ct/multioutils.sh` + `install/multioutils-install.sh`).
+### Changer le port du serveur
+
+Le port est **interne au conteneur**. Avec Cloudflare Tunnel, il n'est jamais exposé :
+le tunnel relie un nom de domaine → `localhost:<port>`. Pour le modifier après coup :
+```bash
+pct exec <CTID> -- sed -i 's/^PORT=.*/PORT=8080/' /opt/multioutils/server/.env
+pct exec <CTID> -- systemctl restart multioutils
+```
+Puis, dans le dashboard Cloudflare, mets le **Public Hostname** du tunnel sur
+`localhost:8080`. (En accès local direct, l'URL devient `http://IP:8080`.)
 
 ---
 
@@ -74,7 +90,32 @@ npm start                 # écoute sur le port 3000
 ## Accès distant — Cloudflare Tunnel
 
 Permet d'accéder au site depuis l'extérieur en **HTTPS**, **sans ouvrir de port** sur ta
-box.
+box (parfait pour un Proxmox à la maison). Le tunnel établit une connexion **sortante**
+vers Cloudflare ; rien à ouvrir sur la box.
+
+### Méthode recommandée — token de connecteur (Zero Trust)
+
+C'est celle qu'utilise le script Proxmox (question « token du tunnel »). Aucune commande
+`login`, aucun fichier de config :
+
+1. Dashboard **Cloudflare Zero Trust → Networks → Tunnels → Create a tunnel**,
+   type **Cloudflared**, donne-lui un nom.
+2. Copie le **token du connecteur** (longue chaîne `eyJ…`).
+3. Colle-le quand le script Proxmox le demande (ou relance le script avec
+   `CF_TUNNEL_TOKEN=…`). En manuel :
+   ```bash
+   cloudflared service install eyJ...ton-token...
+   ```
+4. Toujours dans le tunnel → **Public Hostname → Add** :
+   - *Subdomain / Domain* : ex. `screens.tondomaine.fr`
+   - *Service* : `HTTP` → `localhost:3000` (ou le port choisi)
+5. **(Recommandé)** Zero Trust → **Access → Applications** : protège l'URL par e-mail
+   (2ᵉ barrière avant la page de connexion du site).
+
+L'app utilisera alors l'URL `https://screens.tondomaine.fr` (Paramètres → Serveur
+distant).
+
+### Méthode alternative — CLI (fichier de config)
 
 ### A. Dans le conteneur / la VM du serveur
 ```bash

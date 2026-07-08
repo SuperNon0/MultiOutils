@@ -236,3 +236,30 @@ pas du module screenshot.
 - Le panneau choisit une capture via l'**API bibliothèque de l'hôte** (pas de
   référence au module capture) ; langue FR/EN, texte affiché sélectionnable +
   bouton Copier.
+
+## Déploiement du serveur (Proxmox / mise à jour)
+
+Le serveur vit dans un monorepo, mais il est **autonome** (aucune dépendance
+workspace). Sur un serveur, on ne veut surtout pas installer l'app Electron.
+
+- **Isolation via `npm install --no-workspaces`** (exécuté dans `server/`) : npm ignore
+  le `package.json` racine et n'installe que les dépendances du serveur — vérifié : 0
+  paquet Electron/Konva. `--no-package-lock` garde l'arbre git propre pour que le
+  bouton « Mettre à jour le site » (`git pull --ff-only`) ne rencontre pas de conflit.
+- **Bouton « Mettre à jour le site »** (`server/src/update.ts`) : `git pull` puis
+  `npm install --no-workspaces` + `npm run build` **dans `server/` uniquement**
+  (auparavant il installait tout le monorepo au niveau racine → Electron sur le
+  serveur, corrigé).
+- **Script Proxmox interactif** (`install/proxmox-lxc.sh`) : pose les questions
+  (ressources, réseau, **port**, branche, **token Cloudflare**) avec valeurs par défaut ;
+  mode non-interactif via `ASSUME_YES=1` + variables. Installe `build-essential` +
+  `python3` (modules natifs argon2 / better-sqlite3), clone en `--depth 1`, build isolé,
+  service systemd (`node dist/index.js`).
+- **Cloudflare Tunnel par token de connecteur** (Zero Trust) : `cloudflared service
+  install <token>` — connexion **sortante**, aucun port ouvert sur la box. Le port du
+  serveur reste interne au conteneur ; le tunnel mappe le hostname public →
+  `localhost:<port>`. Changer le port = éditer `.env` (`PORT=`) + `systemctl restart
+  multioutils`, puis ajuster le Public Hostname côté Cloudflare.
+- **Branche** : tant que la PR n'est pas fusionnée dans `main`, le serveur n'existe que
+  sur la branche de dev ; le script la propose par défaut (à repasser sur `main` après
+  fusion). C'était la cause du « serveur qui ne s'installe pas ».
