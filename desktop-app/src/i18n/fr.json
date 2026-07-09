@@ -247,5 +247,7 @@
   "ocr.copied": "Texte copié dans le presse-papier",
   "ocr.empty": "Aucun texte lisible détecté dans cette capture.",
   "ocr.error": "Échec de l'OCR : {msg}",
-  "ocr.noCaptures": "Aucune capture — fais-en une d'abord avec l'outil Capture d'écran."
+  "ocr.noCaptures": "Aucune capture — fais-en une d'abord avec l'outil Capture d'écran.",
+  "editor.loadError": "Impossible de charger l'image de la capture.",
+  "editor.retry": "Réessayer"
 }

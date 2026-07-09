@@ -247,5 +247,7 @@
   "ocr.copied": "Text copied to clipboard",
   "ocr.empty": "No readable text detected in this capture.",
   "ocr.error": "OCR failed: {msg}",
-  "ocr.noCaptures": "No captures yet — take one first with the Screen capture tool."
+  "ocr.noCaptures": "No captures yet — take one first with the Screen capture tool.",
+  "editor.loadError": "Could not load the capture image.",
+  "editor.retry": "Retry"
 }

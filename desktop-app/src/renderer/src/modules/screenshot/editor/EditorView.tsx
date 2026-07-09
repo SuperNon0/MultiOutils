@@ -53,6 +53,8 @@ export function EditorView({
   const { t } = useI18n();
   const host = useHost();
   const [image, setImage] = useState<HTMLImageElement | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const history = useHistory(parseDoc(capture.annotations));
   const { doc } = history;
   const [tool, setToolState] = useState<ToolId>('select');
@@ -68,11 +70,19 @@ export function EditorView({
 
   // Charge l'image ORIGINALE (les annotations restent vectorielles ; le
   // fichier de la bibliothèque peut déjà être aplati — voir docs/06).
+  // On passe par fetch → blob: pour ne pas « tacher » le canvas à l'export
+  // (mo-media:// est une origine distincte). La CSP autorise mo-media: dans
+  // connect-src ET blob: pour l'image chargée ensuite.
   useEffect(() => {
     let url: string | null = null;
     let cancelled = false;
-    void fetch(`mo-media://original/${capture.id}`)
-      .then((res) => res.blob())
+    setImage(null);
+    setLoadError(false);
+    fetch(`mo-media://original/${capture.id}`)
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.blob();
+      })
       .then((blob) => {
         if (cancelled) return;
         url = URL.createObjectURL(blob);
@@ -80,13 +90,19 @@ export function EditorView({
         img.onload = () => {
           if (!cancelled) setImage(img);
         };
+        img.onerror = () => {
+          if (!cancelled) setLoadError(true);
+        };
         img.src = url;
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
       });
     return () => {
       cancelled = true;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [capture.id]);
+  }, [capture.id, reloadKey]);
 
   // Zoom initial : ajuster à la fenêtre
   const fitZoom = useCallback((): number => {
@@ -443,6 +459,17 @@ export function EditorView({
               onToolDone={() => setToolState('select')}
               onStyleFromObject={styleFromObject}
             />
+          ) : loadError ? (
+            <div className="editor-loading editor-load-error">
+              <p className="shortcut-conflict">{t('editor.loadError')}</p>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setReloadKey((k) => k + 1)}
+              >
+                {t('editor.retry')}
+              </button>
+            </div>
           ) : (
             <div className="muted editor-loading">{t('common.loading')}</div>
           )}

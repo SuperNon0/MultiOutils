@@ -1279,3 +1279,10 @@
   white-space: pre-wrap;
   line-height: 1.6;
 }
+
+.editor-load-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
