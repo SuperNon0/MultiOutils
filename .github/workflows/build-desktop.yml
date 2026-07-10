@@ -1,10 +1,18 @@
-# Build de l'installeur Windows + publication GitHub Release à chaque tag
-# vX.Y.Z (docs/01 §7). electron-updater lit ensuite ces releases pour la mise
-# à jour à la demande (docs/00 §5.3).
+# Build de l'installeur Windows + publication GitHub Release (docs/01 §7).
+# electron-updater lit ensuite ces releases pour la mise à jour à la demande
+# (docs/00 §5.3).
+#
+# Publication automatique : à chaque push sur `main`, on lit la version dans
+# desktop-app/package.json. Si la release `v<version>` n'existe pas encore, on
+# construit ET on publie ; sinon on construit seulement (pas de doublon). Il
+# suffit donc de bumper la version dans package.json et de merger sur `main`
+# pour publier une nouvelle release — electron-builder crée le tag `v<version>`
+# et la release via l'API GitHub (aucun push de tag manuel nécessaire).
 name: Build desktop
 
 on:
   push:
+    branches: [main]
     tags: ['v*.*.*']
   # Déclenchement manuel (onglet Actions → Build desktop → Run workflow) :
   # construit l'installeur depuis la branche choisie et publie la release.
@@ -41,7 +49,41 @@ jobs:
       - name: Recompiler better-sqlite3 pour Electron
         run: npx electron-rebuild -v 33.4.11 -f -w better-sqlite3 -m .
 
-      - name: Construire et publier l'installeur
+      # Lit la version cible et détermine si la release existe déjà, pour éviter
+      # de republier (et donc de faire échouer le job) sur un push `main` qui ne
+      # change pas la version.
+      - name: Déterminer la version et l'état de la release
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(node -p "require('./desktop-app/package.json').version")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VERSION" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "La release v$VERSION existe déjà — construction sans publication."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "Nouvelle version v$VERSION — construction et publication."
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construire et publier la release
+        if: steps.version.outputs.exists == 'false'
         run: npm run release -w desktop-app
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Construire l'installeur (release déjà publiée)
+        if: steps.version.outputs.exists == 'true'
+        run: npm run dist -w desktop-app
+
+      # Rend l'installeur téléchargeable depuis l'onglet Actions même quand la
+      # release existe déjà (utile pour re-télécharger sans re-publier).
+      - name: Publier l'artefact
+        if: steps.version.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MultiOutils-Setup
+          path: desktop-app/dist/*Setup*.exe
+          if-no-files-found: warn
