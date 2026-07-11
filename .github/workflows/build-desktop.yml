@@ -8,6 +8,10 @@
 # suffit donc de bumper la version dans package.json et de merger sur `main`
 # pour publier une nouvelle release — electron-builder crée le tag `v<version>`
 # et la release via l'API GitHub (aucun push de tag manuel nécessaire).
+#
+# Chaque release porte aussi le plugin Stream Deck empaqueté
+# (MultiOutils-StreamDeck.streamDeckPlugin) : le job le joint à la release,
+# qu'elle soit nouvelle ou déjà existante (docs/00 §8).
 name: Build desktop
 
 on:
@@ -20,6 +24,7 @@ on:
     paths:
       - 'desktop-app/**'
       - 'packages/shared/**'
+      - 'streamdeck-plugin/**'
       - '.github/workflows/build-desktop.yml'
     tags: ['v*.*.*']
   # Déclenchement manuel (onglet Actions → Build desktop → Run workflow) :
@@ -76,6 +81,21 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # Empaquette le plugin Stream Deck en fichier .streamDeckPlugin
+      # (double-clic = installation) avec la CLI officielle Elgato, pour le
+      # joindre à la release à côté de l'installeur (docs/00 §8).
+      - name: Empaqueter le plugin Stream Deck
+        shell: bash
+        run: |
+          npm run build -w streamdeck-plugin
+          mkdir -p sd-dist
+          npx --yes @elgato/cli@1.7.4 pack \
+            streamdeck-plugin/com.supernon0.multioutils.sdPlugin \
+            --output sd-dist --force
+          mv "sd-dist/com.supernon0.multioutils.streamDeckPlugin" \
+             "sd-dist/MultiOutils-StreamDeck.streamDeckPlugin"
+          ls -la sd-dist
+
       - name: Construire et publier la release
         if: steps.version.outputs.exists == 'false'
         run: npm run release -w desktop-app
@@ -86,12 +106,25 @@ jobs:
         if: steps.version.outputs.exists == 'true'
         run: npm run dist -w desktop-app
 
-      # Rend l'installeur téléchargeable depuis l'onglet Actions même quand la
-      # release existe déjà (utile pour re-télécharger sans re-publier).
+      # Joint le plugin Stream Deck à la release (nouvelle OU déjà existante) :
+      # --clobber remplace l'asset si on repasse dessus. Toute release porte
+      # ainsi l'installeur ET le plugin téléchargeables.
+      - name: Joindre le plugin Stream Deck à la release
+        shell: bash
+        run: |
+          gh release upload "v${{ steps.version.outputs.version }}" \
+            "sd-dist/MultiOutils-StreamDeck.streamDeckPlugin" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Rend l'installeur + le plugin téléchargeables depuis l'onglet Actions
+      # même quand la release existe déjà (re-télécharger sans re-publier).
       - name: Publier l'artefact
         if: steps.version.outputs.exists == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: MultiOutils-Setup
-          path: desktop-app/dist/*Setup*.exe
+          path: |
+            desktop-app/dist/*Setup*.exe
+            sd-dist/MultiOutils-StreamDeck.streamDeckPlugin
           if-no-files-found: warn

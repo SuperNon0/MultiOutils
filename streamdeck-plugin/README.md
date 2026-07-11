@@ -22,6 +22,14 @@ npm run build -w streamdeck-plugin
 
 Le bundle est produit dans `com.supernon0.multioutils.sdPlugin/bin/plugin.js`.
 
+## Installer (utilisation normale)
+
+Chaque **Release GitHub** contient le fichier
+`MultiOutils-StreamDeck.streamDeckPlugin` (à côté de l'installeur de l'app) :
+télécharge-le et **double-clique** dessus — le logiciel Stream Deck l'installe
+tout seul. Les 6 actions MultiOutils apparaissent alors dans la liste des
+actions. (L'app MultiOutils doit être lancée pour que les touches agissent.)
+
 ## Installer (développement)
 
 Deux options :
