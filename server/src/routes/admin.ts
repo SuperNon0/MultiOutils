@@ -10,7 +10,11 @@ import { VERSION } from '../version';
 /** Administration : jetons d'API + mise à jour du site (docs/00 §7.2). */
 export const adminRouter = Router();
 
-adminRouter.use(requireSession);
+// Ce routeur est monté à la racine (app.use(adminRouter)), donc on limite
+// explicitement l'exigence de session aux chemins /admin. Sans ce préfixe,
+// requireSession s'appliquait à TOUTES les routes (dont /setup et /login) et
+// provoquait une boucle de redirection au premier lancement (ERR_TOO_MANY_REDIRECTS).
+adminRouter.use('/admin', requireSession);
 
 function storageStats(): { count: number; sizeMb: number } {
   const count = (
