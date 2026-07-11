@@ -5,6 +5,7 @@ import { randomBytes } from 'node:crypto';
 /** Configuration par variables d'environnement (voir install/.env.example). */
 export const env = {
   port: Number(process.env.PORT ?? 3010),
+  host: process.env.HOST ?? '0.0.0.0',
   dataDir: path.resolve(process.env.DATA_DIR ?? 'data'),
   maxUploadMb: Number(process.env.MAX_UPLOAD_MB ?? 25),
   trustProxy: process.env.TRUST_PROXY === '1' || process.env.NODE_ENV === 'production'

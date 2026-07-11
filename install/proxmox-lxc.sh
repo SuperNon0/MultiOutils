@@ -79,7 +79,7 @@ ask NET         "Réseau ('dhcp' ou 'IP/masque,gw=passerelle')" "dhcp"
 echo
 ask APP_PORT    "Port du serveur MultiOutils (interne au conteneur)" "3010"
 ask REPO_URL    "Dépôt Git à installer"                  "https://github.com/SuperNon0/MultiOutils.git"
-ask REPO_BRANCH "Branche à installer (le serveur est sur cette branche tant que la PR n'est pas fusionnée dans main)" "claude/multioutils-screenshot-app-sxyf9r"
+ask REPO_BRANCH "Branche à installer"                    "main"
 
 # ─── Questions : Cloudflare Tunnel (accès distant sans port ouvert) ───────────
 echo
@@ -165,6 +165,7 @@ npm run build
 mkdir -p /opt/multioutils/server/data
 cat > /opt/multioutils/server/.env <<ENV
 PORT=$APP_PORT
+HOST=0.0.0.0
 DATA_DIR=/opt/multioutils/server/data
 NODE_ENV=production
 TRUST_PROXY=1
@@ -216,16 +217,43 @@ EOF
   ok "Cloudflare Tunnel installé."
 fi
 
-# ─── Récupération de l'IP + résumé final ──────────────────────────────────────
-sleep 3
-CT_IP="$(pct exec "$CTID" -- bash -c "hostname -I | awk '{print \$1}'" 2>/dev/null || true)"
+# ─── Récupération de l'IP (avec ré-essais : le DHCP peut tarder) ───────────────
+CT_IP=""
+for _try in 1 2 3 4 5 6 7 8 9 10; do
+  CT_IP="$(pct exec "$CTID" -- bash -c "hostname -I 2>/dev/null | awk '{print \$1}'" 2>/dev/null || true)"
+  [ -n "$CT_IP" ] && break
+  sleep 2
+done
+
+# ─── Auto-vérification : le serveur répond-il vraiment ? ──────────────────────
+msg "Vérification que le serveur répond sur le port ${APP_PORT}…"
+SERVER_OK=0
+for _try in 1 2 3 4 5 6 7 8 9 10; do
+  if pct exec "$CTID" -- bash -c "curl -fsS -o /dev/null http://127.0.0.1:${APP_PORT}/login" >/dev/null 2>&1; then
+    SERVER_OK=1
+    break
+  fi
+  sleep 2
+done
+
+if [ "$SERVER_OK" = "1" ]; then
+  ok "Le serveur répond bien sur le port ${APP_PORT}."
+else
+  warn "Le serveur ne répond pas encore. Diagnostic :"
+  pct exec "$CTID" -- systemctl --no-pager --lines=20 status multioutils || true
+  echo
+  warn "Voir les journaux détaillés : pct exec $CTID -- journalctl -u multioutils -n 50 --no-pager"
+fi
 
 echo
 echo "══════════════════════════════════════════════════════════════"
 ok  "Installation terminée · conteneur $CTID"
 echo "──────────────────────────────────────────────────────────────"
-echo "  Accès local (réseau maison) :"
-echo "     http://${CT_IP:-<IP-du-conteneur>}:${APP_PORT}"
+echo -e "  \e[1;32m▶ Adresse d'accès (réseau local) :\e[0m"
+echo -e "       \e[1;36mhttp://${CT_IP:-<IP-du-conteneur>}:${APP_PORT}\e[0m"
+echo
+echo "     IP du conteneur : ${CT_IP:-<inconnue — voir 'pct exec '"$CTID"' -- ip a'>}"
+echo "     Port            : ${APP_PORT}"
 echo
 echo "  1. Ouvre cette URL → crée le compte admin."
 echo "  2. Administration → Jetons d'API → « Générer un jeton » (copie-le)."

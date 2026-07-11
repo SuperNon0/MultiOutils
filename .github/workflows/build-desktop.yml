@@ -13,6 +13,14 @@ name: Build desktop
 on:
   push:
     branches: [main]
+    # On ne relance le build/publication que si l'app desktop (ou ce workflow)
+    # change — un bump de version touche desktop-app/package.json, donc les
+    # vraies releases déclenchent bien. Les commits serveur/install/docs sur
+    # `main` n'entraînent pas de build Windows inutile.
+    paths:
+      - 'desktop-app/**'
+      - 'packages/shared/**'
+      - '.github/workflows/build-desktop.yml'
     tags: ['v*.*.*']
   # Déclenchement manuel (onglet Actions → Build desktop → Run workflow) :
   # construit l'installeur depuis la branche choisie et publie la release.

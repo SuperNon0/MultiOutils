@@ -27,15 +27,15 @@ des valeurs par défaut — Entrée pour accepter. Il :
    HTTPS **sans ouvrir de port** ;
 5. affiche l'**IP**, le **port** et les étapes suivantes.
 
-> ⚠️ **Branche** : tant que la PR n'est pas fusionnée dans `main`, le code serveur vit
-> sur la branche de développement. Le script propose donc cette branche par défaut ;
-> mets `main` une fois la fusion faite.
+> ℹ️ **Branche** : le code serveur est désormais sur `main` (branche proposée par
+> défaut). En fin d'installation, le script **vérifie que le serveur répond** et
+> affiche l'**adresse d'accès** (`http://<IP>:<port>`).
 
 **Mode non-interactif** (tout pré-rempli, sans questions) :
 ```bash
 ASSUME_YES=1 CTID=150 HOSTNAME=multioutils RAM_MB=1024 DISK_GB=8 CORES=2 \
 BRIDGE=vmbr0 STORAGE=local-lvm APP_PORT=3010 \
-REPO_BRANCH=claude/multioutils-screenshot-app-sxyf9r \
+REPO_BRANCH=main \
 CF_TUNNEL_TOKEN=eyJ...ton-token... \
 bash -c "$(curl -fsSL .../install/proxmox-lxc.sh)"
 ```

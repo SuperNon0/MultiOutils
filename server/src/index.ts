@@ -22,11 +22,21 @@ function main(): void {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
-          imgSrc: ["'self'"],
+          imgSrc: ["'self'", 'data:'],
           styleSrc: ["'self'"],
-          formAction: ["'self'"]
+          formAction: ["'self'"],
+          // On sert le site en HTTP simple sur le réseau local (l'HTTPS est
+          // assuré en façade par Cloudflare Tunnel). Sans ce null, Helmet
+          // ajoute `upgrade-insecure-requests`, qui force le navigateur à
+          // recharger CSS/polices en HTTPS → échec et page cassée en LAN.
+          upgradeInsecureRequests: null
         }
-      }
+      },
+      // HSTS n'a de sens que servi en HTTPS ; ici TLS est terminé par
+      // Cloudflare. L'activer sur du HTTP local est inutile et peut piéger un
+      // navigateur qui a déjà vu le domaine en HTTPS. On laisse Cloudflare le
+      // gérer.
+      hsts: false
     })
   );
   app.use(express.urlencoded({ extended: false }));
@@ -64,8 +74,11 @@ function main(): void {
   app.use(adminRouter);
   app.use(webRouter);
 
-  app.listen(env.port, () => {
-    console.log(`MultiOutils server v${VERSION} — http://0.0.0.0:${env.port}`);
+  // On écoute explicitement sur toutes les interfaces IPv4 (0.0.0.0) pour
+  // garantir l'accès depuis le réseau local par l'IP du conteneur, même si
+  // l'IPv6 est désactivé dans le LXC.
+  app.listen(env.port, env.host, () => {
+    console.log(`MultiOutils server v${VERSION} — http://${env.host}:${env.port}`);
     console.log(`Données : ${env.dataDir}`);
   });
 }
