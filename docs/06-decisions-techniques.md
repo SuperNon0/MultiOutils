@@ -263,3 +263,33 @@ workspace). Sur un serveur, on ne veut surtout pas installer l'app Electron.
 - **Branche** : tant que la PR n'est pas fusionnée dans `main`, le serveur n'existe que
   sur la branche de dev ; le script la propose par défaut (à repasser sur `main` après
   fusion). C'était la cause du « serveur qui ne s'installe pas ».
+
+## Module Presse-papiers & partage iPhone (v0.2.0, docs/00 §9.4)
+
+- **Surveillance par polling (900 ms)** : Electron n'expose aucun événement de
+  changement du presse-papiers. Signature bon marché — SHA-1 du texte, ou
+  dimensions + SHA-1 du bitmap brut (`toBitmap`, sans ré-encodage PNG) pour les
+  images — pour ne réagir qu'aux vrais changements. Quand l'app recopie
+  elle-même un élément, la signature est pré-armée pour ne pas le recapturer.
+- **Contenus sensibles ignorés** : si les formats du presse-papiers contiennent
+  un marqueur de gestionnaire de mots de passe
+  (`ExcludeClipboardContentFromMonitorProcessing`, KeePass…), rien n'est
+  enregistré.
+- **Table `clips` créée par le module** (`ctx.db.exec` dans `activate`) : l'hôte
+  n'est pas modifié — conforme au principe « ajouter un outil sans toucher aux
+  autres » (docs/01 §2). Images stockées dans `userData/clips/`, miniature en
+  data URL directement en base (le renderer n'accède à aucun fichier).
+- **Rétention** : purge périodique des éléments **non épinglés** plus vieux que
+  le délai réglé (1 h → 30 j, ou jamais) ; les épinglés survivent toujours.
+- **Local-first respecté** : l'envoi d'un clip au serveur est un bouton
+  explicite par élément. La **récupération** (pull) des clips serveur — partagés
+  depuis l'iPhone — est automatique (30 s) mais désactivable ; elle ne fait que
+  lire, dédup par `remote_id`.
+- **iPhone via Raccourcis iOS** (docs/guide-iphone.md) : le menu Partager envoie
+  `POST /api/clips` (JSON pour le texte, multipart pour les photos converties en
+  JPEG — HEIC non supporté par nativeImage). Alternative sans configuration :
+  page web `/clips/deposer`. Le choix « Raccourci » évite une app iOS native
+  (compte développeur, App Store) pour un résultat natif équivalent.
+- **Lecture des réglages `remote.*` par le module** : URL + jeton du serveur
+  appartiennent à l'hôte (Paramètres → Serveur distant, chiffrés DPAPI) ; le
+  module les lit, il ne les gère pas.

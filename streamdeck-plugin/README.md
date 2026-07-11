@@ -7,6 +7,9 @@ Boutons Stream Deck pour piloter l'application MultiOutils (docs/00 §8) :
 | Capture plein écran / zone / fenêtre / différée | Déclenche la capture dans l'app |
 | Ouvrir la bibliothèque | Met l'app au premier plan sur la galerie |
 | Dernière capture → presse-papier | Recopie la dernière capture |
+| Ouvrir le presse-papiers | Ouvre le module Presse-papiers de l'app |
+| Copier le dernier clip | Recopie le dernier élément de l'historique (y compris venus de l'iPhone) |
+| Garder le clip courant | Épingle le contenu actuel du presse-papiers (jamais supprimé) |
 
 Le plugin parle **uniquement à l'app locale** via son service localhost
 (`http://127.0.0.1:41320`, lié à la boucle locale — inaccessible depuis le

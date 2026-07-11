@@ -58,6 +58,28 @@ Supprime une capture côté serveur.
 200 → { "deleted": true }
 ```
 
+### `POST /api/clips`
+Dépose un **clip** (texte ou image) — utilisé par le Raccourci iOS (docs
+`guide-iphone.md`), la page web « Déposer » et l'app.
+- Texte : corps `JSON` → `{ "kind": "text", "text": "…", "source": "iphone" }`
+- Image : `multipart/form-data` → champ `file` (png/jpg/webp) + champ `source`
+```json
+201 → { "id": "clip_ab12…" }
+```
+
+### `GET /api/clips?since=<ISO>`
+Nouveaux clips depuis `since` (200 max, plus récents d'abord). L'app PC interroge
+cette route toutes les 30 s pour rapatrier les partages iPhone.
+```json
+200 → { "items": [ { "id", "kind", "text", "filename", "createdAt", "source" } ] }
+```
+
+### `GET /api/clips/:id/raw`
+Contenu brut (image, ou texte en `text/plain`). **Session OU jeton** — jamais public.
+
+### `DELETE /api/clips/:id`
+Supprime un clip (et son fichier).
+
 ---
 
 ## 3. Interface web (pour l'humain)
@@ -69,6 +91,9 @@ Servie par le même serveur (pages HTML + assets), protégée par **session** :
 | `GET /login` · `POST /login` | Connexion admin |
 | `GET /` | Galerie (grille, filtres dossier/tag/date) |
 | `GET /captures/:id` | Aperçu grand + téléchargement |
+| `GET /clips` | Boîte **Clips** : textes/photos partagés (iPhone, web, app) |
+| `GET /clips/deposer` · `POST /clips/deposer` | Page « Déposer » (texte ou photo) |
+| `POST /clips/:id/delete` | Supprimer un clip |
 | `GET /admin` | Administration |
 | `POST /admin/tokens` · `DELETE /admin/tokens/:id` | Gérer les jetons d'API |
 | `POST /admin/update` | Bouton « Mettre à jour le site » (`git pull` + redémarrage) |

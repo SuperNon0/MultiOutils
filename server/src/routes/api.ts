@@ -3,8 +3,8 @@ import multer from 'multer';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { requireApiToken } from '../auth';
-import { getDb, parseTags, type ServerCapture } from '../db';
+import { requireApiToken, requireSessionOrToken } from '../auth';
+import { getDb, parseTags, type ServerCapture, type ServerClip } from '../db';
 import { env, uploadsDir } from '../env';
 import { VERSION } from '../version';
 
@@ -155,6 +155,115 @@ apiRouter.get('/captures', requireApiToken, (req, res) => {
     page,
     total
   });
+});
+
+// ── Clips (presse-papiers partagé, docs/00 §9.4) ─────────────────────────
+// Reçoit les textes/photos partagés depuis l'iPhone (Raccourci iOS), la page
+// web « Déposer » ou l'app. L'app PC les récupère via GET /clips.
+
+const MAX_CLIP_TEXT = 256_000;
+
+/** Insère un clip texte et retourne son id. */
+export function insertTextClip(text: string, source: string): string {
+  const id = `clip_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
+  getDb()
+    .prepare(
+      `INSERT INTO clips (id, kind, content, path, filename, size_bytes, source, created_at)
+       VALUES (?, 'text', ?, NULL, NULL, ?, ?, ?)`
+    )
+    .run(id, text.slice(0, MAX_CLIP_TEXT), text.length, source, new Date().toISOString());
+  return id;
+}
+
+/** Déplace le fichier téléversé et insère un clip image ; retourne son id. */
+export function insertImageClip(
+  file: Express.Multer.File,
+  source: string
+): string {
+  const id = `clip_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
+  const ext = ALLOWED_MIME[file.mimetype] ?? '.png';
+  const finalPath = path.join(uploadsDir, `${id}${ext}`);
+  fs.renameSync(file.path, finalPath);
+  getDb()
+    .prepare(
+      `INSERT INTO clips (id, kind, content, path, filename, size_bytes, source, created_at)
+       VALUES (?, 'image', NULL, ?, ?, ?, ?, ?)`
+    )
+    .run(id, finalPath, file.originalname || `${id}${ext}`, file.size, source, new Date().toISOString());
+  return id;
+}
+
+apiRouter.post('/clips', requireApiToken, upload.single('file'), (req, res) => {
+  const source = String(req.body?.source ?? 'iphone');
+  if (req.file) {
+    const id = insertImageClip(req.file, source);
+    res.status(201).json({ id });
+    return;
+  }
+  const text = String(req.body?.text ?? '').trim();
+  if (!text) {
+    res.status(400).json({ error: 'texte ou fichier requis' });
+    return;
+  }
+  res.status(201).json({ id: insertTextClip(text, source) });
+});
+
+apiRouter.get('/clips', requireApiToken, (req, res) => {
+  const since = req.query.since ? String(req.query.since) : '';
+  const rows = getDb()
+    .prepare(
+      'SELECT * FROM clips WHERE created_at > ? ORDER BY created_at DESC LIMIT 200'
+    )
+    .all(since) as ServerClip[];
+  res.json({
+    items: rows.map((c) => ({
+      id: c.id,
+      kind: c.kind,
+      text: c.kind === 'text' ? c.content : null,
+      filename: c.filename,
+      createdAt: c.created_at,
+      source: c.source ?? 'iphone'
+    }))
+  });
+});
+
+// Contenu brut : image (ou texte) — session OU jeton, jamais public.
+apiRouter.get('/clips/:id/raw', requireSessionOrToken, (req, res) => {
+  const clip = getDb()
+    .prepare('SELECT * FROM clips WHERE id = ?')
+    .get(req.params.id) as ServerClip | undefined;
+  if (!clip) {
+    res.status(404).json({ error: 'ressource inconnue' });
+    return;
+  }
+  if (clip.kind === 'text') {
+    res.type('text/plain').send(clip.content ?? '');
+    return;
+  }
+  if (!clip.path || !fs.existsSync(clip.path)) {
+    res.status(404).json({ error: 'fichier absent' });
+    return;
+  }
+  res.sendFile(clip.path);
+});
+
+apiRouter.delete('/clips/:id', requireApiToken, (req, res) => {
+  const clip = getDb()
+    .prepare('SELECT path FROM clips WHERE id = ?')
+    .get(req.params.id) as { path: string | null } | undefined;
+  if (!clip) {
+    res.status(404).json({ error: 'ressource inconnue' });
+    return;
+  }
+  getDb().prepare('DELETE FROM clips WHERE id = ?').run(req.params.id);
+  if (clip.path) {
+    try {
+      fs.unlinkSync(clip.path);
+    } catch {
+      // fichier déjà absent
+    }
+  }
+  res.json({ deleted: true });
 });
 
 apiRouter.delete('/captures/:id', requireApiToken, (req, res) => {

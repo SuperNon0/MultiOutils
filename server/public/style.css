@@ -166,3 +166,24 @@ pre.log {
   .grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
   .page { padding: 16px 10px 40px; }
 }
+
+/* Clips (presse-papiers partagé) */
+.gallery-toolbar-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.clips-grid { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.clip-card { padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+.clip-head { font-size: 11px; }
+.clip-text {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 10px 12px; font-size: 12.5px; white-space: pre-wrap; word-break: break-word;
+  max-height: 220px; overflow-y: auto; user-select: text;
+}
+.clip-copy { align-self: flex-start; }
+.clip-img { max-width: min(100%, 420px); max-height: 260px; border: 1px solid var(--border); border-radius: 8px; }
+.clip-del { align-self: flex-end; }
+.deposit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin: 14px 0; }
+.deposit-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+.deposit-card textarea {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  color: var(--text); font-family: inherit; font-size: 13px; padding: 10px 12px; resize: vertical;
+}
+.deposit-card textarea:focus { outline: none; border-color: var(--accent); }

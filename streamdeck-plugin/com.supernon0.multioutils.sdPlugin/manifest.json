@@ -1,7 +1,7 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "Name": "MultiOutils",
-  "Version": "0.1.0.0",
+  "Version": "0.2.0.0",
   "Author": "SuperNon0",
   "UUID": "com.supernon0.multioutils",
   "Description": "Pilote MultiOutils : captures plein écran / zone / fenêtre / différée, ouverture de la bibliothèque, dernière capture dans le presse-papier. Nécessite l'application MultiOutils lancée.",
@@ -29,42 +29,99 @@
       "Name": "Capture plein écran",
       "Tooltip": "Capture l'écran entier dans MultiOutils",
       "Icon": "imgs/fullscreen",
-      "States": [{ "Image": "imgs/key-fullscreen" }]
+      "States": [
+        {
+          "Image": "imgs/key-fullscreen"
+        }
+      ]
     },
     {
       "UUID": "com.supernon0.multioutils.capture-region",
       "Name": "Capture de zone",
       "Tooltip": "Ouvre la sélection de zone de MultiOutils",
       "Icon": "imgs/region",
-      "States": [{ "Image": "imgs/key-region" }]
+      "States": [
+        {
+          "Image": "imgs/key-region"
+        }
+      ]
     },
     {
       "UUID": "com.supernon0.multioutils.capture-window",
       "Name": "Capture de fenêtre",
       "Tooltip": "Ouvre le sélecteur de fenêtre de MultiOutils",
       "Icon": "imgs/window",
-      "States": [{ "Image": "imgs/key-window" }]
+      "States": [
+        {
+          "Image": "imgs/key-window"
+        }
+      ]
     },
     {
       "UUID": "com.supernon0.multioutils.capture-delayed",
       "Name": "Capture différée",
       "Tooltip": "Lance le compte à rebours puis capture",
       "Icon": "imgs/delayed",
-      "States": [{ "Image": "imgs/key-delayed" }]
+      "States": [
+        {
+          "Image": "imgs/key-delayed"
+        }
+      ]
     },
     {
       "UUID": "com.supernon0.multioutils.open-library",
       "Name": "Ouvrir la bibliothèque",
       "Tooltip": "Met MultiOutils au premier plan sur la galerie",
       "Icon": "imgs/library",
-      "States": [{ "Image": "imgs/key-library" }]
+      "States": [
+        {
+          "Image": "imgs/key-library"
+        }
+      ]
     },
     {
       "UUID": "com.supernon0.multioutils.copy-last",
       "Name": "Dernière capture → presse-papier",
       "Tooltip": "Copie la dernière capture dans le presse-papier",
       "Icon": "imgs/clipboard",
-      "States": [{ "Image": "imgs/key-clipboard" }]
+      "States": [
+        {
+          "Image": "imgs/key-clipboard"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.clips-open",
+      "Name": "Ouvrir le presse-papiers",
+      "Tooltip": "Ouvre le module Presse-papiers de MultiOutils",
+      "Icon": "imgs/clipboard",
+      "States": [
+        {
+          "Image": "imgs/key-clipboard"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.clips-copy-last",
+      "Name": "Copier le dernier clip",
+      "Tooltip": "Recopie le dernier élément du presse-papiers MultiOutils (y compris ceux de l'iPhone)",
+      "Icon": "imgs/clipboard",
+      "States": [
+        {
+          "Image": "imgs/key-clipboard"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.clips-pin-current",
+      "Name": "Garder le clip courant",
+      "Tooltip": "Épingle le contenu actuel du presse-papiers dans MultiOutils (jamais supprimé)",
+      "Icon": "imgs/clipboard",
+      "States": [
+        {
+          "Image": "imgs/key-clipboard"
+        }
+      ]
     }
   ]
 }

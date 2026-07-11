@@ -158,4 +158,30 @@ export type NavigateMsg =
       action?: 'select' | 'edit';
     };
 
+/** Élément du presse-papiers (module clipboard, docs/00 §9.4). */
+export interface ClipItem {
+  id: string;
+  kind: 'text' | 'image';
+  /** Texte complet (kind=text). */
+  content: string | null;
+  /** Aperçu : texte tronqué, ou data URL de miniature (kind=image). */
+  preview: string;
+  pinned: boolean;
+  /** 'local' = copié sur ce PC · 'remote' = reçu du serveur (iPhone…). */
+  source: 'local' | 'remote';
+  /** Id serveur si l'élément a été envoyé ou importé. */
+  remoteId: string | null;
+  createdAt: string;
+}
+
+/** Réglages du module presse-papiers (persistés en base). */
+export interface ClipsSettings {
+  /** Surveillance du presse-papiers active. */
+  enabled: boolean;
+  /** Heures avant purge des éléments non épinglés (0 = jamais). */
+  retentionHours: number;
+  /** Récupération auto des clips du serveur (iPhone) quand configuré. */
+  sync: boolean;
+}
+
 export type { Capture };

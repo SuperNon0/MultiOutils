@@ -9,6 +9,9 @@ d'autres outils par la suite. Accès distant optionnel via un serveur auto-hébe
 > tags, favoris, recherche, corbeille (3), mises à jour par bouton + installeur
 > auto à chaque tag (4), serveur auto-hébergé + envoi explicite (5), plugin
 > Stream Deck (6), pipette de couleur & OCR (7).
+> **Depuis la v0.2.0** : module **Presse-papiers** (historique des Ctrl+C, épingle,
+> purge auto réglable) + **partage iPhone → PC** via le menu Partager
+> ([guide](docs/guide-iphone.md)).
 > Décisions techniques : [`docs/06`](docs/06-decisions-techniques.md).
 
 ## 🚀 Développer / lancer depuis les sources
@@ -29,6 +32,7 @@ npm test            # tests · npm run typecheck · npm run build:app
 | La **spec détaillée pour développer** | [`docs/`](docs/) → [`docs/README.md`](docs/README.md) |
 | **Lancer** le logiciel et le site (1ʳᵉ fois) | [`docs/02-demarrage.md`](docs/02-demarrage.md) |
 | **Installer le serveur** (Proxmox / Docker) | [`install/`](install/) → [`install/README.md`](install/README.md) |
+| **Partager depuis l'iPhone** (menu Partager) | [`docs/guide-iphone.md`](docs/guide-iphone.md) |
 
 ## 🧩 Contenu prévu (monorepo)
 

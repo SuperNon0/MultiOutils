@@ -11,12 +11,13 @@ export function e(value: unknown): string {
 export function layout(
   title: string,
   content: string,
-  opts: { nav?: boolean; active?: 'gallery' | 'admin' } = {}
+  opts: { nav?: boolean; active?: 'gallery' | 'clips' | 'admin' } = {}
 ): string {
   const nav = opts.nav
     ? `<nav class="topnav">
         <span class="brand">Multi<span class="accent">Outils</span></span>
         <a href="/"${opts.active === 'gallery' ? ' class="active"' : ''}>Galerie</a>
+        <a href="/clips"${opts.active === 'clips' ? ' class="active"' : ''}>Clips</a>
         <a href="/admin"${opts.active === 'admin' ? ' class="active"' : ''}>Administration</a>
         <form method="post" action="/logout" class="logout"><button type="submit">Déconnexion</button></form>
       </nav>`

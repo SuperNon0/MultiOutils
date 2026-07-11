@@ -77,6 +77,18 @@ const api: PreloadApi = {
     extract: (captureId: string, lang: 'fra' | 'eng') =>
       ipcRenderer.invoke('ocr:extract', captureId, lang)
   },
+  clips: {
+    list: () => ipcRenderer.invoke('clips:list'),
+    copy: (id: string) => ipcRenderer.invoke('clips:copy', id),
+    pin: (id: string, pinned: boolean) => ipcRenderer.invoke('clips:pin', id, pinned),
+    remove: (id: string) => ipcRenderer.invoke('clips:delete', id),
+    clearUnpinned: () => ipcRenderer.invoke('clips:clearUnpinned'),
+    send: (id: string) => ipcRenderer.invoke('clips:send', id),
+    syncNow: () => ipcRenderer.invoke('clips:syncNow'),
+    getSettings: () => ipcRenderer.invoke('clips:getSettings'),
+    setSettings: (patch) => ipcRenderer.invoke('clips:setSettings', patch),
+    onChanged: (cb) => subscribe<void>('clips:changed', cb)
+  },
   host: {
     onNavigate: (cb) => subscribe<NavigateMsg>('host:navigate', cb)
   },

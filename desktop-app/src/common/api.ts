@@ -90,6 +90,22 @@ export interface PreloadApi {
       lang: 'fra' | 'eng'
     ): Promise<{ ok: true; text: string } | { ok: false; error: string }>;
   };
+  clips: {
+    list(): Promise<import('./types').ClipItem[]>;
+    copy(id: string): Promise<void>;
+    pin(id: string, pinned: boolean): Promise<void>;
+    remove(id: string): Promise<void>;
+    clearUnpinned(): Promise<void>;
+    /** Envoi explicite d'un élément au serveur (local-first, docs/00 §6). */
+    send(id: string): Promise<{ ok: boolean; error?: string }>;
+    /** Force une récupération des clips du serveur (iPhone). */
+    syncNow(): Promise<number>;
+    getSettings(): Promise<import('./types').ClipsSettings>;
+    setSettings(
+      patch: Partial<import('./types').ClipsSettings>
+    ): Promise<import('./types').ClipsSettings>;
+    onChanged(cb: () => void): Unsubscribe;
+  };
   host: {
     onNavigate(cb: (nav: NavigateMsg) => void): Unsubscribe;
   };

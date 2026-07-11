@@ -18,6 +18,17 @@ CREATE TABLE IF NOT EXISTS captures (
   folder TEXT, tags TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_srv_captures_created ON captures(created_at);
+CREATE TABLE IF NOT EXISTS clips (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL,          -- 'text' | 'image'
+  content TEXT,                -- texte (kind=text)
+  path TEXT,                   -- fichier image (kind=image)
+  filename TEXT,
+  size_bytes INTEGER,
+  source TEXT,                 -- 'iphone' | 'web' | 'app'
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_srv_clips_created ON clips(created_at);
 `;
 
 let db: Database.Database | null = null;
@@ -41,6 +52,18 @@ export interface ServerCapture {
   size_bytes: number | null;
   folder: string | null;
   tags: string | null; // JSON string[]
+}
+
+/** Clip (texte ou image) partagé depuis l'iPhone, le web ou l'app. */
+export interface ServerClip {
+  id: string;
+  kind: 'text' | 'image';
+  content: string | null;
+  path: string | null;
+  filename: string | null;
+  size_bytes: number | null;
+  source: string | null;
+  created_at: string;
 }
 
 export function parseTags(raw: string | null): string[] {

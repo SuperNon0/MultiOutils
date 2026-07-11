@@ -40,6 +40,8 @@ function main(): void {
     })
   );
   app.use(express.urlencoded({ extended: false }));
+  // clips texte envoyés en JSON par le Raccourci iOS et l'app (docs/00 §9.4)
+  app.use(express.json({ limit: '1mb' }));
   app.use(
     session({
       secret: sessionSecret(),

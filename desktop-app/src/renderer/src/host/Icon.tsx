@@ -195,6 +195,25 @@ const PATHS: Record<string, ReactNode> = {
   folder: (
     <path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7Z" />
   ),
+  clipboard: (
+    <>
+      <rect x="5" y="4.5" width="14" height="17" rx="1.5" />
+      <path d="M9 4.5V3.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v1" />
+      <path d="M8.5 10h7M8.5 13.5h7M8.5 17h4.5" />
+    </>
+  ),
+  phone: (
+    <>
+      <rect x="7" y="2.5" width="10" height="19" rx="2" />
+      <path d="M11 18.5h2" />
+    </>
+  ),
+  pin: (
+    <>
+      <path d="M9 3h6l-1 6 3 3v1.5H7V12l3-3-1-6Z" />
+      <path d="M12 13.5V21" />
+    </>
+  ),
   plus: <path d="M12 5v14M5 12h14" />,
   tag: (
     <>

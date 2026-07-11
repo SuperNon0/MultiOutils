@@ -300,10 +300,43 @@ premier plan ou en arrière-plan.
 - ✅ Réussi quand : on peut prélever la couleur de n'importe quel pixel de l'écran et
   récupérer son code.
 
-### 9.3 Roadmap ouverte (idées)
+### 9.4 Presse-papiers & partage iPhone — Réalisé (v0.2.0)
+Gestionnaire de presse-papiers intégré + réception des partages iPhone.
+
+**Côté PC (module « Presse-papiers ») :**
+- Surveillance du presse-papiers Windows : chaque **Ctrl+C** (texte ou image) est
+  ajouté à une liste horodatée. Clic sur un élément = recopié dans le presse-papier.
+- **Épingler = garder** : un élément épinglé n'est jamais supprimé. Les autres sont
+  **purgés automatiquement** après un délai réglable (1 h / 6 h / 24 h / 7 j / 30 j /
+  jamais) dans les paramètres du module.
+- Recherche dans l'historique, filtre « gardés », vidage manuel.
+- **Sécurité** : les copies marquées sensibles par les gestionnaires de mots de passe
+  (KeePass, 1Password…) sont **ignorées** ; surveillance désactivable.
+- **Envoi au serveur** : bouton explicite par élément (principe local-first, §6) —
+  rien ne part automatiquement.
+
+**Côté iPhone → PC (via le serveur auto-hébergé) :**
+- **Raccourci iOS** « Envoyer à MultiOutils » dans le menu **Partager** : envoie le
+  texte sélectionné ou la photo au serveur (`POST /api/clips`, jeton API). Guide de
+  configuration : `docs/guide-iphone.md`.
+- **Page web « Déposer »** sur le site (`/clips/deposer`) : coller un texte ou
+  téléverser une photo depuis n'importe quel appareil.
+- Le site affiche la boîte **« Clips »** (page `/clips`) : consultation, copie,
+  suppression — session obligatoire.
+- L'app PC **récupère automatiquement** les nouveaux clips du serveur (option
+  activable/désactivable) : les partages iPhone apparaissent dans le module
+  Presse-papiers avec un badge 📱.
+
+**Stream Deck** : trois actions dédiées — ouvrir le presse-papiers, copier le dernier
+clip, garder (épingler) le clip courant.
+
+- ✅ Réussi quand : un texte partagé depuis l'iPhone apparaît sur le PC en < 30 s ;
+  un Ctrl+C apparaît dans la liste ; un élément épinglé survit à la purge.
+
+### 9.5 Roadmap ouverte (idées)
 Enregistrement vidéo/GIF · règle & mesure de pixels · synchro cloud (Drive/Dropbox) ·
-historique du presse-papier · watermark automatique · générateur de QR code · notes
-rapides · **système de plugins tiers**.
+watermark automatique · générateur de QR code · notes rapides ·
+**système de plugins tiers**.
 
 ---
 

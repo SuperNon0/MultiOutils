@@ -4,6 +4,7 @@
  * Rien d'autre à modifier.
  */
 import type { ToolModule } from './host/types';
+import { clipboardModule } from './modules/clipboard';
 import { colorPickerModule } from './modules/color-picker';
 import { ocrModule } from './modules/ocr';
 import { screenshotModule } from './modules/screenshot';
@@ -11,5 +12,6 @@ import { screenshotModule } from './modules/screenshot';
 export const modules: ToolModule[] = [
   screenshotModule,
   colorPickerModule,
-  ocrModule
+  ocrModule,
+  clipboardModule
 ].sort((a, b) => a.order - b.order);

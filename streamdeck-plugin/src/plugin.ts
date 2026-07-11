@@ -67,11 +67,37 @@ class CopyLast extends SingletonAction {
   }
 }
 
+// ── Module Presse-papiers (docs/00 §9.4) ─────────────────────────────────
+
+@action({ UUID: 'com.supernon0.multioutils.clips-open' })
+class ClipsOpen extends SingletonAction {
+  override onKeyDown(ev: KeyDownEvent): Promise<void> {
+    return sendCommand('clips.open', ev);
+  }
+}
+
+@action({ UUID: 'com.supernon0.multioutils.clips-copy-last' })
+class ClipsCopyLast extends SingletonAction {
+  override onKeyDown(ev: KeyDownEvent): Promise<void> {
+    return sendCommand('clips.copyLast', ev);
+  }
+}
+
+@action({ UUID: 'com.supernon0.multioutils.clips-pin-current' })
+class ClipsPinCurrent extends SingletonAction {
+  override onKeyDown(ev: KeyDownEvent): Promise<void> {
+    return sendCommand('clips.pinCurrent', ev);
+  }
+}
+
 streamDeck.actions.registerAction(new CaptureFullscreen());
 streamDeck.actions.registerAction(new CaptureRegion());
 streamDeck.actions.registerAction(new CaptureWindow());
 streamDeck.actions.registerAction(new CaptureDelayed());
 streamDeck.actions.registerAction(new OpenLibrary());
 streamDeck.actions.registerAction(new CopyLast());
+streamDeck.actions.registerAction(new ClipsOpen());
+streamDeck.actions.registerAction(new ClipsCopyLast());
+streamDeck.actions.registerAction(new ClipsPinCurrent());
 
 void streamDeck.connect();

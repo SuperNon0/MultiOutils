@@ -1289,6 +1289,86 @@
   border-top: 1px solid var(--border);
 }
 
+/* ── Presse-papiers ─────────────────────────────────────────────────── */
+
+.clips-search {
+  flex: 1;
+  max-width: 340px;
+}
+.clips-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  padding-bottom: 22px;
+}
+.clip-row {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px 10px;
+  transition: border-color 0.15s;
+}
+.clip-row:hover {
+  border-color: var(--accent);
+}
+.clip-row.pinned {
+  border-left: 3px solid var(--accent);
+}
+.clip-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-family: var(--font-mono);
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+.clip-text {
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: text;
+}
+.clip-thumb {
+  max-height: 72px;
+  max-width: 220px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  object-fit: contain;
+  align-self: flex-start;
+}
+.clip-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+}
+.clip-badge {
+  display: inline-flex;
+  color: var(--accent);
+}
+.clip-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+}
+.clip-actions .active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.setting-hint {
+  font-size: 11px;
+  padding: 6px 0 2px;
+}
+
 .ocr-layout {
   flex: 1;
   min-height: 0;
