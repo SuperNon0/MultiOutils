@@ -38,3 +38,13 @@ export function formatColor(
   if (format === 'hsl') return toHsl(r, g, b);
   return toHex(r, g, b);
 }
+
+/**
+ * Noir ou blanc selon la meilleure lisibilité par-dessus la couleur donnée
+ * (luminance perçue, Rec. 709). Sert à dessiner l'icône pipette « remplie »
+ * de la dernière couleur prélevée.
+ */
+export function readableText(r: number, g: number, b: number): string {
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return luminance > 0.55 ? '#000000' : '#ffffff';
+}

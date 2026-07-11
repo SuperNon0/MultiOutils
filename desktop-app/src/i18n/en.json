@@ -229,6 +229,7 @@
   "colorpicker.help": "Full screen with magnifier: click the pixel you want, its code is copied to the clipboard. Also available in the tray menu.",
   "colorpicker.hint": "Click a pixel — Escape to cancel",
   "colorpicker.format": "Copied format",
+  "colorpicker.current": "Current color",
   "colorpicker.history": "Recent colors",
   "colorpicker.historyEmpty": "No color picked yet.",
   "colorpicker.copyTooltip": "Copy this code",

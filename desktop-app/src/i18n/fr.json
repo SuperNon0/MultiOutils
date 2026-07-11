@@ -229,6 +229,7 @@
   "colorpicker.help": "Plein écran avec loupe : clique le pixel voulu, son code est copié dans le presse-papier. Aussi disponible dans le menu du tray.",
   "colorpicker.hint": "Clique un pixel — Échap pour annuler",
   "colorpicker.format": "Format copié",
+  "colorpicker.current": "Couleur actuelle",
   "colorpicker.history": "Dernières couleurs",
   "colorpicker.historyEmpty": "Aucune couleur prélevée pour l'instant.",
   "colorpicker.copyTooltip": "Copier ce code",

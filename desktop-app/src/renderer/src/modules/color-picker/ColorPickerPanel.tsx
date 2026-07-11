@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useHost } from '../../host/context';
 import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
-import { formatColor } from '../../lib/color';
+import { formatColor, readableText } from '../../lib/color';
 
 type Format = 'hex' | 'rgb' | 'hsl';
 
@@ -38,6 +38,10 @@ export function ColorPickerPanel(): ReactNode {
     host.notify(t('colorpicker.copied', { code }));
   };
 
+  // Dernière couleur prélevée : l'historique est trié du plus récent au plus
+  // ancien (module principal), donc history[0] est la couleur « actuelle ».
+  const current = history[0];
+
   return (
     <div className="panel">
       <header className="panel-header">
@@ -45,10 +49,20 @@ export function ColorPickerPanel(): ReactNode {
         <div className="capture-bar">
           <button
             type="button"
-            className="btn btn-primary"
+            className="btn btn-primary cp-pick"
             onClick={() => void window.api.colorpicker.start()}
           >
-            <Icon name="eyedropper" />
+            {/* La pipette « se remplit » de la dernière couleur prélevée. */}
+            <span
+              className="cp-pick-tip"
+              style={
+                current
+                  ? { background: current.hex, color: readableText(current.r, current.g, current.b) }
+                  : undefined
+              }
+            >
+              <Icon name="eyedropper" />
+            </span>
             {t('colorpicker.pick')}
           </button>
           <select
@@ -66,6 +80,27 @@ export function ColorPickerPanel(): ReactNode {
             <option value="hsl">HSL</option>
           </select>
         </div>
+
+        {current && (
+          <button
+            type="button"
+            className="cp-current"
+            title={t('colorpicker.copyTooltip')}
+            onClick={() => void copyEntry(current)}
+          >
+            <span className="cp-current-swatch" style={{ background: current.hex }} />
+            <span className="cp-current-text">
+              <span className="cp-current-label muted">{t('colorpicker.current')}</span>
+              <span className="cp-current-code">
+                {formatColor(current.r, current.g, current.b, format)}
+              </span>
+            </span>
+            <span className="cp-current-copy">
+              <Icon name="copy" />
+            </span>
+          </button>
+        )}
+
         <div className="capture-hint muted">{t('colorpicker.help')}</div>
       </header>
 
