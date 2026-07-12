@@ -171,6 +171,10 @@ export interface ClipItem {
   source: 'local' | 'remote';
   /** Id serveur si l'élément a été envoyé ou importé. */
   remoteId: string | null;
+  /** Dossier (taxonomie partagée avec les captures). */
+  folderId: string | null;
+  /** Tags (ids de la taxonomie partagée). */
+  tagIds: string[];
   createdAt: string;
 }
 

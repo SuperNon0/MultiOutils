@@ -187,3 +187,8 @@ pre.log {
   color: var(--text); font-family: inherit; font-size: 13px; padding: 10px 12px; resize: vertical;
 }
 .deposit-card textarea:focus { outline: none; border-color: var(--accent); }
+.clip-organize summary { cursor: pointer; font-size: 11.5px; }
+.clip-organize[open] { border-top: 1px dashed var(--border); padding-top: 8px; }
+.clip-organize form { margin-top: 8px; }
+.clip-organize input[type='text'] { min-width: 220px; }
+.clip-head .tags { display: inline-flex; }

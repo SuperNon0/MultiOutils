@@ -310,6 +310,10 @@ Gestionnaire de presse-papiers intégré + réception des partages iPhone.
   **purgés automatiquement** après un délai réglable (1 h / 6 h / 24 h / 7 j / 30 j /
   jamais) dans les paramètres du module.
 - Recherche dans l'historique, filtre « gardés », vidage manuel.
+- **Dossiers & tags** (v0.2.1) : chaque clip peut être rangé dans un **dossier** et
+  porter des **tags** — même taxonomie que les captures (les dossiers/tags créés dans
+  la bibliothèque servent partout). Filtres par dossier et par tag dans le panneau,
+  et sur la page Clips du site (édition dossier/tags par clip côté web aussi).
 - **Sécurité** : les copies marquées sensibles par les gestionnaires de mots de passe
   (KeePass, 1Password…) sont **ignorées** ; surveillance désactivable.
 - **Envoi au serveur** : bouton explicite par élément (principe local-first, §6) —

@@ -1315,8 +1315,14 @@
 .clip-row.pinned {
   border-left: 3px solid var(--accent);
 }
-.clip-main {
+.clip-body {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.clip-main {
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -1328,6 +1334,55 @@
   text-align: left;
   cursor: pointer;
   padding: 0;
+}
+.clip-folder {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.clip-tags {
+  display: inline-flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.clip-tag {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0 7px;
+  font-size: 9.5px;
+}
+.clip-organize {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.clip-tag-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.clip-tag-choice {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 2px 9px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.clip-tag-choice:hover {
+  border-color: var(--accent);
+}
+.clip-tag-choice.on {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .clip-text {
   font-size: 12.5px;

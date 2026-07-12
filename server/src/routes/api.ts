@@ -163,22 +163,52 @@ apiRouter.get('/captures', requireApiToken, (req, res) => {
 
 const MAX_CLIP_TEXT = 256_000;
 
+/** Organisation d'un clip : dossier lisible + noms de tags (comme les captures). */
+export interface ClipMeta {
+  folder?: string | null;
+  tags?: string[];
+}
+
+function normalizeTags(raw: unknown): string[] {
+  let list: unknown = raw;
+  if (typeof raw === 'string') {
+    // multipart : les tags arrivent en JSON string ; ou en « a, b, c »
+    try {
+      list = JSON.parse(raw);
+    } catch {
+      list = raw.split(',');
+    }
+  }
+  return Array.isArray(list)
+    ? list.map((t) => String(t).trim()).filter((t) => t.length > 0)
+    : [];
+}
+
 /** Insère un clip texte et retourne son id. */
-export function insertTextClip(text: string, source: string): string {
+export function insertTextClip(text: string, source: string, meta: ClipMeta = {}): string {
   const id = `clip_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
   getDb()
     .prepare(
-      `INSERT INTO clips (id, kind, content, path, filename, size_bytes, source, created_at)
-       VALUES (?, 'text', ?, NULL, NULL, ?, ?, ?)`
+      `INSERT INTO clips (id, kind, content, path, filename, size_bytes, source, folder, tags, created_at)
+       VALUES (?, 'text', ?, NULL, NULL, ?, ?, ?, ?, ?)`
     )
-    .run(id, text.slice(0, MAX_CLIP_TEXT), text.length, source, new Date().toISOString());
+    .run(
+      id,
+      text.slice(0, MAX_CLIP_TEXT),
+      text.length,
+      source,
+      meta.folder ?? null,
+      JSON.stringify(meta.tags ?? []),
+      new Date().toISOString()
+    );
   return id;
 }
 
 /** Déplace le fichier téléversé et insère un clip image ; retourne son id. */
 export function insertImageClip(
   file: Express.Multer.File,
-  source: string
+  source: string,
+  meta: ClipMeta = {}
 ): string {
   const id = `clip_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
   const ext = ALLOWED_MIME[file.mimetype] ?? '.png';
@@ -186,17 +216,47 @@ export function insertImageClip(
   fs.renameSync(file.path, finalPath);
   getDb()
     .prepare(
-      `INSERT INTO clips (id, kind, content, path, filename, size_bytes, source, created_at)
-       VALUES (?, 'image', NULL, ?, ?, ?, ?, ?)`
+      `INSERT INTO clips (id, kind, content, path, filename, size_bytes, source, folder, tags, created_at)
+       VALUES (?, 'image', NULL, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(id, finalPath, file.originalname || `${id}${ext}`, file.size, source, new Date().toISOString());
+    .run(
+      id,
+      finalPath,
+      file.originalname || `${id}${ext}`,
+      file.size,
+      source,
+      meta.folder ?? null,
+      JSON.stringify(meta.tags ?? []),
+      new Date().toISOString()
+    );
   return id;
+}
+
+/** Met à jour dossier/tags d'un clip (app + page web). */
+export function organizeClip(id: string, meta: ClipMeta): boolean {
+  const existing = getDb().prepare('SELECT 1 FROM clips WHERE id = ?').get(id);
+  if (!existing) return false;
+  if (meta.folder !== undefined) {
+    getDb()
+      .prepare('UPDATE clips SET folder = ? WHERE id = ?')
+      .run(meta.folder && meta.folder.trim() ? meta.folder.trim() : null, id);
+  }
+  if (meta.tags !== undefined) {
+    getDb()
+      .prepare('UPDATE clips SET tags = ? WHERE id = ?')
+      .run(JSON.stringify(meta.tags), id);
+  }
+  return true;
 }
 
 apiRouter.post('/clips', requireApiToken, upload.single('file'), (req, res) => {
   const source = String(req.body?.source ?? 'iphone');
+  const meta: ClipMeta = {
+    folder: req.body?.folder ? String(req.body.folder) : null,
+    tags: normalizeTags(req.body?.tags)
+  };
   if (req.file) {
-    const id = insertImageClip(req.file, source);
+    const id = insertImageClip(req.file, source, meta);
     res.status(201).json({ id });
     return;
   }
@@ -205,7 +265,20 @@ apiRouter.post('/clips', requireApiToken, upload.single('file'), (req, res) => {
     res.status(400).json({ error: 'texte ou fichier requis' });
     return;
   }
-  res.status(201).json({ id: insertTextClip(text, source) });
+  res.status(201).json({ id: insertTextClip(text, source, meta) });
+});
+
+// Organisation (dossier/tags) d'un clip existant — jeton (l'app).
+apiRouter.patch('/clips/:id', requireApiToken, (req, res) => {
+  const ok = organizeClip(req.params.id, {
+    folder: req.body?.folder !== undefined ? (req.body.folder ? String(req.body.folder) : null) : undefined,
+    tags: req.body?.tags !== undefined ? normalizeTags(req.body.tags) : undefined
+  });
+  if (!ok) {
+    res.status(404).json({ error: 'ressource inconnue' });
+    return;
+  }
+  res.json({ updated: true });
 });
 
 apiRouter.get('/clips', requireApiToken, (req, res) => {
@@ -222,7 +295,9 @@ apiRouter.get('/clips', requireApiToken, (req, res) => {
       text: c.kind === 'text' ? c.content : null,
       filename: c.filename,
       createdAt: c.created_at,
-      source: c.source ?? 'iphone'
+      source: c.source ?? 'iphone',
+      folder: c.folder,
+      tags: parseTags(c.tags)
     }))
   });
 });

@@ -61,8 +61,9 @@ Supprime une capture côté serveur.
 ### `POST /api/clips`
 Dépose un **clip** (texte ou image) — utilisé par le Raccourci iOS (docs
 `guide-iphone.md`), la page web « Déposer » et l'app.
-- Texte : corps `JSON` → `{ "kind": "text", "text": "…", "source": "iphone" }`
-- Image : `multipart/form-data` → champ `file` (png/jpg/webp) + champ `source`
+- Texte : corps `JSON` → `{ "kind": "text", "text": "…", "source": "iphone", "folder": "Travail / Projet A", "tags": ["idée"] }`
+- Image : `multipart/form-data` → champ `file` (png/jpg/webp) + champs `source`, `folder`, `tags` (JSON)
+- `folder` et `tags` sont optionnels (organisation comme les captures).
 ```json
 201 → { "id": "clip_ab12…" }
 ```
@@ -71,7 +72,13 @@ Dépose un **clip** (texte ou image) — utilisé par le Raccourci iOS (docs
 Nouveaux clips depuis `since` (200 max, plus récents d'abord). L'app PC interroge
 cette route toutes les 30 s pour rapatrier les partages iPhone.
 ```json
-200 → { "items": [ { "id", "kind", "text", "filename", "createdAt", "source" } ] }
+200 → { "items": [ { "id", "kind", "text", "filename", "createdAt", "source", "folder", "tags" } ] }
+```
+
+### `PATCH /api/clips/:id`
+Met à jour l'organisation d'un clip : `{ "folder": "…" | null, "tags": ["…"] }`.
+```json
+200 → { "updated": true }
 ```
 
 ### `GET /api/clips/:id/raw`
@@ -91,8 +98,9 @@ Servie par le même serveur (pages HTML + assets), protégée par **session** :
 | `GET /login` · `POST /login` | Connexion admin |
 | `GET /` | Galerie (grille, filtres dossier/tag/date) |
 | `GET /captures/:id` | Aperçu grand + téléchargement |
-| `GET /clips` | Boîte **Clips** : textes/photos partagés (iPhone, web, app) |
+| `GET /clips` | Boîte **Clips** : textes/photos partagés, filtres dossier/tag |
 | `GET /clips/deposer` · `POST /clips/deposer` | Page « Déposer » (texte ou photo) |
+| `POST /clips/:id/organize` | Modifier dossier & tags d'un clip |
 | `POST /clips/:id/delete` | Supprimer un clip |
 | `GET /admin` | Administration |
 | `POST /admin/tokens` · `DELETE /admin/tokens/:id` | Gérer les jetons d'API |

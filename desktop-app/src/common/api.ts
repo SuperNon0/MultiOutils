@@ -94,6 +94,11 @@ export interface PreloadApi {
     list(): Promise<import('./types').ClipItem[]>;
     copy(id: string): Promise<void>;
     pin(id: string, pinned: boolean): Promise<void>;
+    /** Dossier + tags — même taxonomie que les captures. */
+    organize(
+      id: string,
+      patch: { folderId?: string | null; tagIds?: string[] }
+    ): Promise<void>;
     remove(id: string): Promise<void>;
     clearUnpinned(): Promise<void>;
     /** Envoi explicite d'un élément au serveur (local-first, docs/00 §6). */

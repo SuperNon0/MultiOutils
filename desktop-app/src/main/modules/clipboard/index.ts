@@ -37,7 +37,19 @@ interface ClipRow {
   pinned: number;
   source: 'local' | 'remote';
   remote_id: string | null;
+  folder_id: string | null;
+  tags: string | null; // JSON string[] d'ids de tags (taxonomie partagée)
   created_at: string;
+}
+
+function parseTagIds(raw: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((t) => typeof t === 'string') : [];
+  } catch {
+    return [];
+  }
 }
 
 function rowToItem(row: ClipRow): ClipItem {
@@ -49,6 +61,8 @@ function rowToItem(row: ClipRow): ClipItem {
     pinned: row.pinned === 1,
     source: row.source,
     remoteId: row.remote_id,
+    folderId: row.folder_id,
+    tagIds: parseTagIds(row.tags),
     createdAt: row.created_at
   };
 }
@@ -232,9 +246,38 @@ export function createClipboardMainModule(): MainToolModule {
 
   // ── Envoi explicite au serveur ───────────────────────────────────────────
 
+  /** Chemin lisible du dossier (« Travail / Projet A ») — taxonomie de l'hôte. */
+  const folderPath = (folderId: string | null): string | null => {
+    if (!folderId) return null;
+    const all = ctx.db
+      .prepare('SELECT id, name, parent_id FROM folders')
+      .all() as Array<{ id: string; name: string; parent_id: string | null }>;
+    const parts: string[] = [];
+    let current = all.find((f) => f.id === folderId);
+    let guard = 0;
+    while (current && guard++ < 20) {
+      parts.unshift(current.name);
+      const parentId = current.parent_id;
+      current = parentId ? all.find((f) => f.id === parentId) : undefined;
+    }
+    return parts.length > 0 ? parts.join(' / ') : null;
+  };
+
+  /** Noms des tags à partir de leurs ids (tags inexistants ignorés). */
+  const tagNames = (ids: string[]): string[] => {
+    if (ids.length === 0) return [];
+    const placeholders = ids.map(() => '?').join(',');
+    const rows = ctx.db
+      .prepare(`SELECT name FROM tags WHERE id IN (${placeholders})`)
+      .all(...ids) as Array<{ name: string }>;
+    return rows.map((r) => r.name);
+  };
+
   const sendOne = async (row: ClipRow): Promise<void> => {
     const remote = remoteConfig();
     if (!remote) throw new Error('notConfigured');
+    const folder = folderPath(row.folder_id);
+    const tags = tagNames(parseTagIds(row.tags));
     let res: Response;
     if (row.kind === 'text') {
       res = await fetch(`${remote.url}/api/clips`, {
@@ -243,7 +286,13 @@ export function createClipboardMainModule(): MainToolModule {
           Authorization: `Bearer ${remote.token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ kind: 'text', text: row.content ?? '', source: 'app' }),
+        body: JSON.stringify({
+          kind: 'text',
+          text: row.content ?? '',
+          source: 'app',
+          folder,
+          tags
+        }),
         signal: AbortSignal.timeout(30_000)
       });
     } else {
@@ -252,6 +301,8 @@ export function createClipboardMainModule(): MainToolModule {
       const form = new FormData();
       form.append('file', new Blob([buffer], { type: 'image/png' }), `${row.id}.png`);
       form.append('source', 'app');
+      if (folder) form.append('folder', folder);
+      form.append('tags', JSON.stringify(tags));
       res = await fetch(`${remote.url}/api/clips`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${remote.token}` },
@@ -347,10 +398,19 @@ export function createClipboardMainModule(): MainToolModule {
           pinned     INTEGER NOT NULL DEFAULT 0,
           source     TEXT NOT NULL DEFAULT 'local',
           remote_id  TEXT,
+          folder_id  TEXT,
+          tags       TEXT,
           created_at TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_clips_created ON clips(created_at);
       `);
+      // Migration depuis la 0.2.0 (table sans dossier/tags) : ALTER gardé.
+      const columns = (
+        ctx.db.prepare('PRAGMA table_info(clips)').all() as Array<{ name: string }>
+      ).map((c) => c.name);
+      if (!columns.includes('folder_id'))
+        ctx.db.exec('ALTER TABLE clips ADD COLUMN folder_id TEXT');
+      if (!columns.includes('tags')) ctx.db.exec('ALTER TABLE clips ADD COLUMN tags TEXT');
 
       clipsDir = path.join(app.getPath('userData'), 'clips');
       fs.mkdirSync(clipsDir, { recursive: true });
@@ -384,6 +444,24 @@ export function createClipboardMainModule(): MainToolModule {
         ctx.db.prepare('UPDATE clips SET pinned = ? WHERE id = ?').run(pinned ? 1 : 0, id);
         ctx.broadcast('clips:changed');
       });
+
+      // Dossier + tags : même taxonomie que les captures (tables de l'hôte).
+      ipcMain.handle(
+        'clips:organize',
+        (_event, id: string, patch: { folderId?: string | null; tagIds?: string[] }) => {
+          if (patch.folderId !== undefined) {
+            ctx.db
+              .prepare('UPDATE clips SET folder_id = ? WHERE id = ?')
+              .run(patch.folderId, id);
+          }
+          if (patch.tagIds !== undefined) {
+            ctx.db
+              .prepare('UPDATE clips SET tags = ? WHERE id = ?')
+              .run(JSON.stringify(patch.tagIds), id);
+          }
+          ctx.broadcast('clips:changed');
+        }
+      );
 
       ipcMain.handle('clips:delete', (_event, id: string) => {
         const row = getRow(id);

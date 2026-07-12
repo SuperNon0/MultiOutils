@@ -81,6 +81,7 @@ const api: PreloadApi = {
     list: () => ipcRenderer.invoke('clips:list'),
     copy: (id: string) => ipcRenderer.invoke('clips:copy', id),
     pin: (id: string, pinned: boolean) => ipcRenderer.invoke('clips:pin', id, pinned),
+    organize: (id, patch) => ipcRenderer.invoke('clips:organize', id, patch),
     remove: (id: string) => ipcRenderer.invoke('clips:delete', id),
     clearUnpinned: () => ipcRenderer.invoke('clips:clearUnpinned'),
     send: (id: string) => ipcRenderer.invoke('clips:send', id),

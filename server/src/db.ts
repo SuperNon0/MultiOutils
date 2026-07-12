@@ -26,10 +26,21 @@ CREATE TABLE IF NOT EXISTS clips (
   filename TEXT,
   size_bytes INTEGER,
   source TEXT,                 -- 'iphone' | 'web' | 'app'
+  folder TEXT,                 -- chemin lisible (« Travail / Projet A »)
+  tags TEXT,                   -- JSON string[] de noms de tags
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_srv_clips_created ON clips(created_at);
 `;
+
+/** Migration douce : colonnes ajoutées après la 0.2.0 (ALTER gardé). */
+function migrate(database: Database.Database): void {
+  const columns = (
+    database.prepare('PRAGMA table_info(clips)').all() as Array<{ name: string }>
+  ).map((c) => c.name);
+  if (!columns.includes('folder')) database.exec('ALTER TABLE clips ADD COLUMN folder TEXT');
+  if (!columns.includes('tags')) database.exec('ALTER TABLE clips ADD COLUMN tags TEXT');
+}
 
 let db: Database.Database | null = null;
 
@@ -38,6 +49,7 @@ export function getDb(): Database.Database {
     db = new Database(path.join(env.dataDir, 'multioutils-server.db'));
     db.pragma('journal_mode = WAL');
     db.exec(SCHEMA);
+    migrate(db);
   }
   return db;
 }
@@ -63,6 +75,8 @@ export interface ServerClip {
   filename: string | null;
   size_bytes: number | null;
   source: string | null;
+  folder: string | null;
+  tags: string | null; // JSON string[] de noms
   created_at: string;
 }
 

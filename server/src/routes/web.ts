@@ -12,7 +12,7 @@ import {
 import { getDb, parseTags, type ServerCapture, type ServerClip } from '../db';
 import { env, uploadsDir } from '../env';
 import { e, layout } from '../html';
-import { insertImageClip, insertTextClip, queryCaptures } from './api';
+import { insertImageClip, insertTextClip, organizeClip, queryCaptures } from './api';
 
 /** Interface web de consultation (docs/00 §7.1). Auth : session. */
 export const webRouter = Router();
@@ -255,16 +255,49 @@ const clipUpload = multer({
   fileFilter: (_req, file, cb) => cb(null, Boolean(ALLOWED_CLIP_MIME[file.mimetype]))
 });
 
-webRouter.get('/clips', requireSession, (_req, res) => {
-  const clips = getDb()
-    .prepare('SELECT * FROM clips ORDER BY created_at DESC LIMIT 100')
+webRouter.get('/clips', requireSession, (req, res) => {
+  const filterFolder = req.query.folder ? String(req.query.folder) : '';
+  const filterTag = req.query.tag ? String(req.query.tag) : '';
+
+  const all = getDb()
+    .prepare('SELECT * FROM clips ORDER BY created_at DESC LIMIT 200')
     .all() as ServerClip[];
+
+  // valeurs de filtres existantes (petite échelle, comme la galerie)
+  const folderSet = new Set<string>();
+  const tagSet = new Set<string>();
+  for (const clip of all) {
+    if (clip.folder) folderSet.add(clip.folder);
+    for (const tag of parseTags(clip.tags)) tagSet.add(tag);
+  }
+  const options = (values: Set<string>, current: string): string =>
+    [...values]
+      .sort((a, b) => a.localeCompare(b))
+      .map(
+        (v) => `<option value="${e(v)}"${v === current ? ' selected' : ''}>${e(v)}</option>`
+      )
+      .join('');
+
+  const clips = all.filter((clip) => {
+    if (filterFolder && clip.folder !== filterFolder) return false;
+    if (filterTag && !parseTags(clip.tags).includes(filterTag)) return false;
+    return true;
+  });
 
   const rows = clips
     .map((clip) => {
       const when = clip.created_at.slice(0, 16).replace('T', ' ');
       const badge =
         clip.source === 'iphone' ? '📱' : clip.source === 'web' ? '🌐' : '💻';
+      const tags = parseTags(clip.tags);
+      const organizeLine = [
+        clip.folder ? `📁 ${e(clip.folder)}` : '',
+        tags.length > 0
+          ? `<span class="tags">${tags.map((tg) => `<span class="tag">${e(tg)}</span>`).join('')}</span>`
+          : ''
+      ]
+        .filter(Boolean)
+        .join(' · ');
       const body =
         clip.kind === 'text'
           ? `<pre class="clip-text" data-clip>${e(clip.content ?? '')}</pre>
@@ -273,8 +306,18 @@ webRouter.get('/clips', requireSession, (_req, res) => {
                <img class="clip-img" src="/api/clips/${e(clip.id)}/raw" alt="${e(clip.filename ?? '')}" loading="lazy">
              </a>`;
       return `<div class="card clip-card">
-        <div class="clip-head muted">${badge} ${e(when)}${clip.filename ? ` · ${e(clip.filename)}` : ''}</div>
+        <div class="clip-head muted">${badge} ${e(when)}${clip.filename ? ` · ${e(clip.filename)}` : ''}${organizeLine ? ` · ${organizeLine}` : ''}</div>
         ${body}
+        <details class="clip-organize">
+          <summary class="muted">Dossier & tags</summary>
+          <form method="post" action="/clips/${e(clip.id)}/organize" class="row-gap">
+            <input type="text" name="folder" placeholder="Dossier (ex. Travail / Projet A)"
+                   value="${e(clip.folder ?? '')}">
+            <input type="text" name="tags" placeholder="Tags séparés par des virgules"
+                   value="${e(tags.join(', '))}">
+            <button class="btn" type="submit">Enregistrer</button>
+          </form>
+        </details>
         <form method="post" action="/clips/${e(clip.id)}/delete" class="clip-del"
               onsubmit="return confirm('Supprimer ce clip ?')">
           <button class="btn btn-danger" type="submit">Supprimer</button>
@@ -292,11 +335,29 @@ webRouter.get('/clips', requireSession, (_req, res) => {
       </div>
       <p class="muted">Textes et photos partagés depuis ton iPhone (menu Partager),
       la page Déposer ou le logiciel. Le logiciel PC les récupère automatiquement.</p>
+      <form class="filters" method="get" action="/clips">
+        <select name="folder"><option value="">Tous les dossiers</option>${options(folderSet, filterFolder)}</select>
+        <select name="tag"><option value="">Tous les tags</option>${options(tagSet, filterTag)}</select>
+        <button class="btn" type="submit">Filtrer</button>
+        <a class="btn" href="/clips">Réinitialiser</a>
+      </form>
       ${clips.length === 0 ? '<p class="muted">Aucun clip pour l’instant.</p>' : `<div class="clips-grid">${rows}</div>`}
       <script src="/public/clips.js"></script>`,
       { nav: true, active: 'clips' }
     )
   );
+});
+
+webRouter.post('/clips/:id/organize', requireSession, (req, res) => {
+  const body = req.body as Record<string, string>;
+  organizeClip(req.params.id, {
+    folder: body.folder ?? null,
+    tags: (body.tags ?? '')
+      .split(',')
+      .map((tg) => tg.trim())
+      .filter((tg) => tg.length > 0)
+  });
+  res.redirect('/clips');
 });
 
 webRouter.get('/clips/deposer', requireSession, (_req, res) => {
