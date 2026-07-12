@@ -309,11 +309,14 @@ Gestionnaire de presse-papiers intégré + réception des partages iPhone.
 - **Épingler = garder** : un élément épinglé n'est jamais supprimé. Les autres sont
   **purgés automatiquement** après un délai réglable (1 h / 6 h / 24 h / 7 j / 30 j /
   jamais) dans les paramètres du module.
-- Recherche dans l'historique, filtre « gardés », vidage manuel.
-- **Dossiers & tags** (v0.2.1) : chaque clip peut être rangé dans un **dossier** et
-  porter des **tags** — même taxonomie que les captures (les dossiers/tags créés dans
-  la bibliothèque servent partout). Filtres par dossier et par tag dans le panneau,
-  et sur la page Clips du site (édition dossier/tags par clip côté web aussi).
+- Recherche dans l'historique, vidage manuel.
+- **Présentation identique à la bibliothèque** (v0.2.2) : barre latérale avec vues
+  intelligentes — Tous les éléments, **Favoris** (jamais supprimés), Aujourd'hui,
+  Cette semaine, Ce mois-ci, Non triés, Reçus de l'iPhone — puis dossiers et tags.
+- **Dossiers & tags propres au presse-papiers** (v0.2.2) : taxonomie **séparée** de
+  celle des captures (création/renommage/suppression + couleur depuis la barre
+  latérale, comme la bibliothèque). Sur la page Clips du site : filtres par
+  dossier/tag et édition par clip.
 - **Sécurité** : les copies marquées sensibles par les gestionnaires de mots de passe
   (KeePass, 1Password…) sont **ignorées** ; surveillance désactivable.
 - **Envoi au serveur** : bouton explicite par élément (principe local-first, §6) —

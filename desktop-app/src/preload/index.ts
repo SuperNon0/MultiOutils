@@ -82,6 +82,19 @@ const api: PreloadApi = {
     copy: (id: string) => ipcRenderer.invoke('clips:copy', id),
     pin: (id: string, pinned: boolean) => ipcRenderer.invoke('clips:pin', id, pinned),
     organize: (id, patch) => ipcRenderer.invoke('clips:organize', id, patch),
+    folders: {
+      list: () => ipcRenderer.invoke('clips:folders:list'),
+      create: (name, parentId, color) =>
+        ipcRenderer.invoke('clips:folders:create', name, parentId, color),
+      update: (id, patch) => ipcRenderer.invoke('clips:folders:update', id, patch),
+      remove: (id) => ipcRenderer.invoke('clips:folders:delete', id)
+    },
+    tags: {
+      list: () => ipcRenderer.invoke('clips:tags:list'),
+      create: (name, color) => ipcRenderer.invoke('clips:tags:create', name, color),
+      update: (id, patch) => ipcRenderer.invoke('clips:tags:update', id, patch),
+      remove: (id) => ipcRenderer.invoke('clips:tags:delete', id)
+    },
     remove: (id: string) => ipcRenderer.invoke('clips:delete', id),
     clearUnpinned: () => ipcRenderer.invoke('clips:clearUnpinned'),
     send: (id: string) => ipcRenderer.invoke('clips:send', id),

@@ -246,11 +246,11 @@ export function createClipboardMainModule(): MainToolModule {
 
   // ── Envoi explicite au serveur ───────────────────────────────────────────
 
-  /** Chemin lisible du dossier (« Travail / Projet A ») — taxonomie de l'hôte. */
+  /** Chemin lisible du dossier (« Travail / Projet A ») — taxonomie du module. */
   const folderPath = (folderId: string | null): string | null => {
     if (!folderId) return null;
     const all = ctx.db
-      .prepare('SELECT id, name, parent_id FROM folders')
+      .prepare('SELECT id, name, parent_id FROM clip_folders')
       .all() as Array<{ id: string; name: string; parent_id: string | null }>;
     const parts: string[] = [];
     let current = all.find((f) => f.id === folderId);
@@ -268,7 +268,7 @@ export function createClipboardMainModule(): MainToolModule {
     if (ids.length === 0) return [];
     const placeholders = ids.map(() => '?').join(',');
     const rows = ctx.db
-      .prepare(`SELECT name FROM tags WHERE id IN (${placeholders})`)
+      .prepare(`SELECT name FROM clip_tags WHERE id IN (${placeholders})`)
       .all(...ids) as Array<{ name: string }>;
     return rows.map((r) => r.name);
   };
@@ -387,7 +387,9 @@ export function createClipboardMainModule(): MainToolModule {
     activate(hostCtx: MainHostContext): void {
       ctx = hostCtx;
 
-      // Table du module : créée ICI (aucune modification de l'hôte requise).
+      // Tables du module : créées ICI (aucune modification de l'hôte requise).
+      // Les dossiers/tags du presse-papiers sont SÉPARÉS de ceux des captures
+      // (demande utilisateur) : taxonomie propre au module.
       ctx.db.exec(`
         CREATE TABLE IF NOT EXISTS clips (
           id         TEXT PRIMARY KEY,
@@ -403,6 +405,18 @@ export function createClipboardMainModule(): MainToolModule {
           created_at TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_clips_created ON clips(created_at);
+        CREATE TABLE IF NOT EXISTS clip_folders (
+          id         TEXT PRIMARY KEY,
+          name       TEXT NOT NULL,
+          parent_id  TEXT,
+          color      TEXT,
+          created_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS clip_tags (
+          id    TEXT PRIMARY KEY,
+          name  TEXT NOT NULL UNIQUE,
+          color TEXT
+        );
       `);
       // Migration depuis la 0.2.0 (table sans dossier/tags) : ALTER gardé.
       const columns = (
@@ -445,7 +459,7 @@ export function createClipboardMainModule(): MainToolModule {
         ctx.broadcast('clips:changed');
       });
 
-      // Dossier + tags : même taxonomie que les captures (tables de l'hôte).
+      // Dossier + tags du clip (taxonomie PROPRE au module — clip_folders/clip_tags).
       ipcMain.handle(
         'clips:organize',
         (_event, id: string, patch: { folderId?: string | null; tagIds?: string[] }) => {
@@ -462,6 +476,99 @@ export function createClipboardMainModule(): MainToolModule {
           ctx.broadcast('clips:changed');
         }
       );
+
+      // ── Dossiers du presse-papiers ─────────────────────────────────────
+      ipcMain.handle('clips:folders:list', () =>
+        (
+          ctx.db
+            .prepare('SELECT * FROM clip_folders ORDER BY name COLLATE NOCASE')
+            .all() as Array<{
+            id: string;
+            name: string;
+            parent_id: string | null;
+            color: string | null;
+            created_at: string;
+          }>
+        ).map((f) => ({
+          id: f.id,
+          name: f.name,
+          parentId: f.parent_id,
+          color: f.color,
+          createdAt: f.created_at
+        }))
+      );
+      ipcMain.handle(
+        'clips:folders:create',
+        (_event, name: string, parentId: string | null, color: string | null) => {
+          const id = randomUUID();
+          ctx.db
+            .prepare(
+              'INSERT INTO clip_folders (id, name, parent_id, color, created_at) VALUES (?, ?, ?, ?, ?)'
+            )
+            .run(id, name, parentId, color, new Date().toISOString());
+          ctx.broadcast('clips:changed');
+          return { id, name, parentId, color, createdAt: new Date().toISOString() };
+        }
+      );
+      ipcMain.handle(
+        'clips:folders:update',
+        (_event, id: string, patch: { name?: string; color?: string | null }) => {
+          if (patch.name !== undefined)
+            ctx.db.prepare('UPDATE clip_folders SET name = ? WHERE id = ?').run(patch.name, id);
+          if (patch.color !== undefined)
+            ctx.db.prepare('UPDATE clip_folders SET color = ? WHERE id = ?').run(patch.color, id);
+          ctx.broadcast('clips:changed');
+        }
+      );
+      ipcMain.handle('clips:folders:delete', (_event, id: string) => {
+        // les sous-dossiers remontent d'un niveau, les clips redeviennent « non triés »
+        const row = ctx.db
+          .prepare('SELECT parent_id FROM clip_folders WHERE id = ?')
+          .get(id) as { parent_id: string | null } | undefined;
+        ctx.db
+          .prepare('UPDATE clip_folders SET parent_id = ? WHERE parent_id = ?')
+          .run(row?.parent_id ?? null, id);
+        ctx.db.prepare('UPDATE clips SET folder_id = NULL WHERE folder_id = ?').run(id);
+        ctx.db.prepare('DELETE FROM clip_folders WHERE id = ?').run(id);
+        ctx.broadcast('clips:changed');
+      });
+
+      // ── Tags du presse-papiers ─────────────────────────────────────────
+      ipcMain.handle('clips:tags:list', () =>
+        ctx.db
+          .prepare('SELECT id, name, color FROM clip_tags ORDER BY name COLLATE NOCASE')
+          .all()
+      );
+      ipcMain.handle('clips:tags:create', (_event, name: string, color: string | null) => {
+        const id = randomUUID();
+        ctx.db
+          .prepare('INSERT OR IGNORE INTO clip_tags (id, name, color) VALUES (?, ?, ?)')
+          .run(id, name, color);
+        ctx.broadcast('clips:changed');
+        return { id, name, color };
+      });
+      ipcMain.handle(
+        'clips:tags:update',
+        (_event, id: string, patch: { name?: string; color?: string | null }) => {
+          if (patch.name !== undefined)
+            ctx.db.prepare('UPDATE clip_tags SET name = ? WHERE id = ?').run(patch.name, id);
+          if (patch.color !== undefined)
+            ctx.db.prepare('UPDATE clip_tags SET color = ? WHERE id = ?').run(patch.color, id);
+          ctx.broadcast('clips:changed');
+        }
+      );
+      ipcMain.handle('clips:tags:delete', (_event, id: string) => {
+        // retire le tag de tous les clips (colonne JSON)
+        const rows = ctx.db
+          .prepare("SELECT id, tags FROM clips WHERE tags LIKE '%' || ? || '%'")
+          .all(id) as Array<{ id: string; tags: string | null }>;
+        for (const row of rows) {
+          const next = parseTagIds(row.tags).filter((t) => t !== id);
+          ctx.db.prepare('UPDATE clips SET tags = ? WHERE id = ?').run(JSON.stringify(next), row.id);
+        }
+        ctx.db.prepare('DELETE FROM clip_tags WHERE id = ?').run(id);
+        ctx.broadcast('clips:changed');
+      });
 
       ipcMain.handle('clips:delete', (_event, id: string) => {
         const row = getRow(id);

@@ -1291,11 +1291,9 @@
 
 /* ── Presse-papiers ─────────────────────────────────────────────────── */
 
-.clips-search {
-  flex: 1;
-  max-width: 340px;
-}
 .clips-list {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;

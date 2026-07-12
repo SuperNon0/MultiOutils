@@ -3,6 +3,7 @@ import type { Folder, Tag } from '@multioutils/shared';
 import type { ClipItem, ClipsSettings } from '../../../../common/types';
 import { Icon } from '../../host/Icon';
 import { useI18n, type TFunc } from '../../i18n';
+import { ClipsSidebar, type ClipSource } from './ClipsSidebar';
 
 /** Options de rétention proposées (heures ; 0 = jamais). */
 const RETENTION_CHOICES = [1, 6, 24, 168, 720, 0] as const;
@@ -21,14 +22,22 @@ function timeLabel(iso: string): string {
   return sameDay ? time : `${date.toLocaleDateString()} ${time}`;
 }
 
-/** Dossiers aplatis avec indentation (même présentation que la galerie). */
+/** Borne inférieure des vues intelligentes (aujourd'hui / semaine / mois). */
+function periodStart(period: 'today' | 'week' | 'month'): number {
+  const now = new Date();
+  if (period === 'today') return new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  if (period === 'week') return now.getTime() - 7 * 24 * 3600_000;
+  return now.getTime() - 30 * 24 * 3600_000;
+}
+
+/** Dossiers aplatis avec indentation (pour le sélecteur d'organisation). */
 function flattenFolders(folders: Folder[]): Array<{ id: string; label: string }> {
   const out: Array<{ id: string; label: string }> = [];
   const walk = (parentId: string | null, depth: number): void => {
     for (const folder of folders
       .filter((f) => f.parentId === parentId)
       .sort((a, b) => a.name.localeCompare(b.name))) {
-      out.push({ id: folder.id, label: `${' '.repeat(depth * 3)}${folder.name}` });
+      out.push({ id: folder.id, label: `${'— '.repeat(depth)}${folder.name}` });
       walk(folder.id, depth + 1);
     }
   };
@@ -36,24 +45,25 @@ function flattenFolders(folders: Folder[]): Array<{ id: string; label: string }>
   return out;
 }
 
-/** Panneau « Presse-papiers » : historique des copies, épingle, dossiers/tags, envoi. */
+/** Panneau « Presse-papiers » — même présentation que la bibliothèque de
+ *  captures : barre latérale (favoris, périodes, dossiers, tags séparés),
+ *  barre d'outils, liste. */
 export function ClipboardPanel(): ReactNode {
   const { t } = useI18n();
   const [items, setItems] = useState<ClipItem[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
+  const [source, setSource] = useState<ClipSource>({ kind: 'all' });
+  const [activeTagIds, setActiveTagIds] = useState<string[]>([]);
   const [search, setSearch] = useState('');
-  const [onlyPinned, setOnlyPinned] = useState(false);
-  const [filterFolder, setFilterFolder] = useState('');
-  const [filterTag, setFilterTag] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const refresh = async (): Promise<void> => {
     setItems(await window.api.clips.list());
     setEnabled((await window.api.clips.getSettings()).enabled);
-    setFolders(await window.api.folders.list());
-    setTags(await window.api.tags.list());
+    setFolders(await window.api.clips.folders.list());
+    setTags(await window.api.clips.tags.list());
   };
 
   useEffect(() => {
@@ -68,13 +78,31 @@ export function ClipboardPanel(): ReactNode {
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase();
     return items.filter((item) => {
-      if (onlyPinned && !item.pinned) return false;
-      if (filterFolder && item.folderId !== filterFolder) return false;
-      if (filterTag && !item.tagIds.includes(filterTag)) return false;
+      switch (source.kind) {
+        case 'favorites':
+          if (!item.pinned) return false;
+          break;
+        case 'smart':
+          if (new Date(item.createdAt).getTime() < periodStart(source.period)) return false;
+          break;
+        case 'unsorted':
+          if (item.folderId) return false;
+          break;
+        case 'phone':
+          if (item.source !== 'remote') return false;
+          break;
+        case 'folder':
+          if (item.folderId !== source.folderId) return false;
+          break;
+        default:
+          break;
+      }
+      if (activeTagIds.length > 0 && !activeTagIds.every((id) => item.tagIds.includes(id)))
+        return false;
       if (!query) return true;
       return (item.content ?? item.preview).toLowerCase().includes(query);
     });
-  }, [items, search, onlyPinned, filterFolder, filterTag]);
+  }, [items, source, activeTagIds, search]);
 
   const toggleEnabled = async (): Promise<void> => {
     const next = await window.api.clips.setSettings({ enabled: !enabled });
@@ -113,189 +141,178 @@ export function ClipboardPanel(): ReactNode {
         <div className="capture-hint muted">{t('clips.help')}</div>
       </header>
 
-      <section className="cp-history">
-        <div className="gallery-toolbar">
-          <input
-            type="search"
-            className="input clips-search"
-            placeholder={t('clips.search')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <select
-            className="select"
-            value={filterFolder}
-            aria-label={t('clips.folder')}
-            onChange={(e) => setFilterFolder(e.target.value)}
-          >
-            <option value="">{t('clips.allFolders')}</option>
-            {folderOptions.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-          <select
-            className="select"
-            value={filterTag}
-            aria-label={t('clips.tag')}
-            onChange={(e) => setFilterTag(e.target.value)}
-          >
-            <option value="">{t('clips.allTags')}</option>
-            {tags.map((tag) => (
-              <option key={tag.id} value={tag.id}>
-                {tag.name}
-              </option>
-            ))}
-          </select>
-          <div className="gallery-toolbar-right">
-            <button
-              type="button"
-              className={onlyPinned ? 'btn btn-primary' : 'btn'}
-              onClick={() => setOnlyPinned((v) => !v)}
-            >
-              <Icon name="pin" />
-              {t('clips.pinnedFilter')}
-            </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => void window.api.clips.clearUnpinned()}
-              title={t('clips.clearTooltip')}
-            >
-              <Icon name="trash" />
-              {t('clips.clear')}
-            </button>
-          </div>
-        </div>
+      <section className="gallery gallery-with-sidebar">
+        <ClipsSidebar
+          source={source}
+          folders={folders}
+          tags={tags}
+          activeTagIds={activeTagIds}
+          onSource={setSource}
+          onToggleTag={(id) =>
+            setActiveTagIds((ids) =>
+              ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]
+            )
+          }
+          onChanged={() => void refresh()}
+        />
 
-        {visible.length === 0 ? (
-          <div className="gallery-empty muted">
-            {items.length === 0 ? t('clips.empty') : t('clips.noMatch')}
+        <div className="gallery-main">
+          <div className="gallery-toolbar">
+            <input
+              className="input gallery-search"
+              type="search"
+              placeholder={t('clips.search')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <span className="muted gallery-count">
+              {t('clips.count', { n: visible.length })}
+            </span>
+            <div className="gallery-toolbar-right">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => void window.api.clips.clearUnpinned()}
+                title={t('clips.clearTooltip')}
+              >
+                <Icon name="trash" size={13} />
+                {t('clips.clear')}
+              </button>
+            </div>
           </div>
-        ) : (
-          <div className="clips-list">
-            {visible.map((item) => (
-              <div key={item.id} className={`clip-row card${item.pinned ? ' pinned' : ''}`}>
-                <div className="clip-body">
-                  <button
-                    type="button"
-                    className="clip-main"
-                    title={t('clips.copyTooltip')}
-                    onClick={() => void window.api.clips.copy(item.id)}
-                  >
-                    {item.kind === 'image' ? (
-                      <img className="clip-thumb" src={item.preview} alt="" />
-                    ) : (
-                      <span className="clip-text">{item.preview}</span>
-                    )}
-                    <span className="clip-meta muted">
-                      {item.source === 'remote' && (
-                        <span className="clip-badge" title={t('clips.fromPhone')}>
-                          <Icon name="phone" size={12} />
-                        </span>
-                      )}
-                      {timeLabel(item.createdAt)}
-                      {folderName(item.folderId) && (
-                        <span className="clip-folder">
-                          <Icon name="folder" size={11} /> {folderName(item.folderId)}
-                        </span>
-                      )}
-                      {item.tagIds.length > 0 && (
-                        <span className="clip-tags">
-                          {item.tagIds
-                            .map((id) => tags.find((tg) => tg.id === id)?.name)
-                            .filter(Boolean)
-                            .map((name) => (
-                              <span key={name} className="clip-tag">
-                                {name}
-                              </span>
-                            ))}
-                        </span>
-                      )}
-                      {item.remoteId && item.source === 'local' && (
-                        <span title={t('clips.sentTooltip')}> · ✓</span>
-                      )}
-                    </span>
-                  </button>
 
-                  {editingId === item.id && (
-                    <div className="clip-organize">
-                      <select
-                        className="select"
-                        value={item.folderId ?? ''}
-                        aria-label={t('clips.folder')}
-                        onChange={(e) =>
-                          void window.api.clips.organize(item.id, {
-                            folderId: e.target.value || null
-                          })
-                        }
-                      >
-                        <option value="">{t('clips.noFolder')}</option>
-                        {folderOptions.map((f) => (
-                          <option key={f.id} value={f.id}>
-                            {f.label}
-                          </option>
-                        ))}
-                      </select>
-                      <div className="clip-tag-picker">
-                        {tags.length === 0 ? (
-                          <span className="muted">{t('clips.noTagsYet')}</span>
-                        ) : (
-                          tags.map((tag) => (
-                            <button
-                              key={tag.id}
-                              type="button"
-                              className={`clip-tag-choice${item.tagIds.includes(tag.id) ? ' on' : ''}`}
-                              onClick={() => void toggleTag(item, tag.id)}
-                            >
-                              {tag.name}
-                            </button>
-                          ))
+          {visible.length === 0 ? (
+            <div className="gallery-empty muted">
+              {items.length === 0 ? t('clips.empty') : t('clips.noMatch')}
+            </div>
+          ) : (
+            <div className="clips-list">
+              {visible.map((item) => (
+                <div key={item.id} className={`clip-row card${item.pinned ? ' pinned' : ''}`}>
+                  <div className="clip-body">
+                    <button
+                      type="button"
+                      className="clip-main"
+                      title={t('clips.copyTooltip')}
+                      onClick={() => void window.api.clips.copy(item.id)}
+                    >
+                      {item.kind === 'image' ? (
+                        <img className="clip-thumb" src={item.preview} alt="" />
+                      ) : (
+                        <span className="clip-text">{item.preview}</span>
+                      )}
+                      <span className="clip-meta muted">
+                        {item.source === 'remote' && (
+                          <span className="clip-badge" title={t('clips.fromPhone')}>
+                            <Icon name="phone" size={12} />
+                          </span>
                         )}
-                      </div>
-                    </div>
-                  )}
-                </div>
+                        {timeLabel(item.createdAt)}
+                        {folderName(item.folderId) && (
+                          <span className="clip-folder">
+                            <Icon name="folder" size={11} /> {folderName(item.folderId)}
+                          </span>
+                        )}
+                        {item.tagIds.length > 0 && (
+                          <span className="clip-tags">
+                            {item.tagIds
+                              .map((id) => tags.find((tg) => tg.id === id))
+                              .filter((tg): tg is Tag => Boolean(tg))
+                              .map((tg) => (
+                                <span
+                                  key={tg.id}
+                                  className="clip-tag"
+                                  style={tg.color ? { borderColor: tg.color, color: tg.color } : undefined}
+                                >
+                                  {tg.name}
+                                </span>
+                              ))}
+                          </span>
+                        )}
+                        {item.remoteId && item.source === 'local' && (
+                          <span title={t('clips.sentTooltip')}> · ✓</span>
+                        )}
+                      </span>
+                    </button>
 
-                <div className="clip-actions">
-                  <button
-                    type="button"
-                    className={`btn btn-icon${editingId === item.id ? ' active' : ''}`}
-                    title={t('clips.organize')}
-                    onClick={() => setEditingId(editingId === item.id ? null : item.id)}
-                  >
-                    <Icon name="folder" />
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-icon${item.pinned ? ' active' : ''}`}
-                    title={item.pinned ? t('clips.unpin') : t('clips.pin')}
-                    onClick={() => void window.api.clips.pin(item.id, !item.pinned)}
-                  >
-                    <Icon name={item.pinned ? 'starFilled' : 'pin'} />
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-icon"
-                    title={t('clips.send')}
-                    onClick={() => void window.api.clips.send(item.id)}
-                  >
-                    <Icon name="send" />
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-icon"
-                    title={t('clips.delete')}
-                    onClick={() => void window.api.clips.remove(item.id)}
-                  >
-                    <Icon name="trash" />
-                  </button>
+                    {editingId === item.id && (
+                      <div className="clip-organize">
+                        <select
+                          className="select"
+                          value={item.folderId ?? ''}
+                          aria-label={t('clips.folder')}
+                          onChange={(e) =>
+                            void window.api.clips.organize(item.id, {
+                              folderId: e.target.value || null
+                            })
+                          }
+                        >
+                          <option value="">{t('clips.noFolder')}</option>
+                          {folderOptions.map((f) => (
+                            <option key={f.id} value={f.id}>
+                              {f.label}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="clip-tag-picker">
+                          {tags.length === 0 ? (
+                            <span className="muted">{t('clips.noTagsYet')}</span>
+                          ) : (
+                            tags.map((tag) => (
+                              <button
+                                key={tag.id}
+                                type="button"
+                                className={`clip-tag-choice${item.tagIds.includes(tag.id) ? ' on' : ''}`}
+                                onClick={() => void toggleTag(item, tag.id)}
+                              >
+                                {tag.name}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="clip-actions">
+                    <button
+                      type="button"
+                      className={`btn btn-icon${editingId === item.id ? ' active' : ''}`}
+                      title={t('clips.organize')}
+                      onClick={() => setEditingId(editingId === item.id ? null : item.id)}
+                    >
+                      <Icon name="folder" />
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn btn-icon${item.pinned ? ' active' : ''}`}
+                      title={item.pinned ? t('clips.unpin') : t('clips.pin')}
+                      onClick={() => void window.api.clips.pin(item.id, !item.pinned)}
+                    >
+                      <Icon name={item.pinned ? 'starFilled' : 'star'} />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-icon"
+                      title={t('clips.send')}
+                      onClick={() => void window.api.clips.send(item.id)}
+                    >
+                      <Icon name="send" />
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-icon"
+                      title={t('clips.delete')}
+                      onClick={() => void window.api.clips.remove(item.id)}
+                    >
+                      <Icon name="trash" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );

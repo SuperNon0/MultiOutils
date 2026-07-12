@@ -94,11 +94,23 @@ export interface PreloadApi {
     list(): Promise<import('./types').ClipItem[]>;
     copy(id: string): Promise<void>;
     pin(id: string, pinned: boolean): Promise<void>;
-    /** Dossier + tags — même taxonomie que les captures. */
+    /** Dossier + tags — taxonomie PROPRE au presse-papiers (clip_folders/clip_tags). */
     organize(
       id: string,
       patch: { folderId?: string | null; tagIds?: string[] }
     ): Promise<void>;
+    folders: {
+      list(): Promise<Folder[]>;
+      create(name: string, parentId: string | null, color: string | null): Promise<Folder>;
+      update(id: string, patch: { name?: string; color?: string | null }): Promise<void>;
+      remove(id: string): Promise<void>;
+    };
+    tags: {
+      list(): Promise<Tag[]>;
+      create(name: string, color: string | null): Promise<Tag>;
+      update(id: string, patch: { name?: string; color?: string | null }): Promise<void>;
+      remove(id: string): Promise<void>;
+    };
     remove(id: string): Promise<void>;
     clearUnpinned(): Promise<void>;
     /** Envoi explicite d'un élément au serveur (local-first, docs/00 §6). */
