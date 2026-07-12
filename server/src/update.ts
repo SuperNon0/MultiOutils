@@ -71,9 +71,19 @@ export function startUpdate(): boolean {
   state.finishedAt = null;
   state.log = '';
 
+  // ⚠️ Le service tourne avec NODE_ENV=production (EnvironmentFile). Si npm
+  // l'hérite, `npm install` SUPPRIME les devDependencies… dont TypeScript,
+  // indispensable au build → « tsc: not found ». On retire NODE_ENV de
+  // l'environnement des étapes et on force --include=dev.
+  const { NODE_ENV: _omitted, ...childEnv } = process.env;
+
   const step = async (cmd: string, args: string[], cwd: string): Promise<void> => {
     state.log += `$ ${cmd} ${args.join(' ')}\n`;
-    const { stdout, stderr } = await run(cmd, args, { cwd, timeout: 600_000 });
+    const { stdout, stderr } = await run(cmd, args, {
+      cwd,
+      timeout: 600_000,
+      env: childEnv
+    });
     if (stdout.trim()) state.log += `${stdout.trim()}\n`;
     if (stderr.trim()) state.log += `${stderr.trim()}\n`;
   };
@@ -86,7 +96,14 @@ export function startUpdate(): boolean {
       // sur le serveur. --no-package-lock garde l'arbre git propre.
       await step(
         'npm',
-        ['install', '--no-workspaces', '--no-package-lock', '--no-audit', '--no-fund'],
+        [
+          'install',
+          '--no-workspaces',
+          '--include=dev',
+          '--no-package-lock',
+          '--no-audit',
+          '--no-fund'
+        ],
         serverDir
       );
       await step('npm', ['run', 'build'], serverDir);

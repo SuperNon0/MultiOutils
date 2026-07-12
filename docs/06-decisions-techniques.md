@@ -312,3 +312,10 @@ workspace). Sur un serveur, on ne veut surtout pas installer l'app Electron.
   le succès (avec redémarrage) ou l'échec avec le journal complet. Le journal
   est aussi persisté dans `DATA_DIR/last-update.log` pour diagnostic après
   redémarrage.
+- **« tsc: not found » lors de la mise à jour par le bouton** : le service tourne
+  avec `NODE_ENV=production` (EnvironmentFile) ; l'étape `npm install` lancée
+  par le bouton héritait de cette variable et npm **supprimait les
+  devDependencies** (dont TypeScript) → build impossible. Correctif : les
+  étapes de mise à jour s'exécutent dans un environnement **sans NODE_ENV** et
+  l'install force `--include=dev`. Reproduit et vérifié : tsc supprimé +
+  NODE_ENV=production → le bouton réinstalle et build avec succès.
