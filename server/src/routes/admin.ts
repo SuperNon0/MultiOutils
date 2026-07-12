@@ -4,7 +4,7 @@ import { createToken, listTokens, requireSession, revokeToken } from '../auth';
 import { getDb } from '../db';
 import { uploadsDir } from '../env';
 import { e, layout } from '../html';
-import { checkForUpdate, runUpdate, scheduleRestart } from '../update';
+import { checkForUpdate, startUpdate, updateState } from '../update';
 import { VERSION } from '../version';
 
 /** Administration : jetons d'API + mise à jour du site (docs/00 §7.2). */
@@ -134,12 +134,41 @@ adminRouter.post('/admin/update/check', (_req, res) => {
   });
 });
 
+// Lance la mise à jour en ARRIÈRE-PLAN et redirige vers la page de suivi :
+// la requête répond tout de suite (Cloudflare coupe au-delà de ~100 s alors
+// que npm install + build durent plusieurs minutes).
 adminRouter.post('/admin/update', (_req, res) => {
-  void runUpdate().then((result) => {
-    const block = result.ok
-      ? `<p class="ok">Mise à jour appliquée — le service redémarre…</p><pre class="log">${e(result.log)}</pre>`
-      : `<p class="error">Échec de la mise à jour (le service continue sur la version actuelle).</p><pre class="log">${e(result.log)}</pre>`;
-    res.send(adminPage({ updateBlock: block }));
-    if (result.ok) scheduleRestart();
-  });
+  startUpdate();
+  res.redirect('/admin/update/status');
+});
+
+adminRouter.get('/admin/update/status', (_req, res) => {
+  const s = updateState();
+  const refresh = s.status === 'running' ? '<meta http-equiv="refresh" content="3">' : '';
+  const headline =
+    s.status === 'running'
+      ? '<p class="ok">⏳ Mise à jour en cours… (la page se rafraîchit toute seule)</p>'
+      : s.status === 'ok'
+        ? `<p class="ok">✅ Mise à jour appliquée — le service redémarre.
+           Recharge <a href="/admin">l'administration</a> dans ~10 secondes
+           pour voir la nouvelle version.</p>`
+        : s.status === 'failed'
+          ? '<p class="error">❌ Échec de la mise à jour — le service continue sur la version actuelle. Détail ci-dessous.</p>'
+          : '<p class="muted">Aucune mise à jour en cours.</p>';
+  res.send(
+    layout(
+      'Mise à jour',
+      `${refresh}
+      <p><a href="/admin">← Administration</a></p>
+      <h1>Mise à jour du site</h1>
+      ${headline}
+      ${s.log ? `<pre class="log">${e(s.log)}</pre>` : ''}
+      ${
+        s.status === 'failed'
+          ? `<form method="post" action="/admin/update"><button class="btn btn-primary" type="submit">Réessayer</button></form>`
+          : ''
+      }`,
+      { nav: true, active: 'admin' }
+    )
+  );
 });

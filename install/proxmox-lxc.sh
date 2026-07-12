@@ -182,7 +182,9 @@ Type=simple
 WorkingDirectory=/opt/multioutils/server
 EnvironmentFile=/opt/multioutils/server/.env
 ExecStart=/usr/bin/node dist/index.js
-Restart=on-failure
+# always (pas on-failure) : le bouton « Mettre à jour le site » arrête le
+# process proprement après la mise à jour — il doit être relancé quand même.
+Restart=always
 RestartSec=5
 
 [Install]

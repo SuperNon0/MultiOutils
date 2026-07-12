@@ -151,7 +151,7 @@ Le dépôt étant **public**, aucune authentification supplémentaire n'est néc
 - Techniquement : `electron-updater` lit les **GitHub Releases**.
 
 ### 5.2 Mettre à jour le SITE
-- Dans le site : **Administration → « Mettre à jour le site »**.
+- Dans le site : **Administration → « Mettre à jour le site »** — la page de suivi montre la progression, puis le service redémarre tout seul.
 - Le serveur exécute `git pull` sur le dépôt public + `npm install` si besoin + redémarrage.
 - Affiche la version installée et la version disponible.
 - ⚙️ Automatisable en option (GitHub Actions/webhook), mais le mode par défaut est

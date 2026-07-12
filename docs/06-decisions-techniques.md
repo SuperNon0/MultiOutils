@@ -293,3 +293,22 @@ workspace). Sur un serveur, on ne veut surtout pas installer l'app Electron.
 - **Lecture des réglages `remote.*` par le module** : URL + jeton du serveur
   appartiennent à l'hôte (Paramètres → Serveur distant, chiffrés DPAPI) ; le
   module les lit, il ne les gère pas.
+
+## Fiabilisation du bouton « Mettre à jour le site » (v0.2.1)
+
+- **Bug corrigé — site mort après une mise à jour réussie** : l'unité systemd
+  historique avait `Restart=on-failure` alors que la fin de mise à jour faisait
+  `process.exit(0)` (sortie propre) → systemd ne relançait jamais le service.
+  Correctifs : (1) `scheduleRestart` passe par un **timer transitoire
+  `systemd-run`** (hors de notre cgroup) qui exécute `systemctl restart
+  multioutils` après notre mort — fonctionne quelle que soit la politique
+  Restart ; sans systemd (Docker), repli sur `exit(0)` +
+  `restart: unless-stopped`. (2) L'unité créée par le script d'installation
+  passe à `Restart=always`.
+- **Mise à jour en arrière-plan + page de suivi** (`/admin/update/status`) :
+  l'ancien POST bloquait la requête pendant `npm install` + build (plusieurs
+  minutes) — Cloudflare Tunnel coupe à ~100 s. Désormais le POST répond
+  immédiatement et la page de suivi (auto-rafraîchie) montre la progression,
+  le succès (avec redémarrage) ou l'échec avec le journal complet. Le journal
+  est aussi persisté dans `DATA_DIR/last-update.log` pour diagnostic après
+  redémarrage.
