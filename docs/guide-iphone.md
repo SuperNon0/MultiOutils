@@ -68,6 +68,31 @@ Aucune app à installer : on utilise l'app **Raccourcis** d'Apple (déjà sur l'
 
 ---
 
+## Raccourci n° 3 : envoyer un FICHIER (PDF, docs, zip…)
+
+1. **Raccourcis** → **+** → renomme en `Fichier vers MultiOutils`.
+2. **Détails** (ⓘ) → active **« Afficher dans la feuille de partage »** → Types :
+   **Fichiers** (et ajoute PDF si proposé séparément).
+3. Ajoute l'action **« Obtenir le contenu de l'URL »** :
+   - **URL** : `https://TON-SERVEUR/api/clips`
+   - **Méthode** : `POST`
+   - **En-têtes** : `Authorization` → `Bearer mo_TON-JETON`
+   - **Corps de la requête** : `Formulaire`
+     - champ `file` → type **Fichier** → valeur : variable **« Entrée du raccourci »**
+       (pas besoin de conversion : PDF, Word, zip… partent tels quels)
+     - champ `source` → type Texte → valeur : `iphone`
+4. **OK**.
+
+**Test** : app Fichiers → maintiens le doigt sur un PDF → **Partager** →
+`Fichier vers MultiOutils`. Il apparaît sur le site (page **Clips**, icône 📄)
+et dans le module Presse-papiers du PC, avec un bouton pour l'ouvrir.
+
+> ℹ️ La taille maximale acceptée est réglable par l'administrateur du serveur
+> (**Administration → Taille maximale d'envoi**, en Mo, sans redémarrage). Un
+> fichier trop gros renvoie une erreur — augmente la limite si besoin.
+
+---
+
 ## Depuis l'iPad aussi
 
 Même procédé, l'app **Raccourcis** existe aussi sur iPad. Deux façons de faire :
@@ -102,7 +127,7 @@ Depuis n'importe quel appareil (iPhone, tablette, autre PC), connecte-toi au sit
 | Délai dépassé | Tunnel Cloudflare arrêté | `systemctl status cloudflared` dans le conteneur |
 | Erreur 415 / photo refusée | HEIC envoyé tel quel | Ajoute l'étape **Convertir l'image → JPEG** |
 | Rien n'apparaît sur le PC | Sync désactivée ou serveur non configuré dans l'app | Paramètres → Presse-papiers → « Récupérer automatiquement… » + Paramètres → Serveur distant |
-| Erreur 413 | Photo trop lourde | Augmente `MAX_UPLOAD_MB` dans le `.env` du serveur (défaut : 25 Mo) |
+| Erreur 413 | Fichier/photo trop lourd | **Administration → Taille maximale d'envoi** — augmente la limite (appliquée sans redémarrage) |
 
 ## Sécurité
 

@@ -5,25 +5,39 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { requireApiToken, requireSessionOrToken } from '../auth';
 import { getDb, parseTags, type ServerCapture, type ServerClip } from '../db';
-import { env, uploadsDir } from '../env';
+import { uploadsDir } from '../env';
+import { rejectIfTooLarge, UPLOAD_CEILING_MB } from '../uploads';
 import { VERSION } from '../version';
 
 /** API pour l'app (docs/04 §2). Auth : jeton Bearer. */
 export const apiRouter = Router();
 
-const ALLOWED_MIME: Record<string, string> = {
+/** Types connus décodables en miniature côté app (nativeImage) — kind='image'. */
+export const ALLOWED_MIME: Record<string, string> = {
   'image/png': '.png',
   'image/jpeg': '.jpg',
   'image/webp': '.webp'
 };
 
+// Multer applique un plafond FIXE généreux (sécurité mémoire/disque) ; la
+// limite réelle, réglable depuis l'admin sans redémarrage, est vérifiée après
+// coup par rejectIfTooLarge (docs/06 — « Taille maximale d'envoi »).
+const CEILING_BYTES = UPLOAD_CEILING_MB * 1024 * 1024;
+
 const upload = multer({
   dest: path.join(uploadsDir, '.tmp'),
-  limits: { fileSize: env.maxUploadMb * 1024 * 1024 },
+  limits: { fileSize: CEILING_BYTES },
   fileFilter: (_req, file, cb) => {
     if (ALLOWED_MIME[file.mimetype]) cb(null, true);
     else cb(new UnsupportedType());
   }
+});
+
+// Les clips acceptent N'IMPORTE QUEL type de fichier (PDF, zip, etc.) — pas
+// de fileFilter ici, seule la taille est bornée.
+const anyUpload = multer({
+  dest: path.join(uploadsDir, '.tmp'),
+  limits: { fileSize: CEILING_BYTES }
 });
 
 class UnsupportedType extends Error {}
@@ -36,6 +50,10 @@ apiRouter.post('/captures', requireApiToken, upload.single('file'), (req, res) =
   const file = req.file;
   if (!file) {
     res.status(400).json({ error: 'fichier manquant' });
+    return;
+  }
+  if (rejectIfTooLarge(file)) {
+    res.status(413).json({ error: 'fichier trop volumineux' });
     return;
   }
   let meta: {
@@ -189,8 +207,8 @@ export function insertTextClip(text: string, source: string, meta: ClipMeta = {}
   const id = `clip_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
   getDb()
     .prepare(
-      `INSERT INTO clips (id, kind, content, path, filename, size_bytes, source, folder, tags, created_at)
-       VALUES (?, 'text', ?, NULL, NULL, ?, ?, ?, ?, ?)`
+      `INSERT INTO clips (id, kind, content, path, filename, size_bytes, source, folder, tags, mime, created_at)
+       VALUES (?, 'text', ?, NULL, NULL, ?, ?, ?, ?, NULL, ?)`
     )
     .run(
       id,
@@ -216,8 +234,8 @@ export function insertImageClip(
   fs.renameSync(file.path, finalPath);
   getDb()
     .prepare(
-      `INSERT INTO clips (id, kind, content, path, filename, size_bytes, source, folder, tags, created_at)
-       VALUES (?, 'image', NULL, ?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO clips (id, kind, content, path, filename, size_bytes, source, folder, tags, mime, created_at)
+       VALUES (?, 'image', NULL, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       id,
@@ -227,6 +245,40 @@ export function insertImageClip(
       source,
       meta.folder ?? null,
       JSON.stringify(meta.tags ?? []),
+      file.mimetype,
+      new Date().toISOString()
+    );
+  return id;
+}
+
+/**
+ * Déplace le fichier téléversé et insère un clip FICHIER générique (PDF,
+ * zip, tout type — docs/00 §9.4) ; retourne son id. L'extension d'origine est
+ * conservée (contrairement aux images, dont l'extension est normalisée).
+ */
+export function insertFileClip(
+  file: Express.Multer.File,
+  source: string,
+  meta: ClipMeta = {}
+): string {
+  const id = `clip_${randomUUID().replaceAll('-', '').slice(0, 12)}`;
+  const ext = path.extname(file.originalname) || '';
+  const finalPath = path.join(uploadsDir, `${id}${ext}`);
+  fs.renameSync(file.path, finalPath);
+  getDb()
+    .prepare(
+      `INSERT INTO clips (id, kind, content, path, filename, size_bytes, source, folder, tags, mime, created_at)
+       VALUES (?, 'file', NULL, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      id,
+      finalPath,
+      file.originalname || `${id}${ext}`,
+      file.size,
+      source,
+      meta.folder ?? null,
+      JSON.stringify(meta.tags ?? []),
+      file.mimetype || 'application/octet-stream',
       new Date().toISOString()
     );
   return id;
@@ -249,14 +301,22 @@ export function organizeClip(id: string, meta: ClipMeta): boolean {
   return true;
 }
 
-apiRouter.post('/clips', requireApiToken, upload.single('file'), (req, res) => {
+apiRouter.post('/clips', requireApiToken, anyUpload.single('file'), (req, res) => {
   const source = String(req.body?.source ?? 'iphone');
   const meta: ClipMeta = {
     folder: req.body?.folder ? String(req.body.folder) : null,
     tags: normalizeTags(req.body?.tags)
   };
   if (req.file) {
-    const id = insertImageClip(req.file, source, meta);
+    if (rejectIfTooLarge(req.file)) {
+      res.status(413).json({ error: 'fichier trop volumineux' });
+      return;
+    }
+    // Types connus décodables en miniature (nativeImage côté app) → 'image' ;
+    // tout le reste (PDF, zip, docs…) → 'file' générique (docs/00 §9.4).
+    const id = ALLOWED_MIME[req.file.mimetype]
+      ? insertImageClip(req.file, source, meta)
+      : insertFileClip(req.file, source, meta);
     res.status(201).json({ id });
     return;
   }
@@ -294,6 +354,8 @@ apiRouter.get('/clips', requireApiToken, (req, res) => {
       kind: c.kind,
       text: c.kind === 'text' ? c.content : null,
       filename: c.filename,
+      sizeBytes: c.size_bytes,
+      mime: c.mime,
       createdAt: c.created_at,
       source: c.source ?? 'iphone',
       folder: c.folder,
@@ -302,7 +364,8 @@ apiRouter.get('/clips', requireApiToken, (req, res) => {
   });
 });
 
-// Contenu brut : image (ou texte) — session OU jeton, jamais public.
+// Contenu brut : image, fichier (ou texte) — session OU jeton, jamais public.
+// ?download=1 force le téléchargement avec le nom d'origine (fichiers/images).
 apiRouter.get('/clips/:id/raw', requireSessionOrToken, (req, res) => {
   const clip = getDb()
     .prepare('SELECT * FROM clips WHERE id = ?')
@@ -319,6 +382,11 @@ apiRouter.get('/clips/:id/raw', requireSessionOrToken, (req, res) => {
     res.status(404).json({ error: 'fichier absent' });
     return;
   }
+  if ('download' in req.query) {
+    res.download(clip.path, clip.filename ?? path.basename(clip.path));
+    return;
+  }
+  if (clip.mime) res.type(clip.mime);
   res.sendFile(clip.path);
 });
 

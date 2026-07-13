@@ -20,17 +20,21 @@ CREATE TABLE IF NOT EXISTS captures (
 CREATE INDEX IF NOT EXISTS idx_srv_captures_created ON captures(created_at);
 CREATE TABLE IF NOT EXISTS clips (
   id TEXT PRIMARY KEY,
-  kind TEXT NOT NULL,          -- 'text' | 'image'
+  kind TEXT NOT NULL,          -- 'text' | 'image' | 'file'
   content TEXT,                -- texte (kind=text)
-  path TEXT,                   -- fichier image (kind=image)
+  path TEXT,                   -- fichier image/fichier (kind=image|file)
   filename TEXT,
   size_bytes INTEGER,
-  source TEXT,                 -- 'iphone' | 'web' | 'app'
+  source TEXT,                 -- 'iphone' | 'ipad' | 'web' | 'app'
   folder TEXT,                 -- chemin lisible (« Travail / Projet A »)
   tags TEXT,                   -- JSON string[] de noms de tags
+  mime TEXT,                   -- type MIME d'origine (kind=image|file)
   created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_srv_clips_created ON clips(created_at);
+CREATE TABLE IF NOT EXISTS settings (
+  key TEXT PRIMARY KEY, value TEXT
+);
 `;
 
 /** Migration douce : colonnes ajoutées après la 0.2.0 (ALTER gardé). */
@@ -40,6 +44,22 @@ function migrate(database: Database.Database): void {
   ).map((c) => c.name);
   if (!columns.includes('folder')) database.exec('ALTER TABLE clips ADD COLUMN folder TEXT');
   if (!columns.includes('tags')) database.exec('ALTER TABLE clips ADD COLUMN tags TEXT');
+  if (!columns.includes('mime')) database.exec('ALTER TABLE clips ADD COLUMN mime TEXT');
+}
+
+export function getSetting(key: string): string | null {
+  const row = getDb().prepare('SELECT value FROM settings WHERE key = ?').get(key) as
+    | { value: string }
+    | undefined;
+  return row?.value ?? null;
+}
+
+export function setSetting(key: string, value: string): void {
+  getDb()
+    .prepare(
+      'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value'
+    )
+    .run(key, value);
 }
 
 let db: Database.Database | null = null;
@@ -66,10 +86,10 @@ export interface ServerCapture {
   tags: string | null; // JSON string[]
 }
 
-/** Clip (texte ou image) partagé depuis l'iPhone, le web ou l'app. */
+/** Clip (texte, image ou fichier) partagé depuis l'iPhone, le web ou l'app. */
 export interface ServerClip {
   id: string;
-  kind: 'text' | 'image';
+  kind: 'text' | 'image' | 'file';
   content: string | null;
   path: string | null;
   filename: string | null;
@@ -77,6 +97,7 @@ export interface ServerClip {
   source: string | null;
   folder: string | null;
   tags: string | null; // JSON string[] de noms
+  mime: string | null;
   created_at: string;
 }
 

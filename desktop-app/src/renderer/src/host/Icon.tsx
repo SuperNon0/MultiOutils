@@ -202,6 +202,13 @@ const PATHS: Record<string, ReactNode> = {
       <path d="M8.5 10h7M8.5 13.5h7M8.5 17h4.5" />
     </>
   ),
+  file: (
+    <>
+      <path d="M6.5 3h8l4 4v13a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" />
+      <path d="M14 3v4.5a.5.5 0 0 0 .5.5H19" />
+      <path d="M8.5 13h7M8.5 16.5h7" />
+    </>
+  ),
   phone: (
     <>
       <rect x="7" y="2.5" width="10" height="19" rx="2" />

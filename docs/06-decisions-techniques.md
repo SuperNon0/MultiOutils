@@ -319,3 +319,40 @@ workspace). Sur un serveur, on ne veut surtout pas installer l'app Electron.
   étapes de mise à jour s'exécutent dans un environnement **sans NODE_ENV** et
   l'install force `--include=dev`. Reproduit et vérifié : tsc supprimé +
   NODE_ENV=production → le bouton réinstalle et build avec succès.
+
+## Import de fichiers quelconques + taille max réglable (v0.3.0)
+
+- **Auto-détection image vs fichier** : côté serveur, `POST /api/clips` accepte
+  désormais n'importe quel type (`anyUpload`, sans `fileFilter`) ; le mimetype
+  décide du `kind` stocké — les types connus décodables en miniature côté app
+  (`image/png|jpeg|webp`) deviennent `kind: 'image'`, tout le reste (PDF, zip,
+  Office…) devient `kind: 'file'` avec extension et mimetype d'origine
+  conservés. Les **captures** (screenshots) restent volontairement limitées
+  aux images — leur `fileFilter` n'a pas changé.
+- **Limite de taille réglable sans redémarrage** (`server/src/uploads.ts`) :
+  multer, configuré une seule fois au démarrage, applique un plafond FIXE
+  généreux (`UPLOAD_CEILING_MB`, 1 Go) — simple garde-fou mémoire/disque. La
+  limite RÉELLE, réglée dans **Administration → Taille maximale d'envoi**, est
+  stockée dans une table `settings` (clé/valeur, ajoutée au schéma serveur) et
+  vérifiée après coup par `rejectIfTooLarge` dans chaque route d'upload
+  (captures, clips API, clips web) — modifiable à chaud, sans recréer les
+  middlewares multer.
+- **Table `clips` étendue** : colonne `mime` ajoutée (migration ALTER, comme
+  `folder`/`tags` avant elle) pour servir le bon `Content-Type` et le bon nom
+  de fichier au téléchargement (`GET /api/clips/:id/raw?download=1`, calqué
+  sur le pattern déjà utilisé pour les captures).
+- **Côté app** : le module Presse-papiers gagne un `kind: 'file'` avec ses
+  propres colonnes locales (`filename`, `size_bytes`, `mime`, migration ALTER
+  identique). Ajout via **dialogue de fichiers natif** (`dialog.showOpenDialog`)
+  ou **glisser-déposer** (réutilise `webUtils.getPathForFile`, déjà exposé pour
+  le dépôt de captures) ; les deux passent par `addLocalPath`, qui décide
+  image vs fichier générique à partir de l'extension. Clic sur un fichier =
+  **ouvre** l'app par défaut (`shell.openPath`) plutôt que « copier », qui n'a
+  pas de sens pour un fichier arbitraire sur Windows (pas d'API Electron
+  simple pour placer une référence de fichier — CF_HDROP — dans le
+  presse-papiers) ; bouton dédié pour révéler dans l'explorateur
+  (`shell.showItemInFolder`).
+- **Guide iPhone** : 3ᵉ Raccourci « Fichier vers MultiOutils » — corps
+  `Formulaire`, champ `file` = Entrée du raccourci directement (aucune
+  conversion nécessaire, contrairement aux photos qui doivent passer par
+  « Convertir l'image → JPEG » à cause du HEIC).

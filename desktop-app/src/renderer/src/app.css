@@ -1338,6 +1338,28 @@
   align-items: center;
   gap: 3px;
 }
+.clip-file {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+}
+.clip-file-name {
+  color: var(--text);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 360px;
+}
+.clip-file-size {
+  font-size: 10.5px;
+}
+.clips-drop-active {
+  outline: 2px dashed var(--accent);
+  outline-offset: -6px;
+  border-radius: var(--radius);
+}
 .clip-tags {
   display: inline-flex;
   gap: 4px;

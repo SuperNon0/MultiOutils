@@ -1,9 +1,34 @@
-import { app, clipboard, ipcMain, nativeImage, safeStorage } from 'electron';
+import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeImage, shell, safeStorage } from 'electron';
 import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import type { ClipItem, ClipsSettings } from '../../../common/types';
 import type { MainHostContext, MainToolModule } from '../../module-registry';
+
+/** Extensions reconnues comme image (miniature + copie presse-papiers Windows). */
+const IMAGE_EXT_MIME: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.bmp': 'image/bmp',
+  '.webp': 'image/webp'
+};
+
+/** Type MIME approximatif à partir de l'extension (fichiers génériques, docs/00 §9.4). */
+const EXT_MIME: Record<string, string> = {
+  ...IMAGE_EXT_MIME,
+  '.pdf': 'application/pdf',
+  '.txt': 'text/plain',
+  '.csv': 'text/csv',
+  '.zip': 'application/zip',
+  '.doc': 'application/msword',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  '.xls': 'application/vnd.ms-excel',
+  '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  '.ppt': 'application/vnd.ms-powerpoint',
+  '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+};
 
 const ENABLED_KEY = 'clips.enabled';
 const RETENTION_KEY = 'clips.retentionHours';
@@ -30,7 +55,7 @@ const SENSITIVE_FORMAT = /excludeclipboard|passwordmanager|keepass|clipboard.?vi
 
 interface ClipRow {
   id: string;
-  kind: 'text' | 'image';
+  kind: 'text' | 'image' | 'file';
   content: string | null;
   path: string | null;
   preview: string;
@@ -38,7 +63,10 @@ interface ClipRow {
   source: 'local' | 'remote';
   remote_id: string | null;
   folder_id: string | null;
-  tags: string | null; // JSON string[] d'ids de tags (taxonomie partagée)
+  tags: string | null; // JSON string[] d'ids de tags (taxonomie propre au module)
+  filename: string | null;
+  size_bytes: number | null;
+  mime: string | null;
   created_at: string;
 }
 
@@ -63,6 +91,8 @@ function rowToItem(row: ClipRow): ClipItem {
     remoteId: row.remote_id,
     folderId: row.folder_id,
     tagIds: parseTagIds(row.tags),
+    filename: row.filename,
+    sizeBytes: row.size_bytes,
     createdAt: row.created_at
   };
 }
@@ -137,17 +167,19 @@ export function createClipboardMainModule(): MainToolModule {
     const id = randomUUID();
     ctx.db
       .prepare(
-        `INSERT INTO clips (id, kind, content, path, preview, pinned, source, remote_id, created_at)
-         VALUES (?, 'text', ?, NULL, ?, 0, ?, ?, ?)`
+        `INSERT INTO clips (id, kind, content, path, preview, pinned, source, remote_id, filename, size_bytes, mime, created_at)
+         VALUES (?, 'text', ?, NULL, ?, 0, ?, ?, NULL, NULL, NULL, ?)`
       )
       .run(id, trimmed, preview, source, remoteId, new Date().toISOString());
     return id;
   };
 
+  /** filename : renseigné quand l'image provient d'un fichier importé (drag & drop / dialogue). */
   const insertImage = (
     image: Electron.NativeImage,
     source: 'local' | 'remote',
-    remoteId: string | null
+    remoteId: string | null,
+    filename: string | null = null
   ): string | null => {
     const png = image.toPNG();
     if (png.length === 0) return null;
@@ -164,11 +196,70 @@ export function createClipboardMainModule(): MainToolModule {
         : image;
     ctx.db
       .prepare(
-        `INSERT INTO clips (id, kind, content, path, preview, pinned, source, remote_id, created_at)
-         VALUES (?, 'image', NULL, ?, ?, 0, ?, ?, ?)`
+        `INSERT INTO clips (id, kind, content, path, preview, pinned, source, remote_id, filename, size_bytes, mime, created_at)
+         VALUES (?, 'image', NULL, ?, ?, 0, ?, ?, ?, ?, 'image/png', ?)`
       )
-      .run(id, file, thumb.toDataURL(), source, remoteId, new Date().toISOString());
+      .run(id, file, thumb.toDataURL(), source, remoteId, filename, png.length, new Date().toISOString());
     return id;
+  };
+
+  /** Copie un fichier local (drag & drop / dialogue) en tant que clip générique. */
+  const insertFile = (
+    srcPath: string,
+    originalName: string,
+    mime: string,
+    source: 'local' | 'remote',
+    remoteId: string | null
+  ): string => {
+    const id = randomUUID();
+    const ext = path.extname(originalName) || path.extname(srcPath);
+    const dest = path.join(clipsDir, `${id}${ext}`);
+    fs.copyFileSync(srcPath, dest);
+    const size = fs.statSync(dest).size;
+    ctx.db
+      .prepare(
+        `INSERT INTO clips (id, kind, content, path, preview, pinned, source, remote_id, filename, size_bytes, mime, created_at)
+         VALUES (?, 'file', NULL, ?, ?, 0, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(id, dest, originalName, source, remoteId, originalName, size, mime, new Date().toISOString());
+    return id;
+  };
+
+  /** Écrit un fichier reçu du serveur (bytes déjà téléchargés) en tant que clip générique. */
+  const insertFileFromBuffer = (
+    buffer: Buffer,
+    originalName: string,
+    mime: string,
+    source: 'local' | 'remote',
+    remoteId: string | null
+  ): string => {
+    const id = randomUUID();
+    const ext = path.extname(originalName);
+    const dest = path.join(clipsDir, `${id}${ext}`);
+    fs.writeFileSync(dest, buffer);
+    ctx.db
+      .prepare(
+        `INSERT INTO clips (id, kind, content, path, preview, pinned, source, remote_id, filename, size_bytes, mime, created_at)
+         VALUES (?, 'file', NULL, ?, ?, 0, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(id, dest, originalName, source, remoteId, originalName, buffer.length, mime, new Date().toISOString());
+    return id;
+  };
+
+  /** Ajoute un fichier local (chemin réel sur disque) : image → miniature, sinon fichier générique. */
+  const addLocalPath = (srcPath: string, source: 'local' | 'remote'): string | null => {
+    const originalName = path.basename(srcPath);
+    const ext = path.extname(srcPath).toLowerCase();
+    const imageMime = IMAGE_EXT_MIME[ext];
+    if (imageMime) {
+      try {
+        const image = nativeImage.createFromPath(srcPath);
+        if (!image.isEmpty()) return insertImage(image, source, null, originalName);
+      } catch {
+        // repli sur fichier générique ci-dessous
+      }
+    }
+    return insertFile(srcPath, originalName, EXT_MIME[ext] ?? 'application/octet-stream', source, null);
   };
 
   // ── Surveillance du presse-papiers ───────────────────────────────────────
@@ -298,8 +389,10 @@ export function createClipboardMainModule(): MainToolModule {
     } else {
       if (!row.path || !fs.existsSync(row.path)) throw new Error('gone');
       const buffer = await fs.promises.readFile(row.path);
+      const mime = row.kind === 'image' ? 'image/png' : row.mime || 'application/octet-stream';
+      const filename = row.kind === 'image' ? `${row.id}.png` : row.filename || path.basename(row.path);
       const form = new FormData();
-      form.append('file', new Blob([buffer], { type: 'image/png' }), `${row.id}.png`);
+      form.append('file', new Blob([buffer], { type: mime }), filename);
       form.append('source', 'app');
       if (folder) form.append('folder', folder);
       form.append('tags', JSON.stringify(tags));
@@ -307,9 +400,10 @@ export function createClipboardMainModule(): MainToolModule {
         method: 'POST',
         headers: { Authorization: `Bearer ${remote.token}` },
         body: form,
-        signal: AbortSignal.timeout(60_000)
+        signal: AbortSignal.timeout(120_000)
       });
     }
+    if (res.status === 413) throw new Error('tooLarge');
     if (res.status !== 201) throw new Error(`HTTP ${res.status}`);
     const body = (await res.json()) as { id: string };
     ctx.db.prepare('UPDATE clips SET remote_id = ? WHERE id = ?').run(body.id, row.id);
@@ -335,8 +429,10 @@ export function createClipboardMainModule(): MainToolModule {
     const body = (await res.json()) as {
       items: Array<{
         id: string;
-        kind: 'text' | 'image';
+        kind: 'text' | 'image' | 'file';
         text: string | null;
+        filename: string | null;
+        mime: string | null;
         createdAt: string;
         source: string;
       }>;
@@ -357,16 +453,26 @@ export function createClipboardMainModule(): MainToolModule {
         try {
           const raw = await fetch(`${remote.url}/api/clips/${item.id}/raw`, {
             headers: { Authorization: `Bearer ${remote.token}` },
-            signal: AbortSignal.timeout(60_000)
+            signal: AbortSignal.timeout(120_000)
           });
           if (!raw.ok) continue;
-          const image = nativeImage.createFromBuffer(
-            Buffer.from(await raw.arrayBuffer())
-          );
-          if (insertImage(image, 'remote', item.id)) imported += 1;
-          else undecodable.add(item.id); // format non décodable : on n'insiste pas
+          const buffer = Buffer.from(await raw.arrayBuffer());
+          if (item.kind === 'image') {
+            const image = nativeImage.createFromBuffer(buffer);
+            if (insertImage(image, 'remote', item.id, item.filename)) imported += 1;
+            else undecodable.add(item.id); // format non décodable : on n'insiste pas
+          } else {
+            insertFileFromBuffer(
+              buffer,
+              item.filename || item.id,
+              item.mime || 'application/octet-stream',
+              'remote',
+              item.id
+            );
+            imported += 1;
+          }
         } catch {
-          // image irrécupérable pour l'instant : retentée au prochain passage
+          // fichier irrécupérable pour l'instant : retenté au prochain passage
         }
       }
     }
@@ -402,6 +508,9 @@ export function createClipboardMainModule(): MainToolModule {
           remote_id  TEXT,
           folder_id  TEXT,
           tags       TEXT,
+          filename   TEXT,
+          size_bytes INTEGER,
+          mime       TEXT,
           created_at TEXT NOT NULL
         );
         CREATE INDEX IF NOT EXISTS idx_clips_created ON clips(created_at);
@@ -425,6 +534,11 @@ export function createClipboardMainModule(): MainToolModule {
       if (!columns.includes('folder_id'))
         ctx.db.exec('ALTER TABLE clips ADD COLUMN folder_id TEXT');
       if (!columns.includes('tags')) ctx.db.exec('ALTER TABLE clips ADD COLUMN tags TEXT');
+      if (!columns.includes('filename'))
+        ctx.db.exec('ALTER TABLE clips ADD COLUMN filename TEXT');
+      if (!columns.includes('size_bytes'))
+        ctx.db.exec('ALTER TABLE clips ADD COLUMN size_bytes INTEGER');
+      if (!columns.includes('mime')) ctx.db.exec('ALTER TABLE clips ADD COLUMN mime TEXT');
 
       clipsDir = path.join(app.getPath('userData'), 'clips');
       fs.mkdirSync(clipsDir, { recursive: true });
@@ -570,6 +684,38 @@ export function createClipboardMainModule(): MainToolModule {
         ctx.broadcast('clips:changed');
       });
 
+      // ── Import de fichiers (PDF, docs, zip… docs/00 §9.4) ───────────────
+      ipcMain.handle('clips:importFiles', async () => {
+        const win = BrowserWindow.getFocusedWindow() ?? undefined;
+        const result = win
+          ? await dialog.showOpenDialog(win, { properties: ['openFile', 'multiSelections'] })
+          : await dialog.showOpenDialog({ properties: ['openFile', 'multiSelections'] });
+        if (result.canceled || result.filePaths.length === 0) return;
+        for (const filePath of result.filePaths) addLocalPath(filePath, 'local');
+        ctx.broadcast('clips:changed');
+      });
+
+      // Glisser-déposer sur le panneau : le renderer résout les chemins réels
+      // via webUtils.getPathForFile (API files déjà exposée) et les transmet ici.
+      ipcMain.handle('clips:addPaths', (_event, paths: string[]) => {
+        for (const filePath of paths) {
+          if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+            addLocalPath(filePath, 'local');
+          }
+        }
+        ctx.broadcast('clips:changed');
+      });
+
+      ipcMain.handle('clips:open', (_event, id: string) => {
+        const row = getRow(id);
+        if (row?.path) void shell.openPath(row.path);
+      });
+
+      ipcMain.handle('clips:reveal', (_event, id: string) => {
+        const row = getRow(id);
+        if (row?.path) shell.showItemInFolder(row.path);
+      });
+
       ipcMain.handle('clips:delete', (_event, id: string) => {
         const row = getRow(id);
         if (row?.path) {
@@ -613,6 +759,10 @@ export function createClipboardMainModule(): MainToolModule {
             if (message === 'notConfigured') {
               ctx.notify(ctx.i18n.t('remote.notConfigured'));
               return { ok: false, error: 'notConfigured' };
+            }
+            if (message === 'tooLarge') {
+              ctx.notify(ctx.i18n.t('clips.tooLarge'));
+              return { ok: false, error: 'tooLarge' };
             }
             ctx.notify(ctx.i18n.t('clips.sendError'));
             return { ok: false, error: message };

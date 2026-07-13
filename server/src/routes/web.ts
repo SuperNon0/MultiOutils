@@ -10,9 +10,17 @@ import {
   verifyLogin
 } from '../auth';
 import { getDb, parseTags, type ServerCapture, type ServerClip } from '../db';
-import { env, uploadsDir } from '../env';
+import { uploadsDir } from '../env';
 import { e, layout } from '../html';
-import { insertImageClip, insertTextClip, organizeClip, queryCaptures } from './api';
+import { getMaxUploadMb, rejectIfTooLarge, UPLOAD_CEILING_MB } from '../uploads';
+import {
+  ALLOWED_MIME,
+  insertFileClip,
+  insertImageClip,
+  insertTextClip,
+  organizeClip,
+  queryCaptures
+} from './api';
 
 /** Interface web de consultation (docs/00 §7.1). Auth : session. */
 export const webRouter = Router();
@@ -242,18 +250,20 @@ webRouter.post('/captures/:id/delete', requireSession, (req, res) => {
 // Textes/photos partagés depuis l'iPhone (Raccourci), la page « Déposer »
 // ou l'app. Même exigence de session que la galerie.
 
-// PNG/JPEG uniquement : ce sont les formats que l'app PC sait recopier dans
-// le presse-papiers Windows (nativeImage). Le Raccourci iOS convertit en JPEG.
-const ALLOWED_CLIP_MIME: Record<string, true> = {
-  'image/png': true,
-  'image/jpeg': true
-};
-
+// N'importe quel type de fichier est accepté (PDF, zip, docs…) — la taille
+// reste bornée par le plafond fixe (sécurité) puis par la limite réglable
+// (rejectIfTooLarge, vérifiée dans le handler).
 const clipUpload = multer({
   dest: path.join(uploadsDir, '.tmp'),
-  limits: { fileSize: env.maxUploadMb * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => cb(null, Boolean(ALLOWED_CLIP_MIME[file.mimetype]))
+  limits: { fileSize: UPLOAD_CEILING_MB * 1024 * 1024 }
 });
+
+function humanSize(bytes: number | null): string {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
 
 webRouter.get('/clips', requireSession, (req, res) => {
   const filterFolder = req.query.folder ? String(req.query.folder) : '';
@@ -306,9 +316,13 @@ webRouter.get('/clips', requireSession, (req, res) => {
         clip.kind === 'text'
           ? `<pre class="clip-text" data-clip>${e(clip.content ?? '')}</pre>
              <button class="btn clip-copy" type="button" data-copy>Copier</button>`
-          : `<a href="/api/clips/${e(clip.id)}/raw" target="_blank">
-               <img class="clip-img" src="/api/clips/${e(clip.id)}/raw" alt="${e(clip.filename ?? '')}" loading="lazy">
-             </a>`;
+          : clip.kind === 'image'
+            ? `<a href="/api/clips/${e(clip.id)}/raw" target="_blank">
+                 <img class="clip-img" src="/api/clips/${e(clip.id)}/raw" alt="${e(clip.filename ?? '')}" loading="lazy">
+               </a>`
+            : `<a class="btn clip-file" href="/api/clips/${e(clip.id)}/raw?download=1">
+                 📄 ${e(clip.filename ?? 'fichier')}${clip.size_bytes ? ` · ${humanSize(clip.size_bytes)}` : ''}
+               </a>`;
       return `<div class="card clip-card">
         <div class="clip-head muted">${badge} ${e(when)}${clip.filename ? ` · ${e(clip.filename)}` : ''}${organizeLine ? ` · ${organizeLine}` : ''}</div>
         ${body}
@@ -377,9 +391,11 @@ webRouter.get('/clips/deposer', requireSession, (_req, res) => {
           <button class="btn btn-primary" type="submit">Envoyer</button>
         </form>
         <form method="post" action="/clips/deposer" enctype="multipart/form-data" class="card deposit-card">
-          <h2>Photo</h2>
-          <input type="file" name="file" accept="image/png,image/jpeg" required>
+          <h2>Photo ou fichier</h2>
+          <p class="muted">Images, PDF, documents… n'importe quel type.</p>
+          <input type="file" name="file" required>
           <button class="btn btn-primary" type="submit">Envoyer</button>
+          <p class="muted deposit-max">Taille maximale : ${getMaxUploadMb()} Mo.</p>
         </form>
       </div>
       <p class="muted">Astuce : depuis l'iPhone, le Raccourci « Envoyer à MultiOutils »
@@ -391,7 +407,21 @@ webRouter.get('/clips/deposer', requireSession, (_req, res) => {
 
 webRouter.post('/clips/deposer', requireSession, clipUpload.single('file'), (req, res) => {
   if (req.file) {
-    insertImageClip(req.file, 'web');
+    if (rejectIfTooLarge(req.file)) {
+      res
+        .status(413)
+        .send(
+          layout(
+            'Erreur',
+            `<p class="error">Fichier trop volumineux (limite : ${getMaxUploadMb()} Mo).</p><p><a href="/clips/deposer">← Réessayer</a></p>`,
+            { nav: true, active: 'clips' }
+          )
+        );
+      return;
+    }
+    // Types connus décodables en miniature côté app → 'image' ; sinon 'file'.
+    if (ALLOWED_MIME[req.file.mimetype]) insertImageClip(req.file, 'web');
+    else insertFileClip(req.file, 'web');
   } else {
     const text = String((req.body as Record<string, string>).text ?? '').trim();
     if (text) insertTextClip(text, 'web');

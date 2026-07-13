@@ -300,19 +300,25 @@ premier plan ou en arrière-plan.
 - ✅ Réussi quand : on peut prélever la couleur de n'importe quel pixel de l'écran et
   récupérer son code.
 
-### 9.4 Presse-papiers & partage iPhone — Réalisé (v0.2.0)
-Gestionnaire de presse-papiers intégré + réception des partages iPhone.
+### 9.4 Presse-papiers, fichiers & partage iPhone/iPad — Réalisé (v0.2.0 → v0.3.0)
+Gestionnaire de presse-papiers intégré, import de fichiers quelconques, et
+réception des partages iPhone/iPad.
 
 **Côté PC (module « Presse-papiers ») :**
 - Surveillance du presse-papiers Windows : chaque **Ctrl+C** (texte ou image) est
-  ajouté à une liste horodatée. Clic sur un élément = recopié dans le presse-papier.
+  ajouté à une liste horodatée. Clic sur un élément texte/image = recopié dans le
+  presse-papier.
+- **Fichiers quelconques** (v0.3.0) : bouton **« Ajouter un fichier »** (sélecteur
+  natif) ou **glisser-déposer** — PDF, Word/Excel, zip, n'importe quel type. Aperçu
+  avec icône + nom + taille ; clic = **ouvre** le fichier avec l'app par défaut ;
+  bouton dédié pour l'**afficher dans l'explorateur**.
 - **Épingler = garder** : un élément épinglé n'est jamais supprimé. Les autres sont
   **purgés automatiquement** après un délai réglable (1 h / 6 h / 24 h / 7 j / 30 j /
   jamais) dans les paramètres du module.
 - Recherche dans l'historique, vidage manuel.
 - **Présentation identique à la bibliothèque** (v0.2.2) : barre latérale avec vues
   intelligentes — Tous les éléments, **Favoris** (jamais supprimés), Aujourd'hui,
-  Cette semaine, Ce mois-ci, Non triés, Reçus de l'iPhone — puis dossiers et tags.
+  Cette semaine, Ce mois-ci, Non triés, Reçus (iPhone/iPad) — puis dossiers et tags.
 - **Dossiers & tags propres au presse-papiers** (v0.2.2) : taxonomie **séparée** de
   celle des captures (création/renommage/suppression + couleur depuis la barre
   latérale, comme la bibliothèque). Sur la page Clips du site : filtres par
@@ -322,14 +328,18 @@ Gestionnaire de presse-papiers intégré + réception des partages iPhone.
 - **Envoi au serveur** : bouton explicite par élément (principe local-first, §6) —
   rien ne part automatiquement.
 
-**Côté iPhone → PC (via le serveur auto-hébergé) :**
-- **Raccourci iOS** « Envoyer à MultiOutils » dans le menu **Partager** : envoie le
-  texte sélectionné ou la photo au serveur (`POST /api/clips`, jeton API). Guide de
-  configuration : `docs/guide-iphone.md`.
+**Côté iPhone/iPad → PC (via le serveur auto-hébergé) :**
+- **3 Raccourcis iOS** dans le menu **Partager** : Texte, Photo, et **Fichier**
+  (v0.3.0 — PDF, docs, zip… envoyés tels quels, sans conversion) — tous vers
+  `POST /api/clips` (jeton API). Guide pas-à-pas complet : `docs/guide-iphone.md`.
+  Fonctionne aussi depuis l'iPad (même Raccourcis, sync iCloud ou recréation).
 - **Page web « Déposer »** sur le site (`/clips/deposer`) : coller un texte ou
-  téléverser une photo depuis n'importe quel appareil.
+  téléverser une photo/fichier quelconque depuis n'importe quel appareil.
 - Le site affiche la boîte **« Clips »** (page `/clips`) : consultation, copie,
-  suppression — session obligatoire.
+  téléchargement, suppression — session obligatoire.
+- **Taille maximale d'envoi réglable** (v0.3.0) : **Administration → Taille
+  maximale d'envoi**, en Mo, appliquée aux captures ET aux clips (texte/photo/
+  fichier), **sans redémarrage** du serveur.
 - L'app PC **récupère automatiquement** les nouveaux clips du serveur (option
   activable/désactivable) : les partages iPhone apparaissent dans le module
   Presse-papiers avec un badge 📱.

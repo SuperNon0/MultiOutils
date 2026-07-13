@@ -59,21 +59,27 @@ Supprime une capture côté serveur.
 ```
 
 ### `POST /api/clips`
-Dépose un **clip** (texte ou image) — utilisé par le Raccourci iOS (docs
-`guide-iphone.md`), la page web « Déposer » et l'app.
+Dépose un **clip** (texte, image ou fichier quelconque) — utilisé par les 3
+Raccourcis iOS (docs `guide-iphone.md`), la page web « Déposer » et l'app.
 - Texte : corps `JSON` → `{ "kind": "text", "text": "…", "source": "iphone", "folder": "Travail / Projet A", "tags": ["idée"] }`
-- Image : `multipart/form-data` → champ `file` (png/jpg/webp) + champs `source`, `folder`, `tags` (JSON)
+- Image ou fichier : `multipart/form-data` → champ `file` (**n'importe quel type** —
+  png/jpg/webp deviennent `kind: "image"`, tout le reste `kind: "file"`) + champs
+  `source`, `folder`, `tags` (JSON)
 - `folder` et `tags` sont optionnels (organisation comme les captures).
+- La taille est bornée par la limite réglable dans **Administration → Taille
+  maximale d'envoi** (413 au-delà).
 ```json
 201 → { "id": "clip_ab12…" }
+413 → { "error": "fichier trop volumineux" }
 ```
 
 ### `GET /api/clips?since=<ISO>`
 Nouveaux clips depuis `since` (200 max, plus récents d'abord). L'app PC interroge
-cette route toutes les 30 s pour rapatrier les partages iPhone.
+cette route toutes les 30 s pour rapatrier les partages iPhone/iPad.
 ```json
-200 → { "items": [ { "id", "kind", "text", "filename", "createdAt", "source", "folder", "tags" } ] }
+200 → { "items": [ { "id", "kind", "text", "filename", "sizeBytes", "mime", "createdAt", "source", "folder", "tags" } ] }
 ```
+`kind` vaut `"text"`, `"image"` ou `"file"`.
 
 ### `PATCH /api/clips/:id`
 Met à jour l'organisation d'un clip : `{ "folder": "…" | null, "tags": ["…"] }`.
@@ -81,8 +87,10 @@ Met à jour l'organisation d'un clip : `{ "folder": "…" | null, "tags": ["…"
 200 → { "updated": true }
 ```
 
-### `GET /api/clips/:id/raw`
-Contenu brut (image, ou texte en `text/plain`). **Session OU jeton** — jamais public.
+### `GET /api/clips/:id/raw?download=`
+Contenu brut (image/fichier, ou texte en `text/plain`). **Session OU jeton** —
+jamais public. `?download=1` force le téléchargement avec le nom d'origine
+(utile pour les fichiers depuis un navigateur).
 
 ### `DELETE /api/clips/:id`
 Supprime un clip (et son fichier).
@@ -98,12 +106,13 @@ Servie par le même serveur (pages HTML + assets), protégée par **session** :
 | `GET /login` · `POST /login` | Connexion admin |
 | `GET /` | Galerie (grille, filtres dossier/tag/date) |
 | `GET /captures/:id` | Aperçu grand + téléchargement |
-| `GET /clips` | Boîte **Clips** : textes/photos partagés, filtres dossier/tag |
-| `GET /clips/deposer` · `POST /clips/deposer` | Page « Déposer » (texte ou photo) |
+| `GET /clips` | Boîte **Clips** : textes/photos/fichiers partagés, filtres dossier/tag |
+| `GET /clips/deposer` · `POST /clips/deposer` | Page « Déposer » (texte, photo ou fichier quelconque) |
 | `POST /clips/:id/organize` | Modifier dossier & tags d'un clip |
 | `POST /clips/:id/delete` | Supprimer un clip |
 | `GET /admin` | Administration |
 | `POST /admin/tokens` · `DELETE /admin/tokens/:id` | Gérer les jetons d'API |
+| `POST /admin/settings/max-upload` | Régler la taille maximale d'envoi (Mo, sans redémarrage) |
 | `POST /admin/update` | Bouton « Mettre à jour le site » (`git pull` + redémarrage) |
 
 Au **tout premier lancement**, si aucun utilisateur n'existe, le serveur redirige vers un

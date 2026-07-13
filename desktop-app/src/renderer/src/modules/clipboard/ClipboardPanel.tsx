@@ -1,4 +1,10 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type DragEvent as ReactDragEvent,
+  type ReactNode
+} from 'react';
 import type { Folder, Tag } from '@multioutils/shared';
 import type { ClipItem, ClipsSettings } from '../../../../common/types';
 import { Icon } from '../../host/Icon';
@@ -12,6 +18,13 @@ function retentionLabel(hours: number, t: TFunc): string {
   if (hours === 0) return t('clips.retention.never');
   if (hours < 24) return t('clips.retention.hours', { n: hours });
   return t('clips.retention.days', { n: Math.round(hours / 24) });
+}
+
+function humanSize(bytes: number | null): string {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
 function timeLabel(iso: string): string {
@@ -58,6 +71,7 @@ export function ClipboardPanel(): ReactNode {
   const [search, setSearch] = useState('');
   const [enabled, setEnabled] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
 
   const refresh = async (): Promise<void> => {
     setItems(await window.api.clips.list());
@@ -116,6 +130,13 @@ export function ClipboardPanel(): ReactNode {
     await window.api.clips.organize(item.id, { tagIds: next });
   };
 
+  const handleDrop = async (event: ReactDragEvent): Promise<void> => {
+    event.preventDefault();
+    setDragOver(false);
+    const paths = window.api.files.pathsFor(Array.from(event.dataTransfer.files));
+    if (paths.length > 0) await window.api.clips.addPaths(paths);
+  };
+
   return (
     <div className="panel">
       <header className="panel-header">
@@ -137,6 +158,15 @@ export function ClipboardPanel(): ReactNode {
             <Icon name="restore" />
             {t('clips.sync')}
           </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => void window.api.clips.importFiles()}
+            title={t('clips.addFileTooltip')}
+          >
+            <Icon name="file" />
+            {t('clips.addFile')}
+          </button>
         </div>
         <div className="capture-hint muted">{t('clips.help')}</div>
       </header>
@@ -156,7 +186,15 @@ export function ClipboardPanel(): ReactNode {
           onChanged={() => void refresh()}
         />
 
-        <div className="gallery-main">
+        <div
+          className={`gallery-main${dragOver ? ' clips-drop-active' : ''}`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => void handleDrop(e)}
+        >
           <div className="gallery-toolbar">
             <input
               className="input gallery-search"
@@ -193,11 +231,23 @@ export function ClipboardPanel(): ReactNode {
                     <button
                       type="button"
                       className="clip-main"
-                      title={t('clips.copyTooltip')}
-                      onClick={() => void window.api.clips.copy(item.id)}
+                      title={item.kind === 'file' ? t('clips.openTooltip') : t('clips.copyTooltip')}
+                      onClick={() =>
+                        void (item.kind === 'file'
+                          ? window.api.clips.open(item.id)
+                          : window.api.clips.copy(item.id))
+                      }
                     >
                       {item.kind === 'image' ? (
                         <img className="clip-thumb" src={item.preview} alt="" />
+                      ) : item.kind === 'file' ? (
+                        <span className="clip-file">
+                          <Icon name="file" size={20} />
+                          <span className="clip-file-name">{item.filename ?? item.preview}</span>
+                          {item.sizeBytes !== null && (
+                            <span className="clip-file-size muted">{humanSize(item.sizeBytes)}</span>
+                          )}
+                        </span>
                       ) : (
                         <span className="clip-text">{item.preview}</span>
                       )}
@@ -275,6 +325,16 @@ export function ClipboardPanel(): ReactNode {
                   </div>
 
                   <div className="clip-actions">
+                    {item.kind === 'file' && (
+                      <button
+                        type="button"
+                        className="btn btn-icon"
+                        title={t('clips.reveal')}
+                        onClick={() => void window.api.clips.reveal(item.id)}
+                      >
+                        <Icon name="reveal" />
+                      </button>
+                    )}
                     <button
                       type="button"
                       className={`btn btn-icon${editingId === item.id ? ' active' : ''}`}

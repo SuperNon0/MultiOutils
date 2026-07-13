@@ -5,6 +5,7 @@ import { getDb } from '../db';
 import { uploadsDir } from '../env';
 import { e, layout } from '../html';
 import { checkForUpdate, startUpdate, updateState } from '../update';
+import { getMaxUploadMb, setMaxUploadMb, UPLOAD_CEILING_MB } from '../uploads';
 import { VERSION } from '../version';
 
 /** Administration : jetons d'API + mise à jour du site (docs/00 §7.2). */
@@ -38,6 +39,7 @@ function storageStats(): { count: number; sizeMb: number } {
 function adminPage(opts: {
   newToken?: { name: string; token: string };
   updateBlock?: string;
+  uploadSaved?: boolean;
 }): string {
   const tokens = listTokens();
   const stats = storageStats();
@@ -84,6 +86,18 @@ function adminPage(opts: {
         : ''
     }
 
+    <h2>Taille maximale d'envoi</h2>
+    <p class="muted">Limite appliquée aux captures et aux clips (texte, photo, fichier —
+    PDF, docs, zip…) envoyés depuis l'app, l'iPhone/iPad ou le site. S'applique
+    immédiatement, sans redémarrage.</p>
+    ${opts.uploadSaved ? '<p class="ok">Limite enregistrée.</p>' : ''}
+    <form method="post" action="/admin/settings/max-upload" class="row-gap">
+      <input type="number" name="maxUploadMb" min="1" max="${UPLOAD_CEILING_MB}"
+             value="${getMaxUploadMb()}" style="width:90px">
+      <span class="muted">Mo (max ${UPLOAD_CEILING_MB} Mo)</span>
+      <button class="btn btn-primary" type="submit">Enregistrer</button>
+    </form>
+
     <h2>Mettre à jour le site</h2>
     <p class="muted">Exécute <code>git pull</code> + réinstallation + build, puis redémarre
     le service (dépôt public, aucune clé nécessaire — docs/02 §5.2).</p>
@@ -121,6 +135,12 @@ adminRouter.post('/admin/tokens/:id/revoke', (req, res) => {
 adminRouter.delete('/admin/tokens/:id', (req, res) => {
   revokeToken(req.params.id);
   res.json({ revoked: true });
+});
+
+adminRouter.post('/admin/settings/max-upload', (req, res) => {
+  const mb = Number((req.body as Record<string, string>).maxUploadMb);
+  if (Number.isFinite(mb) && mb > 0) setMaxUploadMb(mb);
+  res.send(adminPage({ uploadSaved: true }));
 });
 
 adminRouter.post('/admin/update/check', (_req, res) => {

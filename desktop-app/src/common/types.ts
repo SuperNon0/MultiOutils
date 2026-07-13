@@ -161,20 +161,24 @@ export type NavigateMsg =
 /** Élément du presse-papiers (module clipboard, docs/00 §9.4). */
 export interface ClipItem {
   id: string;
-  kind: 'text' | 'image';
+  kind: 'text' | 'image' | 'file';
   /** Texte complet (kind=text). */
   content: string | null;
-  /** Aperçu : texte tronqué, ou data URL de miniature (kind=image). */
+  /** Aperçu : texte tronqué, data URL de miniature (kind=image), ou nom du fichier (kind=file). */
   preview: string;
   pinned: boolean;
-  /** 'local' = copié sur ce PC · 'remote' = reçu du serveur (iPhone…). */
+  /** 'local' = copié/ajouté sur ce PC · 'remote' = reçu du serveur (iPhone/iPad…). */
   source: 'local' | 'remote';
   /** Id serveur si l'élément a été envoyé ou importé. */
   remoteId: string | null;
-  /** Dossier (taxonomie partagée avec les captures). */
+  /** Dossier (taxonomie propre au presse-papiers). */
   folderId: string | null;
-  /** Tags (ids de la taxonomie partagée). */
+  /** Tags (ids de la taxonomie propre au presse-papiers). */
   tagIds: string[];
+  /** Nom d'origine (kind=file, et kind=image importée depuis un fichier). */
+  filename: string | null;
+  /** Taille en octets (kind=file / image). */
+  sizeBytes: number | null;
   createdAt: string;
 }
 

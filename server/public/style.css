@@ -192,3 +192,13 @@ pre.log {
 .clip-organize form { margin-top: 8px; }
 .clip-organize input[type='text'] { min-width: 220px; }
 .clip-head .tags { display: inline-flex; }
+.clip-file {
+  align-self: flex-start;
+  display: inline-flex;
+  gap: 6px;
+  text-decoration: none;
+}
+.deposit-max {
+  font-size: 10.5px;
+  margin-top: -4px;
+}

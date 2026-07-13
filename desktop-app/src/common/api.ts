@@ -115,8 +115,16 @@ export interface PreloadApi {
     clearUnpinned(): Promise<void>;
     /** Envoi explicite d'un élément au serveur (local-first, docs/00 §6). */
     send(id: string): Promise<{ ok: boolean; error?: string }>;
-    /** Force une récupération des clips du serveur (iPhone). */
+    /** Force une récupération des clips du serveur (iPhone/iPad). */
     syncNow(): Promise<number>;
+    /** Ouvre le sélecteur de fichiers OS et ajoute les fichiers choisis (PDF, docs, zip…). */
+    importFiles(): Promise<void>;
+    /** Ajoute des fichiers depuis leurs chemins réels (glisser-déposer). */
+    addPaths(paths: string[]): Promise<void>;
+    /** Ouvre le fichier d'un clip (kind='file'/'image' importé) avec l'app par défaut. */
+    open(id: string): Promise<void>;
+    /** Révèle le fichier d'un clip dans l'explorateur. */
+    reveal(id: string): Promise<void>;
     getSettings(): Promise<import('./types').ClipsSettings>;
     setSettings(
       patch: Partial<import('./types').ClipsSettings>
