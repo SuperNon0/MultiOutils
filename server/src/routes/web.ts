@@ -288,7 +288,11 @@ webRouter.get('/clips', requireSession, (req, res) => {
     .map((clip) => {
       const when = clip.created_at.slice(0, 16).replace('T', ' ');
       const badge =
-        clip.source === 'iphone' ? '📱' : clip.source === 'web' ? '🌐' : '💻';
+        clip.source === 'iphone' || clip.source === 'ipad'
+          ? '📱'
+          : clip.source === 'web'
+            ? '🌐'
+            : '💻';
       const tags = parseTags(clip.tags);
       const organizeLine = [
         clip.folder ? `📁 ${e(clip.folder)}` : '',

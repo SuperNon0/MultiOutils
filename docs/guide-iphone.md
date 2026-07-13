@@ -1,9 +1,10 @@
-# 📱 Guide : partager depuis ton iPhone vers MultiOutils
+# 📱 Guide : partager depuis ton iPhone (ou iPad) vers MultiOutils
 
 Ce guide configure le bouton **« Envoyer à MultiOutils »** dans le menu **Partager**
-de l'iPhone. Une fois en place : tu sélectionnes un texte (ou une photo) → Partager →
-MultiOutils → il arrive sur ton serveur **et** dans le module Presse-papiers de ton PC
-(en moins de 30 secondes).
+de l'iPhone (la même méthode marche à l'identique sur iPad — voir plus bas). Une
+fois en place : tu sélectionnes un texte (ou une photo) → Partager → MultiOutils →
+il arrive sur ton serveur **et** dans le module Presse-papiers de ton PC (en moins
+de 30 secondes).
 
 Aucune app à installer : on utilise l'app **Raccourcis** d'Apple (déjà sur l'iPhone).
 
@@ -64,6 +65,25 @@ Aucune app à installer : on utilise l'app **Raccourcis** d'Apple (déjà sur l'
 5. **OK**.
 
 **Test** : app Photos → choisis une photo → **Partager** → `Photo vers MultiOutils`.
+
+---
+
+## Depuis l'iPad aussi
+
+Même procédé, l'app **Raccourcis** existe aussi sur iPad. Deux façons de faire :
+
+1. **Le plus simple** : si l'iPhone et l'iPad utilisent le **même identifiant Apple**
+   avec la synchronisation iCloud des Raccourcis activée (réglages iCloud →
+   Raccourcis), les raccourcis créés sur l'iPhone **apparaissent automatiquement**
+   sur l'iPad — rien à refaire, ils sont déjà dans le menu Partager.
+2. **Sinon** : recrée les 2 raccourcis sur l'iPad en suivant exactement les mêmes
+   étapes que ci-dessus.
+
+💡 Optionnel : dans le champ `source` du corps JSON/Formulaire, tu peux mettre
+`ipad` au lieu de `iphone` pour ce raccourci-ci — ça n'change rien au
+fonctionnement, ça sert juste à savoir plus tard d'où vient chaque clip. L'icône
+sur la page Clips du site (📱) et le classement dans l'app PC sont identiques
+que ce soit `iphone` ou `ipad`.
 
 ---
 
