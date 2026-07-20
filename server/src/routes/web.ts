@@ -315,7 +315,10 @@ webRouter.get('/clips', requireSession, (req, res) => {
       const body =
         clip.kind === 'text'
           ? `<pre class="clip-text" data-clip>${e(clip.content ?? '')}</pre>
-             <button class="btn clip-copy" type="button" data-copy>Copier</button>`
+             <div class="row-gap">
+               <button class="btn clip-copy" type="button" data-copy>Copier</button>
+               <button class="btn" type="button" data-expand>Agrandir</button>
+             </div>`
           : clip.kind === 'image'
             ? `<a href="/api/clips/${e(clip.id)}/raw" target="_blank">
                  <img class="clip-img" src="/api/clips/${e(clip.id)}/raw" alt="${e(clip.filename ?? '')}" loading="lazy">

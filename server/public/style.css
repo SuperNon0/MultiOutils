@@ -202,3 +202,50 @@ pre.log {
   font-size: 10.5px;
   margin-top: -4px;
 }
+
+/* Modale « voir tout » (texte complet, defilable, sélectionnable) */
+.clip-modal-veil {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 9, 10, 0.78);
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 24px;
+}
+.clip-modal-veil.open {
+  display: flex;
+}
+.clip-modal {
+  width: min(900px, 92vw);
+  height: min(760px, 88vh);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.clip-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.clip-modal-text {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  border: none;
+  outline: none;
+  resize: none;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 16px 20px;
+}

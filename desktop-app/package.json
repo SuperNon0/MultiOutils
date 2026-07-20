@@ -1,7 +1,7 @@
 {
   "name": "@multioutils/desktop-app",
   "productName": "MultiOutils",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "private": true,
   "description": "MultiOutils — boîte à outils modulaire pour Windows (capture d'écran)",
   "author": "SuperNon0",

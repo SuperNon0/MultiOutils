@@ -300,7 +300,7 @@ premier plan ou en arrière-plan.
 - ✅ Réussi quand : on peut prélever la couleur de n'importe quel pixel de l'écran et
   récupérer son code.
 
-### 9.4 Presse-papiers, fichiers & partage iPhone/iPad — Réalisé (v0.2.0 → v0.3.0)
+### 9.4 Presse-papiers, fichiers & partage iPhone/iPad — Réalisé (v0.2.0 → v0.3.2)
 Gestionnaire de presse-papiers intégré, import de fichiers quelconques, et
 réception des partages iPhone/iPad.
 
@@ -316,6 +316,12 @@ réception des partages iPhone/iPad.
   **purgés automatiquement** après un délai réglable (1 h / 6 h / 24 h / 7 j / 30 j /
   jamais) dans les paramètres du module.
 - Recherche dans l'historique, vidage manuel.
+- **Visionneuse plein texte** (v0.3.2) : bouton dédié sur chaque clip texte →
+  ouvre une visionneuse (zone de texte en lecture seule) montrant le message
+  **en entier**, quelle que soit sa longueur, avec défilement natif et
+  sélection libre d'un passage à copier (Ctrl+C ne copie que la sélection).
+  Même fonctionnalité sur le site (bouton « Agrandir » à côté de « Copier »
+  sur la page Clips) — cohérence app/site.
 - **Présentation identique à la bibliothèque** (v0.2.2) : barre latérale avec vues
   intelligentes — Tous les éléments, **Favoris** (jamais supprimés), Aujourd'hui,
   Cette semaine, Ce mois-ci, Non triés, Reçus (iPhone/iPad) — puis dossiers et tags.

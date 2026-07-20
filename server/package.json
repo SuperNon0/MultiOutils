@@ -1,6 +1,6 @@
 {
   "name": "@multioutils/server",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "private": true,
   "description": "MultiOutils — serveur auto-hébergé (API + consultation web à distance)",
   "main": "dist/index.js",

@@ -221,6 +221,14 @@ const PATHS: Record<string, ReactNode> = {
       <path d="M12 13.5V21" />
     </>
   ),
+  expand: (
+    <>
+      <path d="M8 3H4.5a1.5 1.5 0 0 0-1.5 1.5V8" />
+      <path d="M16 3h3.5A1.5 1.5 0 0 1 21 4.5V8" />
+      <path d="M8 21H4.5A1.5 1.5 0 0 1 3 19.5V16" />
+      <path d="M16 21h3.5a1.5 1.5 0 0 0 1.5-1.5V16" />
+    </>
+  ),
   plus: <path d="M12 5v14M5 12h14" />,
   tag: (
     <>

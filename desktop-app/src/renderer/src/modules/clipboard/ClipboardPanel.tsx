@@ -61,6 +61,55 @@ function flattenFolders(folders: Folder[]): Array<{ id: string; label: string }>
   return out;
 }
 
+/** Visionneuse plein texte d'un clip : défilement natif + sélection libre
+ *  pour copier un passage précis (textarea en lecture seule — la sélection
+ *  et le Ctrl+C fonctionnent nativement, sans logique custom). */
+function ClipTextModal({ item, onClose }: { item: ClipItem; onClose: () => void }): ReactNode {
+  const { t } = useI18n();
+
+  useEffect(() => {
+    const onKey = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="modal-veil" onClick={onClose}>
+      <div className="modal clip-text-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="preview-head">
+          <div>
+            <div className="shot-name">{t('clips.fullTextTitle')}</div>
+            <div className="muted">{timeLabel(item.createdAt)}</div>
+          </div>
+          <div className="preview-actions">
+            <button
+              type="button"
+              className="btn"
+              onClick={() => void window.api.clips.copy(item.id)}
+            >
+              <Icon name="copy" />
+              {t('clips.copyAll')}
+            </button>
+            <button
+              type="button"
+              className="btn btn-icon"
+              aria-label={t('common.close')}
+              onClick={onClose}
+            >
+              <Icon name="close" />
+            </button>
+          </div>
+        </div>
+        <div className="clip-text-modal-body">
+          <textarea className="clip-text-full" readOnly value={item.content ?? ''} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Panneau « Presse-papiers » — même présentation que la bibliothèque de
  *  captures : barre latérale (favoris, périodes, dossiers, tags séparés),
  *  barre d'outils, liste. */
@@ -76,6 +125,7 @@ export function ClipboardPanel(): ReactNode {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [serverUrl, setServerUrl] = useState('');
+  const [viewingItem, setViewingItem] = useState<ClipItem | null>(null);
 
   const refresh = async (): Promise<void> => {
     setItems(await window.api.clips.list());
@@ -89,6 +139,11 @@ export function ClipboardPanel(): ReactNode {
     void refresh();
     return window.api.clips.onChanged(() => void refresh());
   }, []);
+
+  // Ferme la visionneuse si le clip affiché a été supprimé/purgé entre-temps.
+  useEffect(() => {
+    if (viewingItem && !items.some((i) => i.id === viewingItem.id)) setViewingItem(null);
+  }, [items, viewingItem]);
 
   const folderOptions = useMemo(() => flattenFolders(folders), [folders]);
   const folderName = (id: string | null): string | null =>
@@ -348,6 +403,16 @@ export function ClipboardPanel(): ReactNode {
                   </div>
 
                   <div className="clip-actions">
+                    {item.kind === 'text' && (
+                      <button
+                        type="button"
+                        className="btn btn-icon"
+                        title={t('clips.viewFull')}
+                        onClick={() => setViewingItem(item)}
+                      >
+                        <Icon name="expand" />
+                      </button>
+                    )}
                     {item.kind === 'file' && (
                       <button
                         type="button"
@@ -397,6 +462,10 @@ export function ClipboardPanel(): ReactNode {
           )}
         </div>
       </section>
+
+      {viewingItem && (
+        <ClipTextModal item={viewingItem} onClose={() => setViewingItem(null)} />
+      )}
     </div>
   );
 }

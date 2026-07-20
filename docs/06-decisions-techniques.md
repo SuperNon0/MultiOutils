@@ -389,3 +389,26 @@ workspace). Sur un serveur, on ne veut surtout pas installer l'app Electron.
   sont conservés) et à l'affichage (le renderer utilise `item.content` — texte
   complet, pas le `preview` tronqué — avec `white-space: pre-wrap` et un
   clamp CSS à 6 lignes, comme le rendu `<pre>` du site).
+
+## Visionneuse plein texte des clips, app + site (v0.3.2)
+
+- **App** : un `<textarea readOnly>` dans une modale (calquée sur `PreviewModal`
+  des captures — `.modal-veil`/`.modal`, Échap pour fermer) affiche
+  `item.content` (texte complet, pas le `preview` tronqué/clampé de la liste).
+  Choix du textarea plutôt qu'un `<div>` sélectionnable : défilement natif,
+  sélection au clavier/souris et Ctrl+C fonctionnent sans aucune logique
+  custom — exactement le comportement demandé (« comme un petit éditeur de
+  texte »). Bouton dédié par clip (n'écrase pas le clic principal existant,
+  qui reste « copier tout de suite »).
+- **Site** : la page `/clips` affichait déjà le texte complet (pas de
+  troncature côté serveur) mais dans une boîte de 220 px. Ajout d'un bouton
+  « Agrandir » (`public/clips.js`) qui ouvre une modale plein écran
+  construite dynamiquement (une seule fois, réutilisée), avec le même choix
+  de `<textarea readonly>` pour la parité app/site. Fermeture par Échap ou
+  clic sur le fond.
+- **Vérifié avec Playwright** (navigateur réel, pas de mock) : la modale du
+  site affiche l'intégralité d'un message de 59 lignes sans troncature,
+  « Copier tout » place bien le texte complet dans le presse-papiers, et —
+  point central de la demande — **sélectionner un passage précis puis
+  Ctrl+C ne copie que ce passage**, pas tout le message. Fermeture par Échap
+  et par clic sur le fond toutes deux vérifiées.
