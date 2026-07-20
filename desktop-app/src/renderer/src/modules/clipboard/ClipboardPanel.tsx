@@ -14,6 +14,9 @@ import { ClipsSidebar, type ClipSource } from './ClipsSidebar';
 /** Options de rétention proposées (heures ; 0 = jamais). */
 const RETENTION_CHOICES = [1, 6, 24, 168, 720, 0] as const;
 
+/** Longueur affichée d'un texte : le CSS clampe à N lignes, ceci borne le DOM. */
+const DISPLAY_CHARS = 4000;
+
 function retentionLabel(hours: number, t: TFunc): string {
   if (hours === 0) return t('clips.retention.never');
   if (hours < 24) return t('clips.retention.hours', { n: hours });
@@ -72,12 +75,14 @@ export function ClipboardPanel(): ReactNode {
   const [enabled, setEnabled] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [serverUrl, setServerUrl] = useState('');
 
   const refresh = async (): Promise<void> => {
     setItems(await window.api.clips.list());
     setEnabled((await window.api.clips.getSettings()).enabled);
     setFolders(await window.api.clips.folders.list());
     setTags(await window.api.clips.tags.list());
+    setServerUrl((await window.api.remote.getConfig()).url);
   };
 
   useEffect(() => {
@@ -104,6 +109,9 @@ export function ClipboardPanel(): ReactNode {
           break;
         case 'phone':
           if (item.source !== 'remote') return false;
+          break;
+        case 'sent':
+          if (!(item.remoteId && item.source === 'local')) return false;
           break;
         case 'folder':
           if (item.folderId !== source.folderId) return false;
@@ -167,6 +175,17 @@ export function ClipboardPanel(): ReactNode {
             <Icon name="file" />
             {t('clips.addFile')}
           </button>
+          {serverUrl && (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => window.open(`${serverUrl}/clips`, '_blank')}
+              title={t('clips.openSiteTooltip')}
+            >
+              <Icon name="send" />
+              {t('clips.openSite')}
+            </button>
+          )}
         </div>
         <div className="capture-hint muted">{t('clips.help')}</div>
       </header>
@@ -249,12 +268,19 @@ export function ClipboardPanel(): ReactNode {
                           )}
                         </span>
                       ) : (
-                        <span className="clip-text">{item.preview}</span>
+                        <div className="clip-text">
+                          {(item.content ?? item.preview).slice(0, DISPLAY_CHARS)}
+                        </div>
                       )}
                       <span className="clip-meta muted">
                         {item.source === 'remote' && (
                           <span className="clip-badge" title={t('clips.fromPhone')}>
                             <Icon name="phone" size={12} />
+                          </span>
+                        )}
+                        {item.remoteId && item.source === 'local' && (
+                          <span className="clip-badge clip-badge-sent" title={t('clips.sentTooltip')}>
+                            <Icon name="send" size={11} /> {t('clips.sentBadge')}
                           </span>
                         )}
                         {timeLabel(item.createdAt)}
@@ -278,9 +304,6 @@ export function ClipboardPanel(): ReactNode {
                                 </span>
                               ))}
                           </span>
-                        )}
-                        {item.remoteId && item.source === 'local' && (
-                          <span title={t('clips.sentTooltip')}> · ✓</span>
                         )}
                       </span>
                     </button>

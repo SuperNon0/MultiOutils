@@ -1406,10 +1406,16 @@
 }
 .clip-text {
   font-size: 12.5px;
-  white-space: nowrap;
+  white-space: pre-wrap;
+  word-break: break-word;
+  user-select: text;
+  /* Blocs avec sauts de ligne réels (comme sur le site), clampés à quelques
+     lignes plutôt qu'un défilement imbriqué dans un bouton cliquable. */
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  user-select: text;
 }
 .clip-thumb {
   max-height: 72px;
@@ -1427,7 +1433,14 @@
 }
 .clip-badge {
   display: inline-flex;
+  align-items: center;
   color: var(--accent);
+}
+.clip-badge-sent {
+  gap: 3px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 1px 7px 1px 5px;
 }
 .clip-actions {
   display: flex;

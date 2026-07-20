@@ -356,3 +356,36 @@ workspace). Sur un serveur, on ne veut surtout pas installer l'app Electron.
   `Formulaire`, champ `file` = Entrée du raccourci directement (aucune
   conversion nécessaire, contrairement aux photos qui doivent passer par
   « Convertir l'image → JPEG » à cause du HEIC).
+
+## Correctif critique : purge qui effaçait aussi les clips envoyés/reçus (v0.3.1)
+
+- **Bug** : `purge()` supprimait tout clip non épinglé plus vieux que le délai
+  réglé, **y compris ceux avec un `remote_id`** (envoyés au serveur depuis ce
+  PC, ou reçus de l'iPhone/iPad). Conséquence concrète signalée par
+  l'utilisateur : après une absence prolongée (PC éteint plus longtemps que le
+  délai de rétention, 7 jours par défaut), l'historique local ET les éléments
+  explicitement envoyés au site disparaissaient de l'app au redémarrage — alors
+  qu'ils existaient toujours côté serveur (celui-ci n'a aucune purge
+  automatique). Le bouton d'envoi devient alors un geste de conservation qui
+  ne protégeait pourtant pas de la purge locale.
+- **Correctif** : la requête de purge ajoute `AND remote_id IS NULL` — un clip
+  lié au serveur (envoyé ou reçu) est traité comme « gardé », au même titre
+  qu'épinglé. Seuls les clips purement locaux, jamais envoyés, sont encore
+  purgés après le délai. Vérifié par simulation SQL directe (pinned/sent/
+  received survivent, un clip local pur est purgé).
+- **Visibilité renforcée** : l'ancien indicateur « · ✓ » (minuscule, disparaît
+  avec la ligne si purgée) est remplacé par un badge « Envoyé au site » lisible
+  sur chaque clip concerné, plus une vue intelligente dédiée « Envoyés au site »
+  dans la barre latérale (miroir de la vue « Envoyées au serveur » déjà
+  présente pour les captures). Un bouton « Ouvrir sur le site » (ouvre
+  `<url-serveur>/clips` dans le navigateur via `window.open`, intercepté par le
+  `setWindowOpenHandler` déjà en place) sert d'issue de secours pour retrouver
+  un élément qui aurait été purgé localement AVANT ce correctif — le serveur ne
+  supprimant jamais rien automatiquement, tout ce qui a été envoyé y reste.
+- **Affichage en blocs (docs/00 §9.4)** : le texte des clips était rendu sur
+  une seule ligne tronquée (`white-space: nowrap` + `.replace(/\s+/g,' ')`
+  écrasait déjà les sauts de ligne à l'enregistrement). Corrigé à la source
+  (seuls espaces/tabulations sont collapsés désormais, les retours à la ligne
+  sont conservés) et à l'affichage (le renderer utilise `item.content` — texte
+  complet, pas le `preview` tronqué — avec `white-space: pre-wrap` et un
+  clamp CSS à 6 lignes, comme le rendu `<pre>` du site).

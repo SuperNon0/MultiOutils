@@ -163,7 +163,9 @@ export function createClipboardMainModule(): MainToolModule {
     remoteId: string | null
   ): string => {
     const trimmed = text.length > MAX_TEXT_BYTES ? text.slice(0, MAX_TEXT_BYTES) : text;
-    const preview = trimmed.replace(/\s+/g, ' ').trim().slice(0, PREVIEW_CHARS);
+    // Ne collapse que les espaces/tabulations, PAS les sauts de ligne : l'affichage
+    // (renderer) doit pouvoir montrer le texte en blocs, comme sur le site.
+    const preview = trimmed.replace(/[ \t]+/g, ' ').trim().slice(0, PREVIEW_CHARS);
     const id = randomUUID();
     ctx.db
       .prepare(
@@ -318,8 +320,15 @@ export function createClipboardMainModule(): MainToolModule {
     const hours = getSettings().retentionHours;
     if (hours <= 0) return; // jamais
     const cutoff = new Date(Date.now() - hours * 3600_000).toISOString();
+    // BUG corrigé : un clip envoyé au serveur (ou reçu du téléphone) porte un
+    // remote_id — c'est déjà un geste explicite de conservation, au même titre
+    // qu'épingler. Sans ce filtre, revenir sur le PC après une longue absence
+    // effaçait aussi les éléments envoyés au site (perdus de la liste locale,
+    // même si encore présents côté serveur).
     const stale = ctx.db
-      .prepare("SELECT id, path FROM clips WHERE pinned = 0 AND created_at < ?")
+      .prepare(
+        "SELECT id, path FROM clips WHERE pinned = 0 AND remote_id IS NULL AND created_at < ?"
+      )
       .all(cutoff) as Array<{ id: string; path: string | null }>;
     if (stale.length === 0) return;
     for (const row of stale) {
@@ -331,7 +340,9 @@ export function createClipboardMainModule(): MainToolModule {
         }
       }
     }
-    ctx.db.prepare('DELETE FROM clips WHERE pinned = 0 AND created_at < ?').run(cutoff);
+    ctx.db
+      .prepare('DELETE FROM clips WHERE pinned = 0 AND remote_id IS NULL AND created_at < ?')
+      .run(cutoff);
     ctx.broadcast('clips:changed');
   };
 

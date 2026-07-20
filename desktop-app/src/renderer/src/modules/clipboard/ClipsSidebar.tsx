@@ -13,6 +13,7 @@ export type ClipSource =
   | { kind: 'smart'; period: 'today' | 'week' | 'month' }
   | { kind: 'unsorted' }
   | { kind: 'phone' }
+  | { kind: 'sent' }
   | { kind: 'folder'; folderId: string };
 
 export const sameSource = (a: ClipSource, b: ClipSource): boolean =>
@@ -203,7 +204,8 @@ export function ClipsSidebar({
     { source: { kind: 'smart', period: 'week' }, icon: 'clock', label: t('library.week') },
     { source: { kind: 'smart', period: 'month' }, icon: 'clock', label: t('library.month') },
     { source: { kind: 'unsorted' }, icon: 'folder', label: t('clips.unsorted') },
-    { source: { kind: 'phone' }, icon: 'phone', label: t('clips.fromPhoneView') }
+    { source: { kind: 'phone' }, icon: 'phone', label: t('clips.fromPhoneView') },
+    { source: { kind: 'sent' }, icon: 'send', label: t('clips.sentView') }
   ];
 
   return (
