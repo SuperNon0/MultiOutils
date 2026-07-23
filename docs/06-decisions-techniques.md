@@ -412,3 +412,32 @@ workspace). Sur un serveur, on ne veut surtout pas installer l'app Electron.
   point central de la demande — **sélectionner un passage précis puis
   Ctrl+C ne copie que ce passage**, pas tout le message. Fermeture par Échap
   et par clic sur le fond toutes deux vérifiées.
+
+## Mise à jour du site rendue auto-réparante « pour de bon » (v0.3.3)
+
+Malgré le correctif v0.2.1 (`--include=dev` + suppression de `NODE_ENV`),
+l'erreur « tsc: not found » pouvait resurgir : le correctif vit DANS
+l'updater, donc un conteneur exécutant encore l'ancien updater (build cassé,
+donc jamais recompilé/redémarré) restait piégé — problème d'amorçage. On
+supprime la fragilité restante :
+
+- **Build sans dépendre du lien `.bin/tsc`** : au lieu de `npm run build` (qui
+  appelle `tsc` via `node_modules/.bin/tsc`, le premier lien à disparaître dès
+  qu'un `npm install` élague TypeScript), on invoque le compilateur par le
+  chemin réel de son module : `node node_modules/typescript/bin/tsc -p
+  tsconfig.json`. Présent grâce à `--include=dev`.
+- **Repli `npx`** : si le paquet `typescript` est malgré tout absent, on
+  bascule sur `npx --yes tsc -p tsconfig.json`, qui le récupère et compile.
+- **Garde-fou anti-redémarrage sur build vide** : on vérifie que
+  `dist/index.js` existe APRÈS compilation avant de redémarrer — sinon on
+  échoue proprement (le service continue sur l'ancienne version au lieu de
+  repartir sur un dist cassé).
+- Les deux chemins (réparation via `--include=dev` puis `node tsc`, et repli
+  `npx`) ont été reproduits et vérifiés en simulant l'état exact du conteneur
+  (TypeScript élagué, `dist/` supprimé).
+
+⚠️ Reste un amorçage MANUEL unique : un conteneur qui tourne encore l'ancien
+updater doit être mis à jour une fois à la main (`git pull` + `npm install
+--include=dev` + `npm run build` + `systemctl restart`) pour faire tourner ce
+nouvel updater. Après quoi le bouton « Mettre à jour le site » est
+définitivement robuste.

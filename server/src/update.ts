@@ -106,7 +106,27 @@ export function startUpdate(): boolean {
         ],
         serverDir
       );
-      await step('npm', ['run', 'build'], serverDir);
+
+      // Build AUTO-RÉPARANT : on n'utilise PAS `npm run build` (qui appelle
+      // `tsc` via node_modules/.bin/tsc — ce lien disparaît dès que TypeScript
+      // a été élagué, d'où l'historique « tsc: not found »). On invoque le
+      // compilateur directement par le chemin de son module (présent grâce à
+      // --include=dev) ; s'il manque quand même, repli sur npx qui le récupère.
+      const tscBin = path.join(serverDir, 'node_modules', 'typescript', 'bin', 'tsc');
+      if (fs.existsSync(tscBin)) {
+        await step('node', [tscBin, '-p', 'tsconfig.json'], serverDir);
+      } else {
+        state.log += 'TypeScript introuvable en local — récupération via npx…\n';
+        await step('npx', ['--yes', 'tsc', '-p', 'tsconfig.json'], serverDir);
+      }
+
+      // Garde-fou : ne JAMAIS redémarrer sur un build vide/incomplet (sinon le
+      // service repart sur un dist cassé et le site meurt).
+      const builtEntry = path.join(serverDir, 'dist', 'index.js');
+      if (!fs.existsSync(builtEntry)) {
+        throw new Error(`build incomplet : ${builtEntry} introuvable après compilation`);
+      }
+
       state.status = 'ok';
       state.finishedAt = new Date().toISOString();
       state.log += 'Mise à jour appliquée — redémarrage du service…\n';
