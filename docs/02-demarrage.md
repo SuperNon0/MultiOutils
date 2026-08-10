@@ -111,6 +111,55 @@ Résumé (détails dans `../install/README.md`) :
 4. (Recommandé) protège l'URL avec **Cloudflare Access** (email/code).
 5. Le site est alors accessible en **HTTPS** depuis partout, **sans ouvrir de port**.
 
+### 3.6 Envoyer depuis l'iPhone/iPad quand Cloudflare Access est activé (jeton de service)
+
+Si tu as protégé le site avec **Cloudflare Access** (§3.5, étape 4), le domaine
+réclame une connexion **Google/e-mail** à *chaque* requête. Or un **Raccourci iOS**
+ne sait pas faire ce login interactif : au lieu d'envoyer ton clip, il reçoit la
+page « **Sign in with Google** » et l'envoi échoue.
+
+La solution propre est de donner au Raccourci un **jeton de service** (*Service
+Token*) : une **identité machine** que Cloudflare accepte **sans écran de
+connexion**.
+
+> 🔒 **Pourquoi c'est le plus sûr.** L'API reste protégée par **deux couches
+> indépendantes** : Cloudflare (jeton de service) filtre **au bord**, *avant* même
+> ton serveur, puis le jeton `Bearer` de l'app authentifie côté serveur. Une
+> requête sans le bon jeton de service **n'atteint jamais** ton serveur (ton
+> endpoint d'upload n'est donc pas exposé à Internet). Si l'un des deux secrets
+> fuit, l'autre bloque encore.
+
+**a) Créer le jeton de service (une seule fois)**
+1. Ouvre **Cloudflare Zero Trust** (`one.dash.cloudflare.com`) →
+   **Access → Service Auth → Service Tokens**.
+2. **Create Service Token**, nomme-le (ex. `raccourci-iphone`).
+3. Copie le **Client ID** et le **Client Secret** — ⚠️ le secret n'est affiché
+   **qu'une seule fois**.
+
+**b) Autoriser ce jeton sur l'API**
+1. **Access → Applications** → ouvre l'application qui protège ton domaine.
+2. **Add a policy** : *Action* = **Service Auth**, *Include* = **Service Token**
+   → sélectionne `raccourci-iphone`. Enregistre.
+   - *(Recommandé, plus propre)* : crée une **application dédiée** au chemin
+     `tondomaine.fr/api` pour n'appliquer ce jeton **qu'à l'API**, et garder le
+     login Google sur l'interface web de consultation.
+
+**c) Ajouter les 2 en-têtes au Raccourci**
+Dans l'action **Obtenir le contenu de l'URL** du Raccourci « Envoyer à
+MultiOutils », section **En-têtes**, ajoute — *en plus* de ton
+`Authorization: Bearer mo_…` :
+
+| Clé | Valeur |
+|---|---|
+| `CF-Access-Client-Id` | le **Client ID** |
+| `CF-Access-Client-Secret` | le **Client Secret** |
+
+Relance le Raccourci : **plus d'écran de connexion**, le clip part directement. ✅
+
+> ♻️ **Révocation immédiate.** En cas de doute (téléphone perdu, secret exposé…),
+> supprime le jeton de service dans Cloudflare : l'accès machine est coupé
+> **aussitôt**, sans toucher au serveur ni à ton jeton d'app.
+
 ---
 
 ## 4. CONNECTER le logiciel et le site
@@ -170,6 +219,7 @@ Le dépôt étant **public**, aucune authentification supplémentaire n'est néc
 | Le raccourci ne capture pas | Conflit avec une autre app | Change le raccourci dans Paramètres → Raccourcis |
 | « Tester la connexion » échoue | Mauvaise URL / jeton / site éteint | Vérifie l'URL, régénère un jeton, vérifie que le site tourne |
 | Le site ne s'ouvre pas à distance | Tunnel non lancé | Vérifie `cloudflared`, la route DNS et Cloudflare Access |
+| Le Raccourci iPhone affiche « Sign in with Google » | Cloudflare Access bloque la requête machine | Ajoute un **jeton de service** au Raccourci (§3.6) |
 | Capture 🔴 erreur | Jeton révoqué ou quota atteint | Régénère un jeton / libère de l'espace |
 | L'app ne démarre pas avec Windows | Option désactivée | Paramètres → Général → Lancement au démarrage |
 | Mise à jour du site échoue | Dépôt passé en privé sans deploy key | Ajoute une deploy key (§5.2) |
