@@ -131,18 +131,32 @@ connexion**.
 
 **a) Créer le jeton de service (une seule fois)**
 1. Ouvre **Cloudflare Zero Trust** (`one.dash.cloudflare.com`) →
-   **Access → Service Auth → Service Tokens**.
+   **Access controls → Service credentials** *(anciennement « Access → Service
+   Auth → Service Tokens »)*.
 2. **Create Service Token**, nomme-le (ex. `raccourci-iphone`).
 3. Copie le **Client ID** et le **Client Secret** — ⚠️ le secret n'est affiché
    **qu'une seule fois**.
 
-**b) Autoriser ce jeton sur l'API**
+**b) Autoriser ce jeton sur l'API — dans une policy « Service Auth » DÉDIÉE**
 1. **Access → Applications** → ouvre l'application qui protège ton domaine.
-2. **Add a policy** : *Action* = **Service Auth**, *Include* = **Service Token**
-   → sélectionne `raccourci-iphone`. Enregistre.
+2. **Crée une NOUVELLE policy** (ne le mets pas dans la policy de tes e-mails) :
+   - *Action* = **Service Auth** ⚠️ **(surtout pas « Allow »)**
+   - *Include* = **Service Token** → sélectionne `raccourci-iphone`
+3. Garde ta policy humaine séparée (*Action* = **Allow**, Include = tes e-mails)
+   pour la consultation web via Google. Vérifie que **les deux policies sont bien
+   rattachées à l'application**, puis **Save**.
    - *(Recommandé, plus propre)* : crée une **application dédiée** au chemin
-     `tondomaine.fr/api` pour n'appliquer ce jeton **qu'à l'API**, et garder le
-     login Google sur l'interface web de consultation.
+     `tondomaine.fr/api` pour n'appliquer le Service Auth **qu'à l'API**, et garder
+     le login Google sur l'interface web de consultation.
+
+> ⚠️ **Le piège qui donne un « 302 » sans fin.** Un jeton de service placé dans une
+> policy dont l'*Action* est **Allow** est **ignoré** : une policy Allow exige une
+> **identité humaine** (session de login), or un jeton de service n'en est pas une
+> → Cloudflare renvoie quand même vers la page de connexion (302). Les jetons de
+> service ne fonctionnent **que** dans une policy **Service Auth**. Test rapide :
+> `curl -s -o /dev/null -w "%{http_code}\n" https://tondomaine/api/health -H "CF-Access-Client-Id: …" -H "CF-Access-Client-Secret: …"`
+> → **200/404/401** = ça passe ; **302** = policy en Allow (à corriger) ; **403** =
+> policy Service Auth présente mais pas rattachée à cette application.
 
 **c) Ajouter les 2 en-têtes au Raccourci**
 Dans l'action **Obtenir le contenu de l'URL** du Raccourci « Envoyer à
