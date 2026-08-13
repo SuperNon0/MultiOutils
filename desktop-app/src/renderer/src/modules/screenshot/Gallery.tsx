@@ -186,6 +186,18 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
     }
   };
 
+  // Case à cocher d'une vignette : bascule uniquement cet élément (comme Ctrl+clic).
+  const toggleOne = (id: string): void => {
+    setSelectedIds((ids) =>
+      ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]
+    );
+    anchorRef.current = id;
+  };
+
+  const allSelected = items.length > 0 && selectedIds.length === items.length;
+  const toggleAll = (): void =>
+    setSelectedIds(allSelected ? [] : items.map((c) => c.id));
+
   const dragStart = (event: ReactDragEvent, capture: CaptureListItem): void => {
     event.preventDefault();
     const ids = selectedIds.includes(capture.id) ? selectedIds : [capture.id];
@@ -322,6 +334,17 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
           <span className="muted gallery-count">
             {t('gallery.count', { n: items.length })}
           </span>
+
+          {items.length > 0 && (
+            <button
+              type="button"
+              className={`btn${allSelected ? ' btn-primary' : ''}`}
+              onClick={toggleAll}
+            >
+              <Icon name="check" size={13} />
+              {allSelected ? t('library.deselectAll') : t('library.selectAll')}
+            </button>
+          )}
 
           <div className="gallery-toolbar-right">
             <button
@@ -564,6 +587,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
                   view={view}
                   remoteReady={remoteReady}
                   selected={selectedIds.includes(capture.id)}
+                  onToggleSelect={() => toggleOne(capture.id)}
                   renaming={renamingId === capture.id}
                   renameValue={renameValue}
                   onRenameChange={setRenameValue}
@@ -619,6 +643,7 @@ function GridCard({
   view,
   remoteReady,
   selected,
+  onToggleSelect,
   renaming,
   renameValue,
   onRenameChange,
@@ -635,6 +660,7 @@ function GridCard({
   view: LibraryView;
   remoteReady: boolean;
   selected: boolean;
+  onToggleSelect(): void;
   renaming: boolean;
   renameValue: string;
   onRenameChange(value: string): void;
@@ -666,6 +692,20 @@ function GridCard({
           loading="lazy"
           draggable={false}
         />
+        <button
+          type="button"
+          className={`shot-check${selected ? ' on' : ''}`}
+          role="checkbox"
+          aria-checked={selected}
+          title={t('library.select')}
+          aria-label={t('library.select')}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect();
+          }}
+        >
+          {selected && <Icon name="check" size={14} />}
+        </button>
         <button
           type="button"
           className={`shot-fav${capture.favorite ? ' on' : ''}`}
