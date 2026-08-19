@@ -8,6 +8,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode
 } from 'react';
+import { createPortal } from 'react-dom';
 import type { Capture, Folder, Tag } from '@multioutils/shared';
 import type {
   CaptureListItem,
@@ -23,11 +24,12 @@ import { LibrarySidebar, type LibSource } from './library/LibrarySidebar';
 
 type DatePeriod = '' | 'today' | 'week' | 'month';
 type ViewMode = 'grid' | 'list';
-type ThumbSize = 's' | 'm' | 'l';
 
-const THUMB_PX: Record<ThumbSize, number> = { s: 160, m: 205, l: 265 };
 const VIEWMODE_KEY = 'multioutils.gallery.viewMode';
-const THUMB_KEY = 'multioutils.gallery.thumbSize';
+const COLS_KEY = 'multioutils.gallery.cols';
+const MIN_COLS = 2;
+const MAX_COLS = 6;
+const DEFAULT_COLS = 4;
 
 function dateFromFor(period: Exclude<DatePeriod, ''>): string {
   const now = new Date();
@@ -56,9 +58,10 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem(VIEWMODE_KEY) as ViewMode) || 'grid'
   );
-  const [thumbSize, setThumbSize] = useState<ThumbSize>(
-    () => (localStorage.getItem(THUMB_KEY) as ThumbSize) || 'm'
-  );
+  const [cols, setCols] = useState<number>(() => {
+    const n = Number(localStorage.getItem(COLS_KEY));
+    return n >= MIN_COLS && n <= MAX_COLS ? n : DEFAULT_COLS;
+  });
   const [items, setItems] = useState<CaptureListItem[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -70,6 +73,9 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   const [tagMenuOpen, setTagMenuOpen] = useState(false);
   const [fullscreenShortcut, setFullscreenShortcut] = useState('PrintScreen');
   const [remoteReady, setRemoteReady] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const clickTimer = useRef<number | null>(null);
+  const scrollTargetRef = useRef<string | null>(null);
 
   useEffect(() => {
     void window.api.remote
@@ -81,7 +87,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   }, []);
 
   useEffect(() => localStorage.setItem(VIEWMODE_KEY, viewMode), [viewMode]);
-  useEffect(() => localStorage.setItem(THUMB_KEY, thumbSize), [thumbSize]);
+  useEffect(() => localStorage.setItem(COLS_KEY, String(cols)), [cols]);
 
   // recherche avec léger debounce
   useEffect(() => {
@@ -125,8 +131,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
     });
     const unsubDone = window.api.capture.onDone((capture) => {
       setView('library');
-      setSelectedIds([capture.id]);
-      anchorRef.current = capture.id;
+      scrollTargetRef.current = capture.id;
       void refresh();
     });
     return () => {
@@ -139,8 +144,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   useEffect(() => {
     if (!host.navCaptureId) return;
     setView('library');
-    setSelectedIds([host.navCaptureId]);
-    anchorRef.current = host.navCaptureId;
+    scrollTargetRef.current = host.navCaptureId;
     if (host.navAction === 'edit') {
       const capture = items.find((c) => c.id === host.navCaptureId);
       if (!capture) return; // attend le rafraîchissement
@@ -152,9 +156,10 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   }, [host, host.navCaptureId, items, onEdit]);
 
   useEffect(() => {
-    const first = selectedIds[0];
-    if (!first) return;
-    document.getElementById(`shot-${first}`)?.scrollIntoView({ block: 'nearest' });
+    const target = scrollTargetRef.current ?? selectedIds[0];
+    if (!target) return;
+    document.getElementById(`shot-${target}`)?.scrollIntoView({ block: 'nearest' });
+    scrollTargetRef.current = null;
   }, [selectedIds, items]);
 
   // nettoie la sélection quand la liste change
@@ -164,27 +169,6 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
 
   const selected = items.filter((c) => selectedIds.includes(c.id));
   const preview = items.find((c) => c.id === previewId) ?? null;
-
-  const clickCard = (event: ReactMouseEvent, capture: CaptureListItem): void => {
-    if (event.ctrlKey || event.metaKey) {
-      setSelectedIds((ids) =>
-        ids.includes(capture.id)
-          ? ids.filter((id) => id !== capture.id)
-          : [...ids, capture.id]
-      );
-      anchorRef.current = capture.id;
-    } else if (event.shiftKey && anchorRef.current) {
-      const a = items.findIndex((c) => c.id === anchorRef.current);
-      const b = items.findIndex((c) => c.id === capture.id);
-      if (a >= 0 && b >= 0) {
-        const [from, to] = a < b ? [a, b] : [b, a];
-        setSelectedIds(items.slice(from, to + 1).map((c) => c.id));
-      }
-    } else {
-      setSelectedIds([capture.id]);
-      anchorRef.current = capture.id;
-    }
-  };
 
   // Case à cocher d'une vignette : bascule uniquement cet élément (comme Ctrl+clic).
   const toggleOne = (id: string): void => {
@@ -197,6 +181,58 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   const allSelected = items.length > 0 && selectedIds.length === items.length;
   const toggleAll = (): void =>
     setSelectedIds(allSelected ? [] : items.map((c) => c.id));
+
+  // Flash « Copié » éphémère sur la vignette cliquée.
+  const flashCopied = (id: string): void => {
+    setCopiedId(id);
+    window.setTimeout(() => setCopiedId((cur) => (cur === id ? null : cur)), 700);
+  };
+
+  const clickCard = (event: ReactMouseEvent, capture: CaptureListItem): void => {
+    // Ctrl/⌘ : (dé)sélection ; Maj : sélection d'une plage.
+    if (event.ctrlKey || event.metaKey) {
+      toggleOne(capture.id);
+      return;
+    }
+    if (event.shiftKey && anchorRef.current) {
+      const a = items.findIndex((c) => c.id === anchorRef.current);
+      const b = items.findIndex((c) => c.id === capture.id);
+      if (a >= 0 && b >= 0) {
+        const [from, to] = a < b ? [a, b] : [b, a];
+        setSelectedIds(items.slice(from, to + 1).map((c) => c.id));
+      }
+      return;
+    }
+    // En mode sélection (au moins un coché) : un clic simple (dé)sélectionne
+    // les autres — plus besoin de viser la petite case.
+    if (selectedIds.length > 0) {
+      toggleOne(capture.id);
+      return;
+    }
+    // Sinon, en grille + bibliothèque : clic simple = COPIER (double-clic = éditer).
+    // On diffère la copie pour l'annuler si un double-clic suit.
+    if (viewMode === 'grid' && view === 'library') {
+      if (clickTimer.current) window.clearTimeout(clickTimer.current);
+      clickTimer.current = window.setTimeout(() => {
+        clickTimer.current = null;
+        void window.api.library.update({ action: 'copy', id: capture.id });
+        flashCopied(capture.id);
+      }, 220);
+      return;
+    }
+    // Vue liste / corbeille : le clic simple sélectionne (comportement classique).
+    setSelectedIds([capture.id]);
+    anchorRef.current = capture.id;
+  };
+
+  const dblClickCard = (capture: CaptureListItem): void => {
+    if (clickTimer.current) {
+      window.clearTimeout(clickTimer.current);
+      clickTimer.current = null;
+    }
+    if (view === 'library') onEdit(capture);
+    else setPreviewId(capture.id);
+  };
 
   const dragStart = (event: ReactDragEvent, capture: CaptureListItem): void => {
     event.preventDefault();
@@ -368,13 +404,19 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
             {viewMode === 'grid' && (
               <select
                 className="select"
-                value={thumbSize}
-                aria-label={t('library.thumbSize')}
-                onChange={(e) => setThumbSize(e.target.value as ThumbSize)}
+                value={cols}
+                aria-label={t('library.columns')}
+                title={t('library.columns')}
+                onChange={(e) => setCols(Number(e.target.value))}
               >
-                <option value="s">{t('library.thumb.s')}</option>
-                <option value="m">{t('library.thumb.m')}</option>
-                <option value="l">{t('library.thumb.l')}</option>
+                {Array.from(
+                  { length: MAX_COLS - MIN_COLS + 1 },
+                  (_, i) => MIN_COLS + i
+                ).map((n) => (
+                  <option key={n} value={n}>
+                    {t('library.columnsN', { n })}
+                  </option>
+                ))}
               </select>
             )}
             <button
@@ -568,9 +610,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
             className={viewMode === 'grid' ? 'gallery-grid' : 'gallery-list'}
             style={
               viewMode === 'grid'
-                ? {
-                    gridTemplateColumns: `repeat(auto-fill, minmax(${THUMB_PX[thumbSize]}px, 1fr))`
-                  }
+                ? { gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }
                 : undefined
             }
             tabIndex={0}
@@ -594,13 +634,12 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
                   onRenameCommit={() => void commitRename()}
                   onRenameCancel={() => setRenamingId(null)}
                   onClick={(e) => clickCard(e, capture)}
-                  onDoubleClick={() =>
-                    view === 'library' ? onEdit(capture) : setPreviewId(capture.id)
-                  }
+                  onDoubleClick={() => dblClickCard(capture)}
                   onDragStart={(e) => dragStart(e, capture)}
                   onEdit={() => onEdit(capture)}
                   onRename={() => startRename(capture)}
                   onDestroy={() => void destroyMany([capture.id])}
+                  copied={copiedId === capture.id}
                 />
               ) : (
                 <ListRow
@@ -609,9 +648,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
                   lang={lang}
                   selected={selectedIds.includes(capture.id)}
                   onClick={(e) => clickCard(e, capture)}
-                  onDoubleClick={() =>
-                    view === 'library' ? onEdit(capture) : setPreviewId(capture.id)
-                  }
+                  onDoubleClick={() => dblClickCard(capture)}
                   onDragStart={(e) => dragStart(e, capture)}
                 />
               )
@@ -644,6 +681,7 @@ function GridCard({
   remoteReady,
   selected,
   onToggleSelect,
+  copied,
   renaming,
   renameValue,
   onRenameChange,
@@ -661,6 +699,7 @@ function GridCard({
   remoteReady: boolean;
   selected: boolean;
   onToggleSelect(): void;
+  copied: boolean;
   renaming: boolean;
   renameValue: string;
   onRenameChange(value: string): void;
@@ -679,7 +718,7 @@ function GridCard({
       id={`shot-${capture.id}`}
       role="option"
       aria-selected={selected}
-      className={`shot-card card${selected ? ' selected' : ''}`}
+      className={`shot-card card${selected ? ' selected' : ''}${copied ? ' copied' : ''}`}
       draggable
       onDragStart={onDragStart}
       onClick={onClick}
@@ -722,26 +761,15 @@ function GridCard({
         >
           <Icon name={capture.favorite ? 'starFilled' : 'star'} size={14} />
         </button>
-        <div className="shot-actions">
-          {view === 'library' ? (
-            <>
-              <IconBtn name="edit" title={t('quickbar.edit')} onClick={onEdit} />
-              <IconBtn name="copy" title={t('gallery.copy')} onClick={() => void window.api.library.update({ action: 'copy', id: capture.id })} />
-              <IconBtn name="save" title={t('gallery.saveAs')} onClick={() => void window.api.library.update({ action: 'saveAs', id: capture.id })} />
-              <IconBtn name="textTool" title={t('gallery.rename')} onClick={onRename} />
-              <IconBtn name="reveal" title={t('gallery.reveal')} onClick={() => void window.api.library.update({ action: 'reveal', id: capture.id })} />
-              {remoteReady && (
-                <IconBtn name="send" title={t('library.send')} onClick={() => void window.api.library.update({ action: 'send', ids: [capture.id] })} />
-              )}
-              <IconBtn name="trash" title={t('gallery.delete')} onClick={() => void window.api.library.update({ action: 'trash', ids: [capture.id] })} />
-            </>
-          ) : (
-            <>
-              <IconBtn name="restore" title={t('gallery.restore')} onClick={() => void window.api.library.update({ action: 'restore', ids: [capture.id] })} />
-              <IconBtn name="trash" title={t('gallery.destroy')} onClick={onDestroy} />
-            </>
-          )}
-        </div>
+        <CardMenu
+          capture={capture}
+          view={view}
+          remoteReady={remoteReady}
+          onEdit={onEdit}
+          onRename={onRename}
+          onDestroy={onDestroy}
+        />
+        {copied && <span className="shot-copied">{t('gallery.copied')}</span>}
       </div>
       <div className="shot-meta">
         {renaming ? (
@@ -851,28 +879,120 @@ function ListRow({
   );
 }
 
-function IconBtn({
-  name,
-  title,
-  onClick
+/** Menu « ⋯ » d'une vignette : regroupe toutes les actions pour désencombrer
+ * la carte (copier, éditer, renommer, enregistrer, emplacement, envoi, suppr.).
+ * Rendu en portail (position: fixed) pour ne pas être rogné par la carte. */
+function CardMenu({
+  capture,
+  view,
+  remoteReady,
+  onEdit,
+  onRename,
+  onDestroy
 }: {
-  name: string;
-  title: string;
-  onClick(): void;
+  capture: CaptureListItem;
+  view: LibraryView;
+  remoteReady: boolean;
+  onEdit(): void;
+  onRename(): void;
+  onDestroy(): void;
 }): ReactNode {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+
+  const openMenu = (event: ReactMouseEvent): void => {
+    event.stopPropagation();
+    const r = btnRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const width = 210;
+    setPos({
+      top: Math.round(r.bottom + 4),
+      left: Math.round(Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8)))
+    });
+    setOpen(true);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (): void => setOpen(false);
+    const onKey = (event: globalThis.KeyboardEvent): void => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('click', close);
+    window.addEventListener('scroll', close, true);
+    window.addEventListener('resize', close);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('click', close);
+      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  type MenuItem = { icon: string; label: string; run(): void; danger?: boolean };
+  const items: MenuItem[] =
+    view === 'library'
+      ? [
+          { icon: 'copy', label: t('gallery.copy'), run: () => void window.api.library.update({ action: 'copy', id: capture.id }) },
+          { icon: 'edit', label: t('quickbar.edit'), run: onEdit },
+          { icon: 'textTool', label: t('gallery.rename'), run: onRename },
+          { icon: 'save', label: t('gallery.saveAs'), run: () => void window.api.library.update({ action: 'saveAs', id: capture.id }) },
+          { icon: 'reveal', label: t('gallery.reveal'), run: () => void window.api.library.update({ action: 'reveal', id: capture.id }) },
+          ...(remoteReady
+            ? [{ icon: 'send', label: t('library.send'), run: () => void window.api.library.update({ action: 'send', ids: [capture.id] }) }]
+            : []),
+          { icon: 'trash', label: t('gallery.delete'), danger: true, run: () => void window.api.library.update({ action: 'trash', ids: [capture.id] }) }
+        ]
+      : [
+          { icon: 'restore', label: t('gallery.restore'), run: () => void window.api.library.update({ action: 'restore', ids: [capture.id] }) },
+          { icon: 'trash', label: t('gallery.destroy'), danger: true, run: onDestroy }
+        ];
+
   return (
-    <button
-      type="button"
-      className="btn btn-icon"
-      title={title}
-      aria-label={title}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick();
-      }}
-    >
-      <Icon name={name} size={14} />
-    </button>
+    <>
+      <button
+        ref={btnRef}
+        type="button"
+        className="btn btn-icon shot-menu-btn"
+        title={t('gallery.more')}
+        aria-label={t('gallery.more')}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={openMenu}
+      >
+        <Icon name="more" size={16} />
+      </button>
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            className="card-menu card"
+            role="menu"
+            style={{ position: 'fixed', top: pos.top, left: pos.left }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            {items.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                role="menuitem"
+                className={`card-menu-item${item.danger ? ' danger' : ''}`}
+                onClick={() => {
+                  setOpen(false);
+                  item.run();
+                }}
+              >
+                <Icon name={item.icon} size={14} />
+                {item.label}
+              </button>
+            ))}
+          </div>,
+          document.body
+        )}
+    </>
   );
 }
 

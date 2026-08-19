@@ -1051,8 +1051,8 @@
 
 .shot-check {
   position: absolute;
-  top: 6px;
-  left: 6px;
+  bottom: 6px;
+  right: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1100,6 +1100,69 @@
 }
 .shot-fav.on {
   color: var(--accent);
+}
+
+/* Menu « ⋯ » d'une vignette (haut-droite) + retour visuel de copie */
+.shot-menu-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: rgba(14, 15, 17, 0.85);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.shot-card:hover .shot-menu-btn,
+.shot-card:focus-within .shot-menu-btn {
+  opacity: 1;
+}
+
+.shot-copied {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #0e0f11;
+  font-size: 0.7rem;
+  font-weight: 600;
+  pointer-events: none;
+}
+.shot-card.copied {
+  border-color: var(--accent);
+}
+
+.card-menu {
+  min-width: 200px;
+  padding: 4px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+.card-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.card-menu-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+.card-menu-item.danger {
+  color: var(--danger);
+}
+.card-menu-item.danger:hover {
+  background: rgba(232, 92, 71, 0.12);
 }
 
 .shot-tags {
