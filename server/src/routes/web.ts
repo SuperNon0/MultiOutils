@@ -2,16 +2,17 @@ import { Router } from 'express';
 import multer from 'multer';
 import fs from 'node:fs';
 import path from 'node:path';
+import { requireSessionOrToken } from '../auth';
 import {
-  createAdmin,
-  hasUsers,
-  requireSession,
-  requireSessionOrToken,
-  verifyLogin
-} from '../auth';
+  gateway,
+  isLocalPasswordSet,
+  requireLocalLoginEnabled,
+  setLocalPassword,
+  verifyLocalPassword
+} from '../security';
 import { getDb, parseTags, type ServerCapture, type ServerClip } from '../db';
 import { uploadsDir } from '../env';
-import { e, layout } from '../html';
+import { e, layout, socleLayout } from '../html';
 import { getMaxUploadMb, rejectIfTooLarge, UPLOAD_CEILING_MB } from '../uploads';
 import {
   ALLOWED_MIME,
@@ -25,91 +26,132 @@ import {
 /** Interface web de consultation (docs/00 §7.1). Auth : session. */
 export const webRouter = Router();
 
-// ── Première configuration : création du compte admin (docs/04 §3) ──────
+// ── Connexion & secours local (thème PARTAGÉ du socle) ──────────────────
+// Identité normale = badge Cloudflare (voir security.ts / gateway). Le mot de
+// passe local est un SECOURS : un seul champ, aucun identifiant. La page de
+// connexion reproduit `socle-lite/panel/templates/login.html` à l'identique.
 
-webRouter.get('/setup', (_req, res) => {
-  if (hasUsers()) {
+/** Page de connexion — reproduction fidèle du login.html du socle. */
+function loginPage(failed: boolean): string {
+  return socleLayout(
+    'Connexion locale',
+    `${failed ? '<div class="flash-stack"><div class="flash error">Mot de passe incorrect.</div></div>' : ''}
+    <form class="login-card" method="post" action="/login">
+      <div class="login-logo">
+        <img class="logo-mark" src="/public/socle/logo.svg" alt="" width="44" height="44">
+        <span class="logo"><span class="g">multi</span><span class="i">outils</span></span>
+      </div>
+      <span class="badge">accès local</span>
+      <input type="password" name="password" placeholder="Mot de passe" autofocus autocomplete="current-password">
+      <button type="submit" class="btn primary full">Se connecter</button>
+      <a class="forgot-link" href="/oubli">Mot de passe oublié ?</a>
+      <p class="access-note">Accès local (réseau domestique) · secours</p>
+    </form>`,
+    { bodyClass: 'login-page' }
+  );
+}
+
+/** Première configuration : définir le mot de passe de SECOURS local. */
+function setupPage(error?: string): string {
+  return socleLayout(
+    'Première configuration',
+    `${error ? `<div class="flash-stack"><div class="flash error">${e(error)}</div></div>` : ''}
+    <form class="login-card" method="post" action="/setup">
+      <div class="login-logo">
+        <img class="logo-mark" src="/public/socle/logo.svg" alt="" width="44" height="44">
+        <span class="logo"><span class="g">multi</span><span class="i">outils</span></span>
+      </div>
+      <h2>Mot de passe de secours</h2>
+      <p class="access-text">Définis un mot de passe local (secours si Cloudflare
+      tombe). L'entrée normale, elle, passe par Cloudflare.</p>
+      <input type="password" name="password" placeholder="Mot de passe (8+ caractères)" autofocus autocomplete="new-password" minlength="8">
+      <input type="password" name="confirm" placeholder="Confirmer le mot de passe" autocomplete="new-password" minlength="8">
+      <button type="submit" class="btn primary full">Enregistrer</button>
+    </form>`,
+    { bodyClass: 'login-page' }
+  );
+}
+
+webRouter.get('/setup', requireLocalLoginEnabled, (_req, res) => {
+  if (isLocalPasswordSet()) {
     res.redirect('/login');
     return;
   }
-  res.send(
-    layout(
-      'Première configuration',
-      `<div class="auth-wrap"><form method="post" action="/setup" class="card auth-card">
-        <h1>Créer le compte <span class="accent">admin</span></h1>
-        <p class="muted">Première configuration du serveur MultiOutils.</p>
-        <input type="text" name="username" placeholder="Identifiant" required minlength="3" autofocus>
-        <input type="password" name="password" placeholder="Mot de passe" required minlength="8">
-        <input type="password" name="confirm" placeholder="Confirmer le mot de passe" required minlength="8">
-        <button class="btn btn-primary" type="submit">Créer le compte</button>
-      </form></div>`
-    )
-  );
+  res.send(setupPage());
 });
 
-webRouter.post('/setup', (req, res) => {
-  if (hasUsers()) {
+webRouter.post('/setup', requireLocalLoginEnabled, (req, res) => {
+  if (isLocalPasswordSet()) {
     res.redirect('/login');
     return;
   }
-  const { username, password, confirm } = req.body as Record<string, string>;
-  if (!username || username.length < 3 || !password || password.length < 8) {
-    res.status(400).send(layout('Erreur', `<p class="error">Identifiant (3+) et mot de passe (8+) requis.</p><p><a href="/setup">Réessayer</a></p>`));
+  const { password, confirm } = req.body as Record<string, string>;
+  if (!password || password.length < 8) {
+    res.status(400).send(setupPage('Mot de passe (8+ caractères) requis.'));
     return;
   }
   if (password !== confirm) {
-    res.status(400).send(layout('Erreur', `<p class="error">Les mots de passe ne correspondent pas.</p><p><a href="/setup">Réessayer</a></p>`));
+    res.status(400).send(setupPage('Les mots de passe ne correspondent pas.'));
     return;
   }
-  void createAdmin(username, password).then(() => res.redirect('/login'));
+  void setLocalPassword(password).then(() => res.redirect('/login'));
 });
 
-// ── Connexion ────────────────────────────────────────────────────────────
-
-webRouter.get('/login', (req, res) => {
-  if (!hasUsers()) {
+webRouter.get('/login', requireLocalLoginEnabled, (req, res) => {
+  if (!isLocalPasswordSet()) {
     res.redirect('/setup');
     return;
   }
-  if (req.session.userId) {
+  if (req.session.auth) {
     res.redirect('/');
     return;
   }
-  const failed = 'failed' in req.query;
-  res.send(
-    layout(
-      'Connexion',
-      `<div class="auth-wrap"><form method="post" action="/login" class="card auth-card">
-        <h1>Multi<span class="accent">Outils</span></h1>
-        <p class="muted">Consultation à distance des captures.</p>
-        ${failed ? '<p class="error">Identifiant ou mot de passe incorrect.</p>' : ''}
-        <input type="text" name="username" placeholder="Identifiant" required autofocus>
-        <input type="password" name="password" placeholder="Mot de passe" required>
-        <button class="btn btn-primary" type="submit">Se connecter</button>
-      </form></div>`
-    )
-  );
+  res.send(loginPage('failed' in req.query));
 });
 
-webRouter.post('/login', (req, res) => {
-  const { username, password } = req.body as Record<string, string>;
-  void verifyLogin(username ?? '', password ?? '').then((userId) => {
-    if (!userId) {
+webRouter.post('/login', requireLocalLoginEnabled, (req, res) => {
+  const { password } = req.body as Record<string, string>;
+  void verifyLocalPassword(password ?? '').then((ok) => {
+    if (!ok) {
       res.redirect('/login?failed');
       return;
     }
-    req.session.userId = userId;
+    req.session.auth = true;
     res.redirect('/');
   });
 });
 
+// « Mot de passe oublié » : AUCUN reset depuis le web. On indique la commande
+// serveur (script deploy/reset-password.sh). Reproduit oubli.html du socle.
+webRouter.get('/oubli', requireLocalLoginEnabled, (_req, res) => {
+  res.send(
+    socleLayout(
+      'Mot de passe oublié',
+      `<div class="login-card">
+        <div class="login-logo">
+          <img class="logo-mark" src="/public/socle/logo.svg" alt="" width="44" height="44">
+          <span class="logo"><span class="g">multi</span><span class="i">outils</span></span>
+        </div>
+        <h2>Mot de passe oublié</h2>
+        <p class="access-text">Par sécurité, le mot de passe local ne se
+        réinitialise pas depuis le web. Sur le <b>serveur</b>, lance :</p>
+        <pre class="cmd" style="white-space:pre-wrap;text-align:left">cd /opt/multioutils/server && sudo bash deploy/reset-password.sh</pre>
+        <p class="access-note">Un nouveau mot de passe est généré et affiché (ou
+        passe-le en argument). L'entrée normale, elle, passe par <b>Cloudflare</b>.</p>
+        <a class="forgot-link" href="/login">← Retour</a>
+      </div>`,
+      { bodyClass: 'login-page' }
+    )
+  );
+});
+
 webRouter.post('/logout', (req, res) => {
-  req.session.destroy(() => res.redirect('/login'));
+  req.session.destroy(() => res.redirect('/'));
 });
 
 // ── Galerie (docs/00 §7.1 : filtres dossier/tag/date, responsive) ───────
 
-webRouter.get('/', requireSession, (req, res) => {
+webRouter.get('/', gateway, (req, res) => {
   const filters = {
     folder: req.query.folder ? String(req.query.folder) : undefined,
     tag: req.query.tag ? String(req.query.tag) : undefined,
@@ -200,7 +242,7 @@ webRouter.get('/', requireSession, (req, res) => {
 
 // ── Vue d'une capture : grand aperçu + téléchargement + suppression ─────
 
-webRouter.get('/captures/:id', requireSession, (req, res) => {
+webRouter.get('/captures/:id', gateway, (req, res) => {
   const c = getDb()
     .prepare('SELECT * FROM captures WHERE id = ?')
     .get(req.params.id) as ServerCapture | undefined;
@@ -231,7 +273,7 @@ webRouter.get('/captures/:id', requireSession, (req, res) => {
   );
 });
 
-webRouter.post('/captures/:id/delete', requireSession, (req, res) => {
+webRouter.post('/captures/:id/delete', gateway, (req, res) => {
   const row = getDb()
     .prepare('SELECT path FROM captures WHERE id = ?')
     .get(req.params.id) as { path: string } | undefined;
@@ -265,7 +307,7 @@ function humanSize(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
-webRouter.get('/clips', requireSession, (req, res) => {
+webRouter.get('/clips', gateway, (req, res) => {
   const filterFolder = req.query.folder ? String(req.query.folder) : '';
   const filterTag = req.query.tag ? String(req.query.tag) : '';
 
@@ -369,7 +411,7 @@ webRouter.get('/clips', requireSession, (req, res) => {
   );
 });
 
-webRouter.post('/clips/:id/organize', requireSession, (req, res) => {
+webRouter.post('/clips/:id/organize', gateway, (req, res) => {
   const body = req.body as Record<string, string>;
   organizeClip(req.params.id, {
     folder: body.folder ?? null,
@@ -381,7 +423,7 @@ webRouter.post('/clips/:id/organize', requireSession, (req, res) => {
   res.redirect('/clips');
 });
 
-webRouter.get('/clips/deposer', requireSession, (_req, res) => {
+webRouter.get('/clips/deposer', gateway, (_req, res) => {
   res.send(
     layout(
       'Déposer',
@@ -408,7 +450,7 @@ webRouter.get('/clips/deposer', requireSession, (_req, res) => {
   );
 });
 
-webRouter.post('/clips/deposer', requireSession, clipUpload.single('file'), (req, res) => {
+webRouter.post('/clips/deposer', gateway, clipUpload.single('file'), (req, res) => {
   if (req.file) {
     if (rejectIfTooLarge(req.file)) {
       res
@@ -432,7 +474,7 @@ webRouter.post('/clips/deposer', requireSession, clipUpload.single('file'), (req
   res.redirect('/clips');
 });
 
-webRouter.post('/clips/:id/delete', requireSession, (req, res) => {
+webRouter.post('/clips/:id/delete', gateway, (req, res) => {
   const clip = getDb()
     .prepare('SELECT path FROM clips WHERE id = ?')
     .get(req.params.id) as { path: string | null } | undefined;

@@ -3,37 +3,8 @@ import type { NextFunction, Request, Response } from 'express';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { getDb } from './db';
 
-declare module 'express-session' {
-  interface SessionData {
-    userId?: string;
-  }
-}
-
-// ── Utilisateurs (admin) ─────────────────────────────────────────────────
-
-export function hasUsers(): boolean {
-  const row = getDb().prepare('SELECT COUNT(*) AS n FROM users').get() as { n: number };
-  return row.n > 0;
-}
-
-export async function createAdmin(username: string, password: string): Promise<void> {
-  const hash = await argon2.hash(password, { type: argon2.argon2id });
-  getDb()
-    .prepare('INSERT INTO users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)')
-    .run(randomUUID(), username, hash, new Date().toISOString());
-}
-
-export async function verifyLogin(
-  username: string,
-  password: string
-): Promise<string | null> {
-  const row = getDb()
-    .prepare('SELECT id, password_hash FROM users WHERE username = ?')
-    .get(username) as { id: string; password_hash: string } | undefined;
-  if (!row) return null;
-  const ok = await argon2.verify(row.password_hash, password).catch(() => false);
-  return ok ? row.id : null;
-}
+// L'identité HUMAINE (session, Cloudflare, mot de passe de secours local) est
+// gérée par `security.ts`. Ce module ne garde que les JETONS D'API machine.
 
 // ── Jetons d'API (docs/04 §1) ────────────────────────────────────────────
 
@@ -86,15 +57,6 @@ async function findValidToken(raw: string): Promise<string | null> {
 
 // ── Middlewares ─────────────────────────────────────────────────────────
 
-/** Interface web : session obligatoire (docs/00 §7.3). */
-export function requireSession(req: Request, res: Response, next: NextFunction): void {
-  if (req.session.userId) {
-    next();
-    return;
-  }
-  res.redirect('/login');
-}
-
 /** API : jeton Bearer obligatoire. */
 export function requireApiToken(req: Request, res: Response, next: NextFunction): void {
   const header = req.headers.authorization ?? '';
@@ -109,13 +71,13 @@ export function requireApiToken(req: Request, res: Response, next: NextFunction)
   });
 }
 
-/** Média : accessible avec session OU jeton (jamais public). */
+/** Média : accessible avec session humaine OU jeton (jamais public). */
 export function requireSessionOrToken(
   req: Request,
   res: Response,
   next: NextFunction
 ): void {
-  if (req.session.userId) {
+  if (req.session.auth) {
     next();
     return;
   }

@@ -1,0 +1,39 @@
+/* Compléments minimes pour l'écran de réglages — chargés APRÈS le thème du
+   socle (qu'on garde tel quel). Classes non couvertes par le socle. */
+.fl-label {
+  display: block;
+  margin-top: 12px;
+}
+.fl-label input {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+}
+.fl-check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin-top: 14px;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.fl-check input {
+  margin-top: 2px;
+  flex: none;
+}
+.row-gap {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.test-line {
+  margin-top: 6px;
+  font-size: 0.82rem;
+}
+.test-ok {
+  border-color: var(--accent-2, #4fc3a1);
+}
+.test-ko {
+  border-color: var(--danger, #e85c47);
+}

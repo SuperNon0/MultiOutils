@@ -2,16 +2,20 @@ import express from 'express';
 import session from 'express-session';
 import helmet from 'helmet';
 import path from 'node:path';
-import { hasUsers } from './auth';
 import { ensureDirs, env, sessionSecret } from './env';
 import { adminRouter } from './routes/admin';
 import { apiRouter } from './routes/api';
+import { reglagesRouter } from './routes/reglages';
 import { webRouter } from './routes/web';
+import { allowLocalLogin, isLocalPasswordSet, seedSecurityFromEnv } from './security';
 import { VERSION } from './version';
 
 /** Bootstrap Express (docs/01 §3) : API + interface web sur le même port. */
-function main(): void {
+async function main(): Promise<void> {
   ensureDirs();
+  // Première install : amorce la config Cloudflare et le mot de passe de secours
+  // depuis l'environnement si le store est vide (voir security.ts).
+  await seedSecurityFromEnv();
   const app = express();
 
   if (env.trustProxy) app.set('trust proxy', 1); // Cloudflare Tunnel en façade
@@ -58,11 +62,17 @@ function main(): void {
   // assets publics (css, polices) — aucune donnée utilisateur ici
   app.use('/public', express.static(path.resolve(__dirname, '..', 'public')));
 
-  // premier lancement : tout redirige vers la création du compte admin
+  // Premier lancement : tant qu'aucun mot de passe de secours local n'existe
+  // (et que le secours local est autorisé), on redirige vers /setup pour en
+  // définir un. Si le secours local est désactivé, l'entrée se fait uniquement
+  // par Cloudflare : pas de /setup.
   app.use((req, res, next) => {
     if (
-      !hasUsers() &&
+      allowLocalLogin() &&
+      !isLocalPasswordSet() &&
       !req.path.startsWith('/setup') &&
+      !req.path.startsWith('/login') &&
+      !req.path.startsWith('/oubli') &&
       !req.path.startsWith('/public') &&
       !req.path.startsWith('/api')
     ) {
@@ -74,6 +84,7 @@ function main(): void {
 
   app.use('/api', apiRouter);
   app.use(adminRouter);
+  app.use(reglagesRouter);
   app.use(webRouter);
 
   // On écoute explicitement sur toutes les interfaces IPv4 (0.0.0.0) pour
@@ -85,4 +96,4 @@ function main(): void {
   });
 }
 
-main();
+void main();

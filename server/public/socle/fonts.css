@@ -1,0 +1,25 @@
+/* Polices du thème « FleetView/RecipeLog » — version AUTO-HÉBERGÉE.
+   Le socle charge DM Serif Display + DM Mono depuis Google Fonts ; ici la CSP
+   du serveur est stricte (`self`), donc on réutilise les .woff2 déjà livrés
+   par MultiOutils dans /public/fonts/ (mêmes familles). */
+@font-face {
+  font-family: 'DM Serif Display';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/public/fonts/DMSerifDisplay-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/public/fonts/DMMono-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/public/fonts/DMMono-500.woff2') format('woff2');
+}

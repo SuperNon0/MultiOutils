@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import fs from 'node:fs';
-import { createToken, listTokens, requireSession, revokeToken } from '../auth';
+import { createToken, listTokens, revokeToken } from '../auth';
+import { gateway } from '../security';
 import { getDb } from '../db';
 import { uploadsDir } from '../env';
 import { e, layout } from '../html';
@@ -15,7 +16,7 @@ export const adminRouter = Router();
 // explicitement l'exigence de session aux chemins /admin. Sans ce préfixe,
 // requireSession s'appliquait à TOUTES les routes (dont /setup et /login) et
 // provoquait une boucle de redirection au premier lancement (ERR_TOO_MANY_REDIRECTS).
-adminRouter.use('/admin', requireSession);
+adminRouter.use('/admin', gateway);
 
 function storageStats(): { count: number; sizeMb: number } {
   const count = (
