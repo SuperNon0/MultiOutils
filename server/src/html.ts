@@ -25,7 +25,6 @@ export function layout(
           ${pill('/', 'Galerie', 'gallery')}
           ${pill('/clips', 'Clips', 'clips')}
           ${pill('/admin', 'Administration', 'admin')}
-          ${pill('/reglages', 'Réglages', 'reglages')}
         </div>
         <form method="post" action="/logout" class="logout"><button type="submit">Déconnexion</button></form>
       </nav>`

@@ -5,7 +5,6 @@ import path from 'node:path';
 import { ensureDirs, env, sessionSecret } from './env';
 import { adminRouter } from './routes/admin';
 import { apiRouter } from './routes/api';
-import { reglagesRouter } from './routes/reglages';
 import { webRouter } from './routes/web';
 import { allowLocalLogin, isLocalPasswordSet, seedSecurityFromEnv } from './security';
 import { VERSION } from './version';
@@ -84,7 +83,6 @@ async function main(): Promise<void> {
 
   app.use('/api', apiRouter);
   app.use(adminRouter);
-  app.use(reglagesRouter);
   app.use(webRouter);
 
   // On écoute explicitement sur toutes les interfaces IPv4 (0.0.0.0) pour

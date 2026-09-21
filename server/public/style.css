@@ -201,6 +201,30 @@ pre.log {
 .clip-modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 16px; border-bottom:1px solid var(--border); }
 .clip-modal-text { flex:1; min-height:0; width:100%; border:none; outline:none; resize:none; background:var(--bg); color:var(--text); font-family:var(--font-mono); font-size:13px; line-height:1.6; padding:16px 20px; }
 
+/* ── Réglages intégrés (Cloudflare / Accès + mot de passe) ───────────────── */
+.settings-card { margin-top:18px; }
+.settings-title { font-size:20px; margin-bottom:8px; color:var(--accent); }
+.settings-sub { color:var(--text); }
+.field { display:block; margin:14px 0; }
+.field-label { display:block; font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+.field input { width:100%; }
+.check-row { display:flex; gap:10px; align-items:flex-start; margin:12px 0; font-size:13px; line-height:1.5; }
+.check-row input[type='checkbox'] { margin-top:3px; width:16px; height:16px; accent-color:var(--accent); flex:none; }
+.warn-note { color:var(--muted); font-size:12.5px; line-height:1.55; margin:12px 0; }
+.warn-note b { color:var(--text); }
+.warn-note code, .help-note code { color:var(--accent); background:rgba(255,255,255,.04); padding:1px 6px; border-radius:5px; }
+.section-label { font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin:20px 0 10px; }
+.tr { display:flex; align-items:center; justify-content:space-between; gap:12px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--surface); padding:12px 14px; margin-top:8px; }
+.tr.stack { flex-direction:column; align-items:flex-start; }
+.tr .k { color:var(--text); font-size:13px; }
+.tr .v { color:var(--muted); font-size:12.5px; text-align:right; word-break:break-all; }
+.tr.stack .v { margin-top:6px; text-align:left; }
+.pill { display:inline-flex; align-items:center; gap:5px; border:1px solid; border-radius:999px; padding:3px 12px; font-size:11px; }
+.pill-yes { color:var(--accent-2); border-color:var(--accent-2); }
+.pill-ok { color:var(--accent); border-color:var(--accent); }
+.pill-no { color:var(--muted); border-color:var(--border); }
+.help-note { color:var(--muted); font-size:12px; line-height:1.6; margin-top:14px; }
+
 /* ── Responsive ──────────────────────────────────────────────────────────── */
 @media (max-width:640px) {
   .grid { grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); }
