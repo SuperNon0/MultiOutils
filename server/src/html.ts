@@ -13,13 +13,20 @@ export function layout(
   content: string,
   opts: { nav?: boolean; active?: 'gallery' | 'clips' | 'admin' | 'reglages' } = {}
 ): string {
+  const pill = (href: string, label: string, key: string): string =>
+    `<a class="navpill${opts.active === key ? ' active' : ''}" href="${href}">${label}</a>`;
   const nav = opts.nav
     ? `<nav class="topnav">
-        <span class="brand">Multi<span class="accent">Outils</span></span>
-        <a href="/"${opts.active === 'gallery' ? ' class="active"' : ''}>Galerie</a>
-        <a href="/clips"${opts.active === 'clips' ? ' class="active"' : ''}>Clips</a>
-        <a href="/admin"${opts.active === 'admin' ? ' class="active"' : ''}>Administration</a>
-        <a href="/reglages"${opts.active === 'reglages' ? ' class="active"' : ''}>Réglages</a>
+        <a class="brand" href="/">
+          <img class="brand-mark" src="/public/logo.svg" width="28" height="28" alt="">
+          <span class="brand-word">multi<span class="accent">outils</span></span>
+        </a>
+        <div class="topnav-links">
+          ${pill('/', 'Galerie', 'gallery')}
+          ${pill('/clips', 'Clips', 'clips')}
+          ${pill('/admin', 'Administration', 'admin')}
+          ${pill('/reglages', 'Réglages', 'reglages')}
+        </div>
         <form method="post" action="/logout" class="logout"><button type="submit">Déconnexion</button></form>
       </nav>`
     : '';
@@ -29,6 +36,8 @@ export function layout(
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${e(title)} · MultiOutils</title>
+<meta name="theme-color" content="#0e0f11">
+<link rel="icon" href="/public/logo.svg">
 <link rel="stylesheet" href="/public/style.css">
 </head>
 <body>

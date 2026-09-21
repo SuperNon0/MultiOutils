@@ -225,7 +225,7 @@ webRouter.get('/', gateway, (req, res) => {
         <button class="btn" type="submit">Filtrer</button>
         <a class="btn" href="/">Réinitialiser</a>
       </form>
-      ${items.length === 0 ? '<p class="muted">Aucune capture. Envoie-en une depuis le logiciel (bouton « Envoyer au serveur »).</p>' : `<div class="grid">${cards}</div>`}
+      ${items.length === 0 ? '<div class="gallery-empty">Aucune capture pour l’instant.<br>Envoie-en une depuis le logiciel (bouton « Envoyer au serveur »).</div>' : `<div class="grid">${cards}</div>`}
       ${
         pages > 1
           ? `<div class="pager">
@@ -404,7 +404,7 @@ webRouter.get('/clips', gateway, (req, res) => {
         <button class="btn" type="submit">Filtrer</button>
         <a class="btn" href="/clips">Réinitialiser</a>
       </form>
-      ${clips.length === 0 ? '<p class="muted">Aucun clip pour l’instant.</p>' : `<div class="clips-grid">${rows}</div>`}
+      ${clips.length === 0 ? '<div class="gallery-empty">Aucun clip pour l’instant.<br>Dépose-en un, ou partage depuis ton iPhone (Raccourci « Envoyer à MultiOutils »).</div>' : `<div class="clips-grid">${rows}</div>`}
       <script src="/public/clips.js"></script>`,
       { nav: true, active: 'clips' }
     )
