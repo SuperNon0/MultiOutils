@@ -38,7 +38,7 @@ function loginPage(failed: boolean): string {
     `${failed ? '<div class="flash-stack"><div class="flash error">Mot de passe incorrect.</div></div>' : ''}
     <form class="login-card" method="post" action="/login">
       <div class="login-logo">
-        <img class="logo-mark" src="/public/socle/logo.svg" alt="" width="44" height="44">
+        <img class="logo-mark" src="/public/logo.svg" alt="" width="44" height="44">
         <span class="logo"><span class="g">multi</span><span class="i">outils</span></span>
       </div>
       <span class="badge">accès local</span>
@@ -58,7 +58,7 @@ function setupPage(error?: string): string {
     `${error ? `<div class="flash-stack"><div class="flash error">${e(error)}</div></div>` : ''}
     <form class="login-card" method="post" action="/setup">
       <div class="login-logo">
-        <img class="logo-mark" src="/public/socle/logo.svg" alt="" width="44" height="44">
+        <img class="logo-mark" src="/public/logo.svg" alt="" width="44" height="44">
         <span class="logo"><span class="g">multi</span><span class="i">outils</span></span>
       </div>
       <h2>Mot de passe de secours</h2>
@@ -129,7 +129,7 @@ webRouter.get('/oubli', requireLocalLoginEnabled, (_req, res) => {
       'Mot de passe oublié',
       `<div class="login-card">
         <div class="login-logo">
-          <img class="logo-mark" src="/public/socle/logo.svg" alt="" width="44" height="44">
+          <img class="logo-mark" src="/public/logo.svg" alt="" width="44" height="44">
           <span class="logo"><span class="g">multi</span><span class="i">outils</span></span>
         </div>
         <h2>Mot de passe oublié</h2>

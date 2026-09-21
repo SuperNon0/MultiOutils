@@ -104,7 +104,7 @@ function forbidden(res: Response): void {
       'Accès refusé',
       `<div class="login-card">
         <div class="login-logo">
-          <img class="logo-mark" src="/public/socle/logo.svg" alt="" width="44" height="44">
+          <img class="logo-mark" src="/public/logo.svg" alt="" width="44" height="44">
           <span class="logo"><span class="g">multi</span><span class="i">outils</span></span>
         </div>
         <h2>Accès refusé</h2>

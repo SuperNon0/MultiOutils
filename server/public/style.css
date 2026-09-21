@@ -201,6 +201,42 @@ pre.log {
 .clip-modal-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:13px 16px; border-bottom:1px solid var(--border); }
 .clip-modal-text { flex:1; min-height:0; width:100%; border:none; outline:none; resize:none; background:var(--bg); color:var(--text); font-family:var(--font-mono); font-size:13px; line-height:1.6; padding:16px 20px; }
 
+/* ── Pages d'accès (connexion / secours) — MÊME thème que tout le site ───── */
+.login-page { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:32px 18px; gap:14px; }
+.login-card {
+  width:min(400px,92vw); background:var(--card); border:1px solid var(--border);
+  border-radius:var(--radius-lg); box-shadow:var(--shadow-lg);
+  padding:30px 26px; display:flex; flex-direction:column; gap:14px; text-align:center;
+}
+.login-logo { display:flex; align-items:center; justify-content:center; gap:10px; margin-bottom:2px; }
+.logo-mark { border-radius:9px; display:block; }
+.logo { font-family:var(--font-serif); font-size:26px; line-height:1; }
+.logo .g { color:var(--accent); }
+.logo .i { font-style:italic; color:var(--text); }
+.login-card h2 { font-size:20px; color:var(--accent); }
+.login-card input { width:100%; }
+.badge {
+  align-self:center; font-family:var(--font-mono); font-size:10.5px; letter-spacing:.08em;
+  text-transform:uppercase; color:var(--muted); border:1px solid var(--border);
+  border-radius:999px; padding:3px 12px; background:rgba(255,255,255,.03);
+}
+.btn.primary { background:var(--accent); border-color:var(--accent); color:#0e0f11; font-weight:500; }
+.btn.primary:hover { background:var(--accent-hover); border-color:var(--accent-hover); }
+.btn.full { width:100%; justify-content:center; }
+.btn.ghost { background:transparent; }
+.btn.ghost:hover { border-color:var(--accent); }
+.btn.small { padding:6px 11px; font-size:12px; }
+.forgot-link { color:var(--muted); font-size:12.5px; }
+.forgot-link:hover { color:var(--accent); }
+.access-note { color:var(--muted); font-size:11.5px; text-align:center; }
+.access-text { color:var(--text); font-size:13px; line-height:1.6; text-align:left; }
+.flash-stack { width:min(400px,92vw); display:flex; flex-direction:column; gap:8px; }
+.flash { border:1px solid var(--border); border-radius:var(--radius-sm); padding:9px 12px; font-size:12.5px; background:var(--surface); text-align:left; }
+.flash.error { border-color:var(--danger); color:var(--danger); }
+.flash.success { border-color:var(--accent-2); color:var(--accent-2); }
+.flash.info { border-color:var(--accent); color:var(--accent); }
+.cmd { background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; font-family:var(--font-mono); font-size:12.5px; color:var(--accent); }
+
 /* ── Réglages intégrés (Cloudflare / Accès + mot de passe) ───────────────── */
 .settings-card { margin-top:18px; }
 .settings-title { font-size:20px; margin-bottom:8px; color:var(--accent); }
