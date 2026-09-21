@@ -122,7 +122,7 @@ webRouter.post('/login', requireLocalLoginEnabled, (req, res) => {
 });
 
 // « Mot de passe oublié » : AUCUN reset depuis le web. On indique la commande
-// serveur (script deploy/reset-password.sh). Reproduit oubli.html du socle.
+// serveur (script deploy/reset_admin.sh). Reproduit oubli.html du socle.
 webRouter.get('/oubli', requireLocalLoginEnabled, (_req, res) => {
   res.send(
     socleLayout(
@@ -135,7 +135,7 @@ webRouter.get('/oubli', requireLocalLoginEnabled, (_req, res) => {
         <h2>Mot de passe oublié</h2>
         <p class="access-text">Par sécurité, le mot de passe local ne se
         réinitialise pas depuis le web. Sur le <b>serveur</b>, lance :</p>
-        <pre class="cmd" style="white-space:pre-wrap;text-align:left">cd /opt/multioutils/server && sudo bash deploy/reset-password.sh</pre>
+        <pre class="cmd" style="white-space:pre-wrap;text-align:left">cd /opt/multioutils/server && sudo bash deploy/reset_admin.sh</pre>
         <p class="access-note">Un nouveau mot de passe est généré et affiché (ou
         passe-le en argument). L'entrée normale, elle, passe par <b>Cloudflare</b>.</p>
         <a class="forgot-link" href="/login">← Retour</a>

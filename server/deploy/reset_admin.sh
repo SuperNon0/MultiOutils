@@ -7,8 +7,8 @@
 # régénère ce hash puis redémarre le service.
 #
 # Usage (en root sur le serveur) :
-#   sudo bash deploy/reset-password.sh                 # génère un mot de passe et l'affiche
-#   sudo bash deploy/reset-password.sh 'MonNouveauMdp' # fixe un mot de passe précis
+#   sudo bash deploy/reset_admin.sh                 # génère un mot de passe et l'affiche
+#   sudo bash deploy/reset_admin.sh 'MonNouveauMdp' # fixe un mot de passe précis
 #
 # Réglages (variables d'environnement, si ton install diffère) :
 #   SERVER_DIR=/opt/multioutils/server   dossier du serveur (défaut)
@@ -44,7 +44,7 @@ fi
 
 # Écrit le hash dans le store (le mot de passe est passé en argument, jamais
 # interpolé dans une requête SQL construite à la main).
-( cd "${SERVER_DIR}" && node scripts/reset-password.mjs "${DATA_DIR}" "${NEW}" )
+( cd "${SERVER_DIR}" && node scripts/reset_admin.mjs "${DATA_DIR}" "${NEW}" )
 
 # Recharge le service s'il existe.
 if command -v systemctl >/dev/null 2>&1 \

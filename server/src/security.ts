@@ -54,10 +54,20 @@ export async function verifyLocalPassword(password: string): Promise<boolean> {
 
 // ── Secours local activable (anti-verrouillage) ──────────────────────────
 
-/** `ALLOW_LOCAL_LOGIN=false|0|no|off` → entrée UNIQUEMENT via Cloudflare. */
+/**
+ * Secours local activé ? Décoché → entrée UNIQUEMENT via Cloudflare (accès
+ * direct sans badge = 403). Réglable depuis l'écran (store) ; à défaut, repli
+ * sur la variable d'env `ALLOW_LOCAL_LOGIN` (1re install), défaut = activé.
+ */
 export function allowLocalLogin(): boolean {
+  const stored = getSetting('allow_local_login');
+  if (stored !== null) return stored !== '0';
   const v = (process.env.ALLOW_LOCAL_LOGIN ?? '').trim().toLowerCase();
   return !['false', '0', 'no', 'off'].includes(v);
+}
+
+export function setAllowLocalLogin(allow: boolean): void {
+  setSetting('allow_local_login', allow ? '1' : '0');
 }
 
 // ── Amorçage depuis l'environnement (première install seulement) ──────────
@@ -76,6 +86,10 @@ export async function seedSecurityFromEnv(): Promise<void> {
   }
   if (getSetting('cf_verify') === null && process.env.CF_VERIFY_JWT !== undefined) {
     setSetting('cf_verify', envTruthy(process.env.CF_VERIFY_JWT) ? '1' : '0');
+  }
+  if (getSetting('allow_local_login') === null && process.env.ALLOW_LOCAL_LOGIN !== undefined) {
+    const v = process.env.ALLOW_LOCAL_LOGIN.trim().toLowerCase();
+    setSetting('allow_local_login', ['false', '0', 'no', 'off'].includes(v) ? '0' : '1');
   }
   if (!isLocalPasswordSet() && process.env.ADMIN_PASSWORD) {
     await setLocalPassword(process.env.ADMIN_PASSWORD);

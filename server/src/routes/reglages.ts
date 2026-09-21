@@ -2,9 +2,11 @@ import { Router } from 'express';
 import { describeCfAttempt, type CfAttempt } from '../cloudflareAccess';
 import { e, socleLayout } from '../html';
 import {
+  allowLocalLogin,
   gateway,
   getCfConfig,
   isLocalPasswordSet,
+  setAllowLocalLogin,
   setCfConfig,
   setLocalPassword,
   verifyLocalPassword
@@ -21,6 +23,7 @@ interface PageState {
   team: string;
   aud: string;
   verify: boolean;
+  allowLocal: boolean;
   cfSaved?: boolean;
   pwMessage?: { ok: boolean; text: string };
   test?: CfAttempt;
@@ -67,6 +70,14 @@ function reglagesPage(state: PageState): string {
             Vérifier le JWT (obligatoire en production ; décocher = dev local, on
             fait confiance à l'en-tête e-mail)
           </label>
+          <label class="fl-check">
+            <input type="checkbox" name="allowlocal" value="1" ${state.allowLocal ? 'checked' : ''}>
+            Autoriser l'accès local (mot de passe LAN / secours)
+          </label>
+          <p class="access-note" style="margin-top:8px">⚠️ Décoché = accès
+          <b>uniquement via Cloudflare</b> : tout accès direct (sans badge) est
+          refusé (403). Ne le décoche que si l'origine est bien injoignable hors
+          Cloudflare, sinon tu risques de te verrouiller dehors.</p>
           <div class="row-gap" style="margin-top:12px">
             <button class="btn" type="submit" formaction="/reglages/tester">Tester</button>
             <button class="btn primary" type="submit" formaction="/reglages/cloudflare">Enregistrer</button>
@@ -108,7 +119,9 @@ function reglagesPage(state: PageState): string {
 
 reglagesRouter.get('/reglages', gateway, (_req, res) => {
   const cfg = getCfConfig();
-  res.send(reglagesPage({ team: cfg.team, aud: cfg.aud, verify: cfg.verify }));
+  res.send(
+    reglagesPage({ team: cfg.team, aud: cfg.aud, verify: cfg.verify, allowLocal: allowLocalLogin() })
+  );
 });
 
 // « Tester » : tente la vérif avec les valeurs SAISIES (non enregistrées).
@@ -117,8 +130,9 @@ reglagesRouter.post('/reglages/tester', gateway, (req, res) => {
   const team = (body.team ?? '').trim();
   const aud = (body.aud ?? '').trim();
   const verify = body.verify === '1';
+  const allowLocal = body.allowlocal === '1';
   void describeCfAttempt(req, { team, aud, verify }).then((test) => {
-    res.send(reglagesPage({ team, aud, verify, test }));
+    res.send(reglagesPage({ team, aud, verify, allowLocal, test }));
   });
 });
 
@@ -128,8 +142,17 @@ reglagesRouter.post('/reglages/cloudflare', gateway, (req, res) => {
   const aud = (body.aud ?? '').trim();
   const verify = body.verify === '1';
   setCfConfig({ team, aud, verify });
+  setAllowLocalLogin(body.allowlocal === '1');
   const cfg = getCfConfig();
-  res.send(reglagesPage({ team: cfg.team, aud: cfg.aud, verify: cfg.verify, cfSaved: true }));
+  res.send(
+    reglagesPage({
+      team: cfg.team,
+      aud: cfg.aud,
+      verify: cfg.verify,
+      allowLocal: allowLocalLogin(),
+      cfSaved: true
+    })
+  );
 });
 
 reglagesRouter.post('/reglages/mot-de-passe', gateway, (req, res) => {
@@ -140,7 +163,13 @@ reglagesRouter.post('/reglages/mot-de-passe', gateway, (req, res) => {
   const cfg = getCfConfig();
   const render = (ok: boolean, text: string): void => {
     res.send(
-      reglagesPage({ team: cfg.team, aud: cfg.aud, verify: cfg.verify, pwMessage: { ok, text } })
+      reglagesPage({
+        team: cfg.team,
+        aud: cfg.aud,
+        verify: cfg.verify,
+        allowLocal: allowLocalLogin(),
+        pwMessage: { ok, text }
+      })
     );
   };
 
