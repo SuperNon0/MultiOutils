@@ -8585,6 +8585,28 @@ let ClipsPinCurrent = (() => {
     });
     return _classThis;
 })();
+// ── Module Pipette (docs/00 §9.2) ────────────────────────────────────────
+let ColorPickerStart = (() => {
+    let _classDecorators = [action({ UUID: 'com.supernon0.multioutils.colorpicker-start' })];
+    let _classDescriptor;
+    let _classExtraInitializers = [];
+    let _classThis;
+    let _classSuper = SingletonAction;
+    (class extends _classSuper {
+        static { _classThis = this; }
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            __esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, { kind: "class", name: _classThis.name, metadata: _metadata }, null, _classExtraInitializers);
+            _classThis = _classDescriptor.value;
+            if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+            __runInitializers(_classThis, _classExtraInitializers);
+        }
+        onKeyDown(ev) {
+            return sendCommand('colorpicker.start', ev);
+        }
+    });
+    return _classThis;
+})();
 streamDeck.actions.registerAction(new CaptureFullscreen());
 streamDeck.actions.registerAction(new CaptureRegion());
 streamDeck.actions.registerAction(new CaptureWindow());
@@ -8594,4 +8616,5 @@ streamDeck.actions.registerAction(new CopyLast());
 streamDeck.actions.registerAction(new ClipsOpen());
 streamDeck.actions.registerAction(new ClipsCopyLast());
 streamDeck.actions.registerAction(new ClipsPinCurrent());
+streamDeck.actions.registerAction(new ColorPickerStart());
 void streamDeck.connect();

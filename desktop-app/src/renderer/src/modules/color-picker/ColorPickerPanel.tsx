@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useHost } from '../../host/context';
 import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
-import { formatColor, readableText } from '../../lib/color';
+import { formatColor, readableText, toHex } from '../../lib/color';
 
 type Format = 'hex' | 'rgb' | 'hsl';
 
@@ -57,7 +57,10 @@ export function ColorPickerPanel(): ReactNode {
               className="cp-pick-tip"
               style={
                 current
-                  ? { background: current.hex, color: readableText(current.r, current.g, current.b) }
+                  ? {
+                      background: toHex(current.r, current.g, current.b),
+                      color: readableText(current.r, current.g, current.b)
+                    }
                   : undefined
               }
             >
@@ -88,7 +91,10 @@ export function ColorPickerPanel(): ReactNode {
             title={t('colorpicker.copyTooltip')}
             onClick={() => void copyEntry(current)}
           >
-            <span className="cp-current-swatch" style={{ background: current.hex }} />
+            <span
+              className="cp-current-swatch"
+              style={{ background: toHex(current.r, current.g, current.b) }}
+            />
             <span className="cp-current-text">
               <span className="cp-current-label muted">{t('colorpicker.current')}</span>
               <span className="cp-current-code">
@@ -132,7 +138,10 @@ export function ColorPickerPanel(): ReactNode {
                 title={t('colorpicker.copyTooltip')}
                 onClick={() => void copyEntry(entry)}
               >
-                <span className="cp-color" style={{ background: entry.hex }} />
+                <span
+                  className="cp-color"
+                  style={{ background: toHex(entry.r, entry.g, entry.b) }}
+                />
                 <span className="cp-code">
                   {formatColor(entry.r, entry.g, entry.b, format)}
                 </span>

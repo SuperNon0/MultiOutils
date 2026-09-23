@@ -37,7 +37,9 @@ export async function hideAppWindows(): Promise<() => void> {
     (w) => !w.isDestroyed() && w.isVisible()
   );
   for (const win of visible) win.hide();
-  if (visible.length > 0) await delay(200);
+  // Laisse le compositeur retirer les fenêtres avant de figer l'écran. 140 ms
+  // suffit en pratique tout en réduisant la latence ressentie au lancement.
+  if (visible.length > 0) await delay(140);
   return () => {
     for (const win of visible) {
       if (!win.isDestroyed()) win.showInactive();

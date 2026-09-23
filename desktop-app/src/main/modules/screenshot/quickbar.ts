@@ -8,9 +8,9 @@ const BAR_HEIGHT = 60;
 const AUTO_HIDE_MS = 6000;
 
 /**
- * Barre d'actions rapides post-capture (docs/00 §1.1) : petite fenêtre près
- * du curseur, disparaît après ~6 s (le survol met le compte à rebours en
- * pause).
+ * Barre d'actions rapides post-capture (docs/00 §1.1) : petite fenêtre
+ * affichée EN HAUT AU CENTRE de l'écran actif (plus près du curseur), elle
+ * disparaît après ~6 s (le survol met le compte à rebours en pause).
  */
 export class QuickBarController {
   private win: BrowserWindow | null = null;
@@ -18,10 +18,15 @@ export class QuickBarController {
 
   show(capture: Capture): void {
     this.closeNow();
-    const cursor = screen.getCursorScreenPoint();
-    const area = screen.getDisplayNearestPoint(cursor).workArea;
-    const x = clamp(cursor.x + 14, area.x, area.x + area.width - BAR_WIDTH);
-    const y = clamp(cursor.y + 18, area.y, area.y + area.height - BAR_HEIGHT);
+    // Écran où se trouve le curseur (= celui que l'utilisateur regarde).
+    const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+    // Centré horizontalement, collé en haut (petite marge).
+    const x = clamp(
+      Math.round(area.x + (area.width - BAR_WIDTH) / 2),
+      area.x,
+      area.x + area.width - BAR_WIDTH
+    );
+    const y = area.y + 18;
 
     this.win = new BrowserWindow({
       x,

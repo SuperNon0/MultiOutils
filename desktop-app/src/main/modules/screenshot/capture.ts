@@ -127,8 +127,12 @@ export class CaptureEngine {
     const canvasH = Math.round((maxY - minY) * scale);
     const canvas = Buffer.alloc(canvasW * canvasH * 4);
 
-    for (const display of displays) {
-      let image = await captureDisplay(display);
+    // Captures en parallèle (une par écran) avant composition → moins de latence.
+    const captured = await Promise.all(
+      displays.map(async (display) => ({ display, image: await captureDisplay(display) }))
+    );
+    for (const { display, image: raw } of captured) {
+      let image = raw;
       const targetW = Math.round(display.bounds.width * scale);
       const targetH = Math.round(display.bounds.height * scale);
       const size = image.getSize();

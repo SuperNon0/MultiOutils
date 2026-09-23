@@ -71,12 +71,15 @@ export function createColorPickerMainModule(): MainToolModule {
   const start = async (): Promise<void> => {
     if (overlays.length > 0) return;
     restoreWindows = await hideAppWindows();
-    for (const display of screen.getAllDisplays()) {
-      shots.set(String(display.id), {
-        image: await captureDisplay(display),
-        display
-      });
-    }
+    // Captures en parallèle (une par écran) → lancement plus rapide.
+    await Promise.all(
+      screen.getAllDisplays().map(async (display) => {
+        shots.set(String(display.id), {
+          image: await captureDisplay(display),
+          display
+        });
+      })
+    );
     const cursorDisplayId = screen.getDisplayNearestPoint(
       screen.getCursorScreenPoint()
     ).id;

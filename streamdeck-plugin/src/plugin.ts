@@ -90,6 +90,15 @@ class ClipsPinCurrent extends SingletonAction {
   }
 }
 
+// ── Module Pipette (docs/00 §9.2) ────────────────────────────────────────
+
+@action({ UUID: 'com.supernon0.multioutils.colorpicker-start' })
+class ColorPickerStart extends SingletonAction {
+  override onKeyDown(ev: KeyDownEvent): Promise<void> {
+    return sendCommand('colorpicker.start', ev);
+  }
+}
+
 streamDeck.actions.registerAction(new CaptureFullscreen());
 streamDeck.actions.registerAction(new CaptureRegion());
 streamDeck.actions.registerAction(new CaptureWindow());
@@ -99,5 +108,6 @@ streamDeck.actions.registerAction(new CopyLast());
 streamDeck.actions.registerAction(new ClipsOpen());
 streamDeck.actions.registerAction(new ClipsCopyLast());
 streamDeck.actions.registerAction(new ClipsPinCurrent());
+streamDeck.actions.registerAction(new ColorPickerStart());
 
 void streamDeck.connect();

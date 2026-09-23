@@ -1,7 +1,7 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "Name": "MultiOutils",
-  "Version": "0.2.0.0",
+  "Version": "0.3.0.0",
   "Author": "SuperNon0",
   "UUID": "com.supernon0.multioutils",
   "Description": "Pilote MultiOutils : captures plein écran / zone / fenêtre / différée, ouverture de la bibliothèque, dernière capture dans le presse-papier. Nécessite l'application MultiOutils lancée.",
@@ -120,6 +120,17 @@
       "States": [
         {
           "Image": "imgs/key-clipboard"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.colorpicker-start",
+      "Name": "Pipette de couleur",
+      "Tooltip": "Lance la pipette MultiOutils : prélève une couleur à l'écran, code copié",
+      "Icon": "imgs/pipette",
+      "States": [
+        {
+          "Image": "imgs/key-pipette"
         }
       ]
     }

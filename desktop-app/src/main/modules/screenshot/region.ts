@@ -30,13 +30,16 @@ export class RegionFlow {
     this.restoreWindows = await hideAppWindows();
 
     // On fige TOUS les écrans avant d'ouvrir le moindre overlay, pour que
-    // l'overlay lui-même n'apparaisse jamais dans la capture.
-    for (const display of screen.getAllDisplays()) {
-      this.shots.set(String(display.id), {
-        image: await captureDisplay(display),
-        display
-      });
-    }
+    // l'overlay lui-même n'apparaisse jamais dans la capture. Les captures se
+    // font EN PARALLÈLE (une par écran) pour réduire la latence de lancement.
+    await Promise.all(
+      screen.getAllDisplays().map(async (display) => {
+        this.shots.set(String(display.id), {
+          image: await captureDisplay(display),
+          display
+        });
+      })
+    );
 
     const cursor = screen.getCursorScreenPoint();
     const cursorDisplayId = screen.getDisplayNearestPoint(cursor).id;
@@ -75,13 +78,18 @@ export class RegionFlow {
     }
   }
 
-  /** Image gelée d'un écran, demandée par l'overlay au chargement. */
+  /**
+   * Image gelée d'un écran, demandée par l'overlay au chargement. On renvoie
+   * un data URL JPEG (bien plus léger/rapide à encoder et transférer que le
+   * PNG plein écran) : ce n'est qu'un fond d'affichage — le rognage final se
+   * fait sur l'image NATIVE lossless (`select`), donc aucune perte de qualité.
+   */
   shot(displayId: string): RegionShot | null {
     const entry = this.shots.get(displayId);
     if (!entry) return null;
     const { width, height } = entry.image.getSize();
     return {
-      dataUrl: entry.image.toDataURL(),
+      dataUrl: `data:image/jpeg;base64,${entry.image.toJPEG(90).toString('base64')}`,
       width,
       height,
       scale: width / entry.display.bounds.width
