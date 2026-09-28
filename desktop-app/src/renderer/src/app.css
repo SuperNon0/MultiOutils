@@ -179,7 +179,9 @@
   flex: 1;
   overflow-y: auto;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  /* Repli : la largeur mini réelle est fixée en ligne selon la taille choisie
+     (voir Gallery.tsx). Le nombre de colonnes s'adapte à la largeur. */
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 12px;
   align-content: start;
   padding: 2px 2px 22px;
@@ -206,7 +208,9 @@
 .shot-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  /* La capture est montrée EN ENTIER (pas de rognage) : on voit tout ce
+     qu'il y a dessus, quitte à laisser des bandes sur les côtés. */
+  object-fit: contain;
   display: block;
 }
 

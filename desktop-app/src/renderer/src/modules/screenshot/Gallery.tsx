@@ -26,10 +26,18 @@ type DatePeriod = '' | 'today' | 'week' | 'month';
 type ViewMode = 'grid' | 'list';
 
 const VIEWMODE_KEY = 'multioutils.gallery.viewMode';
-const COLS_KEY = 'multioutils.gallery.cols';
-const MIN_COLS = 2;
-const MAX_COLS = 6;
-const DEFAULT_COLS = 4;
+const TILE_KEY = 'multioutils.gallery.tileSize';
+
+/**
+ * Tailles de vignette (largeur MINIMALE en px). La grille est responsive :
+ * le nombre de colonnes s'adapte à la largeur disponible (1 seule sur une
+ * fenêtre étroite, davantage quand il y a la place), mais une vignette n'est
+ * JAMAIS rétrécie sous la taille choisie — elle ne fait que grandir pour
+ * remplir la ligne. La capture est affichée en entier (object-fit: contain).
+ */
+const TILE_SIZES = { s: 220, m: 300, l: 420 } as const;
+type TileSize = keyof typeof TILE_SIZES;
+const DEFAULT_TILE: TileSize = 'm';
 
 function dateFromFor(period: Exclude<DatePeriod, ''>): string {
   const now = new Date();
@@ -58,9 +66,9 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem(VIEWMODE_KEY) as ViewMode) || 'grid'
   );
-  const [cols, setCols] = useState<number>(() => {
-    const n = Number(localStorage.getItem(COLS_KEY));
-    return n >= MIN_COLS && n <= MAX_COLS ? n : DEFAULT_COLS;
+  const [tileSize, setTileSize] = useState<TileSize>(() => {
+    const v = localStorage.getItem(TILE_KEY);
+    return v === 's' || v === 'm' || v === 'l' ? v : DEFAULT_TILE;
   });
   const [items, setItems] = useState<CaptureListItem[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
@@ -87,7 +95,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   }, []);
 
   useEffect(() => localStorage.setItem(VIEWMODE_KEY, viewMode), [viewMode]);
-  useEffect(() => localStorage.setItem(COLS_KEY, String(cols)), [cols]);
+  useEffect(() => localStorage.setItem(TILE_KEY, tileSize), [tileSize]);
 
   // recherche avec léger debounce
   useEffect(() => {
@@ -404,19 +412,14 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
             {viewMode === 'grid' && (
               <select
                 className="select"
-                value={cols}
-                aria-label={t('library.columns')}
-                title={t('library.columns')}
-                onChange={(e) => setCols(Number(e.target.value))}
+                value={tileSize}
+                aria-label={t('library.tileSize')}
+                title={t('library.tileSize')}
+                onChange={(e) => setTileSize(e.target.value as TileSize)}
               >
-                {Array.from(
-                  { length: MAX_COLS - MIN_COLS + 1 },
-                  (_, i) => MIN_COLS + i
-                ).map((n) => (
-                  <option key={n} value={n}>
-                    {t('library.columnsN', { n })}
-                  </option>
-                ))}
+                <option value="s">{t('library.tileSize.s')}</option>
+                <option value="m">{t('library.tileSize.m')}</option>
+                <option value="l">{t('library.tileSize.l')}</option>
               </select>
             )}
             <button
@@ -610,7 +613,12 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
             className={viewMode === 'grid' ? 'gallery-grid' : 'gallery-list'}
             style={
               viewMode === 'grid'
-                ? { gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }
+                ? {
+                    // Colonnes automatiques : autant qu'il en tient à cette
+                    // largeur mini, chacune s'étirant pour remplir la ligne
+                    // (jamais en dessous de la taille choisie).
+                    gridTemplateColumns: `repeat(auto-fill, minmax(${TILE_SIZES[tileSize]}px, 1fr))`
+                  }
                 : undefined
             }
             tabIndex={0}
