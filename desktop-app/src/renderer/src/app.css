@@ -1395,7 +1395,13 @@
   border-color: var(--accent);
 }
 .cp-color {
+  display: block;
+  width: 100%;
   height: 54px;
+  /* Liseré interne : une couleur très sombre (ex. #191919) reste distincte du
+     fond de carte. Sans largeur explicite, le span vide s'effondrait à 0 px de
+     large dans le conteneur flex → aucune couleur visible. */
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 8%);
 }
 .cp-code {
   padding: 7px 10px;
