@@ -79,6 +79,21 @@ export function createScreenshotMainModule(): MainToolModule {
       });
       engine.onCaptureSaved = (capture) => quickbar.show(capture);
 
+      // Photo reçue du téléphone (module Presse-papiers → docs/00 §9.4) : on
+      // l'importe dans la bibliothèque de captures. Le module Presse-papiers ne
+      // référence jamais ce module directement : tout passe par ctx.events.
+      ctx.events.on(
+        'import-capture',
+        (payload: { image: Electron.NativeImage; createdAt?: string }) => {
+          try {
+            engine.importImage(payload.image, { createdAt: payload.createdAt });
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            ctx.notify(ctx.i18n.t('notif.captureError', { msg }));
+          }
+        }
+      );
+
       // Raccourcis globaux du module (docs/00 §1.2)
       const settings = ctx.settings.get();
       const runs: Record<ShortcutId, () => void> = {

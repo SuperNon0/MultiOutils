@@ -19,6 +19,7 @@
   "notif.delayed": "Capture dans {s} s…",
   "notif.noCapture": "Aucune capture pour l'instant",
   "notif.captureError": "La capture a échoué : {msg}",
+  "notif.phonePhoto": "Photo du téléphone ajoutée aux captures",
   "quickbar.edit": "Éditer",
   "quickbar.copy": "Copier",
   "quickbar.saveAs": "Enregistrer sous…",

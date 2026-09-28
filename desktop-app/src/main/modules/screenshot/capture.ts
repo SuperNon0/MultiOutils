@@ -153,13 +153,14 @@ export class CaptureEngine {
   }
 
   /**
-   * Flux post-capture commun : nom auto, écriture disque AVANT tout le reste
-   * (zéro perte, docs/00 §0.6), vignette, base, presse-papier, notification.
+   * Cœur commun : écriture disque AVANT tout le reste (zéro perte, docs/00
+   * §0.6), vignette et insertion en base. Partagé par la capture interactive
+   * (saveImage) et l'import d'une photo reçue (importImage).
    */
-  saveImage(image: NativeImage, opts: { appName?: string } = {}): Capture {
+  private persist(image: NativeImage, opts: { appName?: string; when?: Date } = {}): Capture {
     if (image.isEmpty()) throw new Error('empty capture');
     const settings = this.ctx.settings.get();
-    const now = new Date();
+    const now = opts.when ?? new Date();
 
     fs.mkdirSync(settings.storageDir, { recursive: true });
     const counter = settings.filenameTemplate.includes('{counter}')
@@ -208,6 +209,16 @@ export class CaptureEngine {
     }
 
     this.repo.insert(capture);
+    return capture;
+  }
+
+  /**
+   * Flux post-capture INTERACTIF (docs/00 §1.1) : persiste, puis presse-papier,
+   * barre d'actions rapides, notification et ouverture éventuelle de l'éditeur.
+   */
+  saveImage(image: NativeImage, opts: { appName?: string } = {}): Capture {
+    const settings = this.ctx.settings.get();
+    const capture = this.persist(image, { appName: opts.appName });
 
     if (settings.clipboardAuto) clipboard.writeImage(image);
 
@@ -233,6 +244,20 @@ export class CaptureEngine {
         action: 'edit'
       });
     }
+    return capture;
+  }
+
+  /**
+   * Import d'une image REÇUE (photo du téléphone via le presse-papiers partagé,
+   * docs/00 §9.4) dans la bibliothèque de captures : persiste + rafraîchit la
+   * galerie. PAS de barre d'actions rapides, d'éditeur ni d'écrasement du
+   * presse-papier (elle reste par ailleurs dans le presse-papiers, comme un clip).
+   */
+  importImage(image: NativeImage, opts: { createdAt?: string } = {}): Capture {
+    const when = opts.createdAt ? new Date(opts.createdAt) : new Date();
+    const capture = this.persist(image, { when });
+    this.ctx.broadcast('capture:done', capture);
+    this.ctx.notify(this.ctx.i18n.t('notif.phonePhoto'));
     return capture;
   }
 

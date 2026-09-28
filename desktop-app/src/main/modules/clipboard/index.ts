@@ -470,8 +470,22 @@ export function createClipboardMainModule(): MainToolModule {
           const buffer = Buffer.from(await raw.arrayBuffer());
           if (item.kind === 'image') {
             const image = nativeImage.createFromBuffer(buffer);
-            if (insertImage(image, 'remote', item.id, item.filename)) imported += 1;
-            else undecodable.add(item.id); // format non décodable : on n'insiste pas
+            if (insertImage(image, 'remote', item.id, item.filename)) {
+              imported += 1;
+              // Photo envoyée depuis le téléphone → aussi dans la bibliothèque
+              // de captures (choix utilisateur « Captures + presse-papiers »).
+              // Elle reste par ailleurs dans le presse-papiers comme un clip.
+              // On passe par ctx.events : ce module n'appelle jamais le module
+              // Capture d'écran directement (docs/00 §0.1).
+              if (item.source === 'iphone' || item.source === 'ipad') {
+                ctx.events.emit('import-capture', {
+                  image,
+                  createdAt: item.createdAt
+                });
+              }
+            } else {
+              undecodable.add(item.id); // format non décodable : on n'insiste pas
+            }
           } else {
             insertFileFromBuffer(
               buffer,
