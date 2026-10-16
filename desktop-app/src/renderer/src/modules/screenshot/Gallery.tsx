@@ -3,6 +3,7 @@ import {
   useEffect,
   useRef,
   useState,
+  type CSSProperties,
   type DragEvent as ReactDragEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
@@ -36,6 +37,9 @@ const TILE_KEY = 'multioutils.gallery.tileSize';
  * remplir la ligne. La capture est affichée en entier (object-fit: contain).
  */
 const TILE_SIZES = { s: 220, m: 300, l: 420 } as const;
+/** Hauteur (px) de la vignette par taille : garantit une image bien visible,
+ *  sans dépendre d'aspect-ratio (qui s'effondrait → vignettes « compactées »). */
+const TILE_HEIGHTS = { s: 150, m: 210, l: 300 } as const;
 type TileSize = keyof typeof TILE_SIZES;
 const DEFAULT_TILE: TileSize = 'm';
 
@@ -613,12 +617,14 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
             className={viewMode === 'grid' ? 'gallery-grid' : 'gallery-list'}
             style={
               viewMode === 'grid'
-                ? {
+                ? ({
                     // Colonnes automatiques : autant qu'il en tient à cette
                     // largeur mini, chacune s'étirant pour remplir la ligne
-                    // (jamais en dessous de la taille choisie).
-                    gridTemplateColumns: `repeat(auto-fill, minmax(${TILE_SIZES[tileSize]}px, 1fr))`
-                  }
+                    // (jamais en dessous de la taille choisie). La hauteur de
+                    // vignette est fixée via --thumb-h (héritée par .shot-thumb).
+                    gridTemplateColumns: `repeat(auto-fill, minmax(${TILE_SIZES[tileSize]}px, 1fr))`,
+                    '--thumb-h': `${TILE_HEIGHTS[tileSize]}px`
+                  } as CSSProperties)
                 : undefined
             }
             tabIndex={0}

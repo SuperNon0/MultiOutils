@@ -201,7 +201,13 @@
 
 .shot-thumb {
   position: relative;
-  aspect-ratio: 16 / 10;
+  /* Hauteur EXPLICITE pilotée par la taille de vignette choisie (Gallery.tsx
+     fixe --thumb-h en ligne). On n'utilise plus `aspect-ratio` : combiné à une
+     image en height:100%, il pouvait s'effondrer et « compacter » la vignette
+     en une mince bande. Ici la hauteur est garantie, la largeur suit la grille,
+     et object-fit: contain montre la capture entière. */
+  width: 100%;
+  height: var(--thumb-h, 210px);
   background: var(--surface);
   overflow: hidden;
 }
