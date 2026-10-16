@@ -5,6 +5,8 @@
 import type { Capture, CaptureType, Folder, Tag } from '@multioutils/shared';
 import type {
   AppSettings,
+  AutoclickConfig,
+  AutoclickState,
   CaptureListItem,
   CaptureTakeOptions,
   DisplayInfo,
@@ -89,6 +91,15 @@ export interface PreloadApi {
       captureId: string,
       lang: 'fra' | 'eng'
     ): Promise<{ ok: true; text: string } | { ok: false; error: string }>;
+  };
+  autoclicker: {
+    getConfig(): Promise<AutoclickConfig>;
+    setConfig(patch: Partial<AutoclickConfig>): Promise<AutoclickConfig>;
+    getState(): Promise<AutoclickState>;
+    start(): Promise<void>;
+    stop(): Promise<void>;
+    toggle(): Promise<void>;
+    onState(cb: (state: AutoclickState) => void): Unsubscribe;
   };
   clips: {
     list(): Promise<import('./types').ClipItem[]>;

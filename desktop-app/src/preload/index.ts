@@ -77,6 +77,15 @@ const api: PreloadApi = {
     extract: (captureId: string, lang: 'fra' | 'eng') =>
       ipcRenderer.invoke('ocr:extract', captureId, lang)
   },
+  autoclicker: {
+    getConfig: () => ipcRenderer.invoke('autoclick:getConfig'),
+    setConfig: (patch) => ipcRenderer.invoke('autoclick:setConfig', patch),
+    getState: () => ipcRenderer.invoke('autoclick:getState'),
+    start: () => ipcRenderer.invoke('autoclick:start'),
+    stop: () => ipcRenderer.invoke('autoclick:stop'),
+    toggle: () => ipcRenderer.invoke('autoclick:toggle'),
+    onState: (cb) => subscribe('autoclick:state', cb)
+  },
   clips: {
     list: () => ipcRenderer.invoke('clips:list'),
     copy: (id: string) => ipcRenderer.invoke('clips:copy', id),

@@ -99,6 +99,15 @@ class ColorPickerStart extends SingletonAction {
   }
 }
 
+// ── Module Autoclic (docs/00 §9.5) ───────────────────────────────────────
+
+@action({ UUID: 'com.supernon0.multioutils.autoclick-toggle' })
+class AutoclickToggle extends SingletonAction {
+  override onKeyDown(ev: KeyDownEvent): Promise<void> {
+    return sendCommand('autoclick.toggle', ev);
+  }
+}
+
 streamDeck.actions.registerAction(new CaptureFullscreen());
 streamDeck.actions.registerAction(new CaptureRegion());
 streamDeck.actions.registerAction(new CaptureWindow());
@@ -109,5 +118,6 @@ streamDeck.actions.registerAction(new ClipsOpen());
 streamDeck.actions.registerAction(new ClipsCopyLast());
 streamDeck.actions.registerAction(new ClipsPinCurrent());
 streamDeck.actions.registerAction(new ColorPickerStart());
+streamDeck.actions.registerAction(new AutoclickToggle());
 
 void streamDeck.connect();

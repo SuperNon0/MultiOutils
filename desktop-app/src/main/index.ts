@@ -8,6 +8,7 @@ import { applySettings, registerHostIpc } from './ipc';
 import { LocalService } from './local-service';
 import type { MainHostContext } from './module-registry';
 import { MainModuleRegistry } from './module-registry';
+import { createAutoclickerMainModule } from './modules/autoclicker';
 import { createClipboardMainModule } from './modules/clipboard';
 import { createColorPickerMainModule } from './modules/color-picker';
 import { createOcrMainModule } from './modules/ocr';
@@ -100,6 +101,7 @@ async function bootstrap(): Promise<void> {
   registry.register(createColorPickerMainModule());
   registry.register(createOcrMainModule());
   registry.register(createClipboardMainModule());
+  registry.register(createAutoclickerMainModule());
   await registry.activateAll(ctx);
 
   registerHostIpc(ctx);

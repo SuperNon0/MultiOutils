@@ -1641,3 +1641,88 @@
   align-items: center;
   gap: 12px;
 }
+
+/* ── Autoclic ─────────────────────────────────────────────────────────── */
+
+.ac-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.ac-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  padding: 9px 16px;
+}
+.ac-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.ac-stop {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #0e0f11;
+}
+.ac-kbd {
+  margin-left: 2px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: rgb(255 255 255 / 15%);
+}
+.ac-live {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--accent);
+}
+.ac-warn {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--danger);
+  border-radius: var(--radius-sm);
+  color: var(--danger);
+  font-size: 12px;
+}
+
+.ac-form {
+  margin-top: 8px;
+}
+.ac-interval,
+.ac-repeat {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.ac-num {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.ac-num input {
+  width: 72px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+.ac-num input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.ac-shortcut {
+  min-width: 170px;
+  font-family: var(--font-mono);
+}
+.ac-shortcut.ac-capturing {
+  border-color: var(--accent);
+  color: var(--accent);
+}

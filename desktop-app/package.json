@@ -1,7 +1,7 @@
 {
   "name": "@multioutils/desktop-app",
   "productName": "MultiOutils",
-  "version": "0.3.8",
+  "version": "0.4.0",
   "private": true,
   "description": "MultiOutils — boîte à outils modulaire pour Windows (capture d'écran)",
   "author": "SuperNon0",
@@ -17,6 +17,7 @@
   "dependencies": {
     "better-sqlite3": "^11.10.0",
     "electron-updater": "^6.8.9",
+    "koffi": "^3.3.3",
     "tesseract.js": "^5.1.1"
   },
   "devDependencies": {

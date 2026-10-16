@@ -13,10 +13,12 @@ files:
   - out/**
   - resources/**
   - package.json
-# tesseract.js lance un worker thread depuis ses fichiers : hors asar
+# tesseract.js lance un worker thread depuis ses fichiers : hors asar.
+# koffi charge un binaire natif (.node) depuis son dossier : idem.
 asarUnpack:
   - node_modules/tesseract.js/**
   - node_modules/tesseract.js-core/**
+  - node_modules/koffi/**
 win:
   target:
     - nsis

@@ -107,6 +107,12 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   cursor: <path d="M5 3l14 8-6.5 1.5L9 19 5 3Z" />,
+  mouse: (
+    <>
+      <rect x="6" y="3" width="12" height="18" rx="6" />
+      <path d="M12 7v4" />
+    </>
+  ),
   rectTool: <rect x="4" y="5" width="16" height="14" rx="1" />,
   ellipseTool: <ellipse cx="12" cy="12" rx="8.5" ry="6.5" />,
   triangleTool: <path d="M12 4.5 20.5 19h-17L12 4.5Z" />,

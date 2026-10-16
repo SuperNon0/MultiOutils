@@ -192,4 +192,51 @@ export interface ClipsSettings {
   sync: boolean;
 }
 
+// ── Autoclic (docs/00 §9.5) ───────────────────────────────────────────────
+
+export type AutoclickButton = 'left' | 'right' | 'middle';
+export type AutoclickClick = 'single' | 'double';
+export type AutoclickRepeat = 'infinite' | 'count';
+
+/** Réglages de l'autoclic (persistés en base, clé `autoclick.config`). */
+export interface AutoclickConfig {
+  /** Intervalle entre deux clics : décomposé pour l'UI (h/m/s/ms). */
+  hours: number;
+  minutes: number;
+  seconds: number;
+  milliseconds: number;
+  button: AutoclickButton;
+  clickType: AutoclickClick;
+  repeat: AutoclickRepeat;
+  /** Nombre de clics quand repeat = 'count'. */
+  repeatCount: number;
+  /** Délai avant le tout premier clic (ms). */
+  startDelayMs: number;
+  /** Raccourci global de bascule (accélérateur Electron) ; '' = aucun. */
+  shortcut: string;
+}
+
+export const DEFAULT_AUTOCLICK: AutoclickConfig = {
+  hours: 0,
+  minutes: 0,
+  seconds: 0,
+  milliseconds: 100,
+  button: 'left',
+  clickType: 'single',
+  repeat: 'infinite',
+  repeatCount: 50,
+  startDelayMs: 0,
+  shortcut: 'F6'
+};
+
+export interface AutoclickState {
+  running: boolean;
+  /** Clics restants (null = illimité). */
+  remaining: number | null;
+  /** Clics déjà effectués dans la série courante. */
+  done: number;
+  /** Clic système disponible (faux hors Windows ou si le natif manque). */
+  available: boolean;
+}
+
 export type { Capture };
