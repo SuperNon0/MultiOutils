@@ -201,13 +201,12 @@
 
 .shot-thumb {
   position: relative;
-  /* Boîte au ratio FIXE via padding (astuce robuste : pas d'`aspect-ratio`,
-     qui s'effondrait en mince bande). La HAUTEUR suit toujours la largeur de la
-     colonne → moins de colonnes = vignette plus large ET plus haute = capture
-     plus grande. 58 % ≈ 16:9/16:10, et object-fit: contain montre TOUT. */
+  /* Hauteur calculée en JS (--thumb-h, depuis la largeur réelle de colonne) :
+     fiable là où le ratio CSS en % s'effondrait dans la grille flex. La capture
+     est montrée EN ENTIER (object-fit: contain) ; plus de colonnes = plus petit,
+     moins = plus grand. */
   width: 100%;
-  padding-top: 58%;
-  height: 0;
+  height: var(--thumb-h, 180px);
   background: var(--surface);
   overflow: hidden;
 }
@@ -1957,4 +1956,26 @@
   background: var(--accent);
   color: #0e0f11;
   font-weight: 600;
+}
+
+/* ── Galerie : pagination ─────────────────────────────────────────────── */
+
+.gallery-pager {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px 0 4px;
+  flex-shrink: 0;
+}
+.gallery-pager .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.gallery-pager-label {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  min-width: 96px;
+  text-align: center;
 }

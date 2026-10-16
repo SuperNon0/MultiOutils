@@ -91,6 +91,11 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const clickTimer = useRef<number | null>(null);
   const scrollTargetRef = useRef<string | null>(null);
+  // Largeur mesurée de la grille → hauteur de vignette calculée en JS (fiable,
+  // là où le ratio CSS en % s'effondrait dans la grille flex) + pagination.
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [gridWidth, setGridWidth] = useState(0);
+  const [page, setPage] = useState(0);
 
   useEffect(() => {
     void window.api.remote
@@ -103,6 +108,41 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
 
   useEffect(() => localStorage.setItem(VIEWMODE_KEY, viewMode), [viewMode]);
   useEffect(() => localStorage.setItem(PERROW_KEY, String(perRow)), [perRow]);
+
+  // Colonnes, taille de vignette (calculée depuis la largeur réelle) et pagination.
+  const GRID_GAP = 12;
+  const cols =
+    perRow === 'auto'
+      ? Math.max(1, Math.floor((gridWidth + GRID_GAP) / (AUTO_MIN + GRID_GAP)))
+      : perRow;
+  const colWidth = gridWidth > 0 ? (gridWidth - (cols - 1) * GRID_GAP) / cols : AUTO_MIN;
+  const thumbH = Math.max(90, Math.round(colWidth * 0.58)); // ratio ~16:9/16:10
+  const pageSize = viewMode === 'list' ? 40 : Math.max(3, cols * 3);
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(page, totalPages - 1);
+  const pageItems = items.slice(safePage * pageSize, safePage * pageSize + pageSize);
+
+  // Mesure la largeur de la grille (→ hauteur de vignette + nb de colonnes).
+  const hasItems = items.length > 0;
+  useEffect(() => {
+    const el = gridRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver((entries) => {
+      const w = entries[0]?.contentRect.width ?? 0;
+      setGridWidth((prev) => (Math.abs(prev - w) > 1 ? w : prev));
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasItems]);
+
+  // Revenir à la page 1 quand le contenu/filtre/affichage change.
+  useEffect(() => {
+    setPage(0);
+  }, [search, source, sort, datePeriod, activeTagIds, view, perRow, viewMode]);
+  // Garder la page dans les bornes si la liste rétrécit.
+  useEffect(() => {
+    if (page > totalPages - 1) setPage(totalPages - 1);
+  }, [page, totalPages]);
 
   // recherche avec léger debounce
   useEffect(() => {
@@ -620,6 +660,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
           </div>
         ) : (
           <div
+            ref={gridRef}
             className={viewMode === 'grid' ? 'gallery-grid' : 'gallery-list'}
             style={
               viewMode === 'grid'
@@ -627,12 +668,14 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
                     // 'auto' : autant de colonnes qu'il en tient à AUTO_MIN de
                     // large (1 sur fenêtre étroite → plus en s'élargissant).
                     // Nombre fixe : exactement N colonnes (moins = plus grand).
-                    // La hauteur suit la largeur (ratio via CSS) → la capture est
-                    // toujours montrée en entier, et plus grande si plus large.
+                    // --thumb-h : hauteur de vignette calculée depuis la largeur
+                    // réelle de colonne → la capture est montrée en entier et
+                    // plus grande quand il y a moins de colonnes.
                     gridTemplateColumns:
                       perRow === 'auto'
                         ? `repeat(auto-fill, minmax(${AUTO_MIN}px, 1fr))`
-                        : `repeat(${perRow}, minmax(0, 1fr))`
+                        : `repeat(${perRow}, minmax(0, 1fr))`,
+                    '--thumb-h': `${thumbH}px`
                   } as CSSProperties)
                 : undefined
             }
@@ -642,7 +685,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
             aria-label={t('gallery.title')}
             onKeyDown={onGridKeyDown}
           >
-            {items.map((capture) =>
+            {pageItems.map((capture) =>
               viewMode === 'grid' ? (
                 <GridCard
                   key={capture.id}
@@ -676,6 +719,34 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
                 />
               )
             )}
+          </div>
+        )}
+
+        {totalPages > 1 && (
+          <div className="gallery-pager">
+            <button
+              type="button"
+              className="btn"
+              disabled={safePage <= 0}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+            >
+              <Icon name="back" size={14} />
+              {t('gallery.prev')}
+            </button>
+            <span className="gallery-pager-label muted">
+              {t('gallery.pageOf', { page: safePage + 1, total: totalPages })}
+            </span>
+            <button
+              type="button"
+              className="btn"
+              disabled={safePage >= totalPages - 1}
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            >
+              {t('gallery.next')}
+              <span style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}>
+                <Icon name="back" size={14} />
+              </span>
+            </button>
           </div>
         )}
       </div>
