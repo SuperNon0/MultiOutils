@@ -320,6 +320,7 @@
   "autoclick.unit.seconds": "s",
   "autoclick.unit.milliseconds": "ms",
   "autoclick.unit.clicks": "clicks",
+  "autoclick.pickButton": "Click the button to use",
   "autoclick.button": "Mouse button",
   "autoclick.btn.left": "Left",
   "autoclick.btn.right": "Right",

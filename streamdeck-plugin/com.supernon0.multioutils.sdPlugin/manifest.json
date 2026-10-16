@@ -137,23 +137,24 @@
     {
       "UUID": "com.supernon0.multioutils.autoclick-toggle",
       "Name": "Autoclic marche/arrêt",
-      "Tooltip": "Démarre ou arrête l'autoclic MultiOutils (profil sélectionné dans l'application)",
+      "Tooltip": "Démarre ou arrête le profil d'autoclic sélectionné (triangle = arrêté, carré animé = en cours)",
       "Icon": "imgs/autoclick",
       "States": [
         {
-          "Image": "imgs/key-autoclick"
+          "Image": "imgs/key-autoclick",
+          "TitleAlignment": "bottom"
         }
       ]
     },
     {
       "UUID": "com.supernon0.multioutils.autoclick-profile",
       "Name": "Autoclic — profil",
-      "Tooltip": "Active / désactive un profil d'autoclic. Choisis le profil dans les réglages de la touche (liste mise à jour depuis l'application).",
-      "Icon": "imgs/autoclick",
+      "Tooltip": "Sélectionne un profil d'autoclic (choisi dans les réglages de la touche, liste mise à jour depuis l'application). S'allume en doré quand sélectionné, en teal animé quand il tourne.",
+      "Icon": "imgs/autoclick-profile",
       "PropertyInspectorPath": "ui/autoclick-profile.html",
       "States": [
         {
-          "Image": "imgs/key-autoclick",
+          "Image": "imgs/key-autoclick-profile",
           "TitleAlignment": "bottom"
         }
       ]

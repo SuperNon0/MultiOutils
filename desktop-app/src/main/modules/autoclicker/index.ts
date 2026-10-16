@@ -226,14 +226,27 @@ export function createAutoclickerMainModule(): MainToolModule {
         return {
           profiles: s.profiles.map((p) => ({ id: p.id, name: p.name })),
           runningProfileId: runningId,
+          selectedId: s.selectedId,
           available: clickerAvailable()
         };
       });
-      ctx.registerLocalRoute('POST', /^\/autoclick\/toggle$/, async (url) => {
+      // Touche « profil » du Stream Deck : SÉLECTIONNE le profil (ne lance pas).
+      ctx.registerLocalRoute('POST', /^\/autoclick\/select$/, (url) => {
         const id = url.searchParams.get('id');
         if (!id) return { ok: false, error: 'id manquant' };
-        toggleProfile(id);
-        // laisse le temps à startProfile (async) de régler runningId
+        const s = getStore();
+        if (s.profiles.some((p) => p.id === id)) {
+          s.selectedId = id;
+          saveStore(s);
+          broadcastStore();
+        }
+        return { ok: true, selectedId: getStore().selectedId, runningProfileId: runningId };
+      });
+      // Touche « marche/arrêt » : démarre / stoppe le profil sélectionné.
+      ctx.registerLocalRoute('POST', /^\/autoclick\/toggle$/, async (url) => {
+        const id = url.searchParams.get('id');
+        if (id) toggleProfile(id);
+        else toggleSelected();
         await new Promise((r) => setTimeout(r, 0));
         return { ok: true, runningProfileId: runningId };
       });

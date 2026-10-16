@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type {
+  AutoclickButton,
   AutoclickProfile,
   AutoclickState,
   AutoclickStore
@@ -27,8 +28,98 @@ function accelFromEvent(e: KeyboardEvent): string | null {
 
 const EMPTY_STORE: AutoclickStore = { profiles: [], selectedId: null, shortcut: 'F6' };
 
-/** Panneau Autoclic : profils configurables (liste + éditeur), gros bouton
- *  Démarrer / Arrêter avec compteur en direct, raccourci global. */
+/** Grande souris interactive : on clique une zone (gauche / molette / droit)
+ *  pour choisir le bouton à cliquer. La zone choisie s'allume. */
+function MouseGraphic({
+  value,
+  running,
+  onPick
+}: {
+  value: AutoclickButton;
+  running: boolean;
+  onPick(b: AutoclickButton): void;
+}): ReactNode {
+  const fill = (b: AutoclickButton): string =>
+    value === b ? 'var(--accent)' : 'var(--surface)';
+  const text = (b: AutoclickButton): string =>
+    value === b ? '#0e0f11' : 'var(--muted)';
+  return (
+    <div className={`ac-mouse${running ? ' running' : ''}`}>
+      <svg viewBox="0 0 200 300" width="178" height="267" role="group">
+        {/* corps */}
+        <path
+          d="M100 10 C152 10 186 52 186 112 L186 196 C186 258 152 290 100 290 C48 290 14 258 14 196 L14 112 C14 52 48 10 100 10 Z"
+          fill="none"
+          stroke="var(--border)"
+          strokeWidth="4"
+        />
+        {/* bouton gauche */}
+        <path
+          className="ac-zone"
+          d="M100 14 C52 14 18 54 18 112 L18 120 L96 120 L96 14 Z"
+          fill={fill('left')}
+          onClick={() => onPick('left')}
+        />
+        {/* bouton droit */}
+        <path
+          className="ac-zone"
+          d="M100 14 C148 14 182 54 182 112 L182 120 L104 120 L104 14 Z"
+          fill={fill('right')}
+          onClick={() => onPick('right')}
+        />
+        {/* molette (au-dessus, cliquable séparément) */}
+        <rect
+          className="ac-zone"
+          x="88"
+          y="40"
+          width="24"
+          height="70"
+          rx="12"
+          fill={fill('middle')}
+          stroke="var(--border)"
+          strokeWidth="2"
+          onClick={() => onPick('middle')}
+        />
+        {/* libellés */}
+        <text x="56" y="80" textAnchor="middle" fontSize="13" fill={text('left')}>
+          G
+        </text>
+        <text x="144" y="80" textAnchor="middle" fontSize="13" fill={text('right')}>
+          D
+        </text>
+      </svg>
+    </div>
+  );
+}
+
+/** Petit sélecteur segmenté (2 options). */
+function Segmented<T extends string>({
+  value,
+  options,
+  onChange
+}: {
+  value: T;
+  options: Array<{ value: T; label: string }>;
+  onChange(v: T): void;
+}): ReactNode {
+  return (
+    <div className="ac-seg">
+      {options.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          className={`ac-seg-btn${value === o.value ? ' active' : ''}`}
+          onClick={() => onChange(o.value)}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** Panneau Autoclic : profils (liste + éditeur), grande souris interactive,
+ *  bouton Démarrer / Arrêter avec compteur en direct, raccourci global. */
 export function AutoclickerPanel(): ReactNode {
   const { t } = useI18n();
   const [store, setStore] = useState<AutoclickStore>(EMPTY_STORE);
@@ -78,7 +169,6 @@ export function AutoclickerPanel(): ReactNode {
     return Number.isFinite(n) && n >= 0 ? n : 0;
   };
 
-  // Mise à jour optimiste d'un champ du profil sélectionné.
   const patchSelected = (patch: Partial<AutoclickProfile>): void => {
     if (!selected) return;
     setStore((prev) => ({
@@ -89,13 +179,11 @@ export function AutoclickerPanel(): ReactNode {
   };
 
   const summary = (p: AutoclickProfile): string => {
-    const bits: string[] = [];
     const ms = p.hours * 3600000 + p.minutes * 60000 + p.seconds * 1000 + p.milliseconds;
-    bits.push(ms >= 1000 ? `${(ms / 1000).toFixed(ms % 1000 ? 2 : 0)} s` : `${ms} ms`);
-    bits.push(t(`autoclick.btn.${p.button}`));
-    if (p.clickType === 'double') bits.push(t('autoclick.click.double'));
-    bits.push(p.repeat === 'infinite' ? '∞' : `×${p.repeatCount}`);
-    return bits.join(' · ');
+    const interval = ms >= 1000 ? `${(ms / 1000).toFixed(ms % 1000 ? 2 : 0)} s` : `${ms} ms`;
+    return `${interval} · ${t(`autoclick.btn.${p.button}`)} · ${
+      p.repeat === 'infinite' ? '∞' : `×${p.repeatCount}`
+    }`;
   };
 
   return (
@@ -103,7 +191,6 @@ export function AutoclickerPanel(): ReactNode {
       <header className="panel-header">
         <h2>{t('autoclick.title')}</h2>
         {!state.available && <div className="ac-warn">{t('autoclick.unavailable')}</div>}
-        <div className="capture-hint muted">{t('autoclick.help')}</div>
       </header>
 
       <div className="ac-layout">
@@ -184,143 +271,134 @@ export function AutoclickerPanel(): ReactNode {
               </div>
             </div>
 
-            <div className="ac-run">
-              <button
-                type="button"
-                className={`btn ${running ? 'ac-stop' : 'btn-primary'} ac-toggle`}
-                disabled={!state.available}
-                onClick={() => void window.api.autoclicker.toggle(selected.id)}
-              >
-                <Icon name={running ? 'close' : 'cursor'} />
-                {running ? t('autoclick.stop') : t('autoclick.start')}
-                {store.shortcut && <span className="ac-kbd">{store.shortcut}</span>}
-              </button>
-              {running && (
-                <span className="ac-live">
-                  {t('autoclick.liveDone', { n: state.done })}
-                  {state.remaining !== null &&
-                    ` · ${t('autoclick.liveRemaining', { n: state.remaining })}`}
-                </span>
-              )}
-            </div>
-
-            <div className="ac-form">
-              <div className="setting-row">
-                <span>{t('autoclick.interval')}</span>
-                <div className="ac-interval">
-                  {(['hours', 'minutes', 'seconds', 'milliseconds'] as const).map((k) => (
-                    <label key={k} className="ac-num">
-                      <input
-                        type="number"
-                        min={0}
-                        value={selected[k]}
-                        onChange={(e) => patchSelected({ [k]: num(e.target.value) })}
-                      />
-                      <span className="muted">{t(`autoclick.unit.${k}`)}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="setting-row">
-                <span>{t('autoclick.button')}</span>
-                <select
-                  className="select"
+            <div className="ac-stage">
+              {/* Souris interactive : choix du bouton */}
+              <div className="ac-stage-left">
+                <MouseGraphic
                   value={selected.button}
-                  onChange={(e) =>
-                    patchSelected({ button: e.target.value as AutoclickProfile['button'] })
-                  }
-                >
-                  <option value="left">{t('autoclick.btn.left')}</option>
-                  <option value="right">{t('autoclick.btn.right')}</option>
-                  <option value="middle">{t('autoclick.btn.middle')}</option>
-                </select>
-              </div>
-
-              <div className="setting-row">
-                <span>{t('autoclick.clickType')}</span>
-                <select
-                  className="select"
-                  value={selected.clickType}
-                  onChange={(e) =>
-                    patchSelected({
-                      clickType: e.target.value as AutoclickProfile['clickType']
-                    })
-                  }
-                >
-                  <option value="single">{t('autoclick.click.single')}</option>
-                  <option value="double">{t('autoclick.click.double')}</option>
-                </select>
-              </div>
-
-              <div className="setting-row">
-                <span>{t('autoclick.repeat')}</span>
-                <div className="ac-repeat">
-                  <select
-                    className="select"
-                    value={selected.repeat}
-                    onChange={(e) =>
-                      patchSelected({ repeat: e.target.value as AutoclickProfile['repeat'] })
-                    }
-                  >
-                    <option value="infinite">{t('autoclick.repeat.infinite')}</option>
-                    <option value="count">{t('autoclick.repeat.count')}</option>
-                  </select>
-                  {selected.repeat === 'count' && (
-                    <label className="ac-num">
-                      <input
-                        type="number"
-                        min={1}
-                        value={selected.repeatCount}
-                        onChange={(e) =>
-                          patchSelected({ repeatCount: Math.max(1, num(e.target.value)) })
-                        }
-                      />
-                      <span className="muted">{t('autoclick.unit.clicks')}</span>
-                    </label>
-                  )}
+                  running={running}
+                  onPick={(b) => patchSelected({ button: b })}
+                />
+                <div className="ac-stage-caption muted">
+                  {t('autoclick.pickButton')} · <strong>{t(`autoclick.btn.${selected.button}`)}</strong>
                 </div>
+                <button
+                  type="button"
+                  className={`btn ${running ? 'ac-stop' : 'btn-primary'} ac-toggle`}
+                  disabled={!state.available}
+                  onClick={() => void window.api.autoclicker.toggle(selected.id)}
+                >
+                  <Icon name={running ? 'close' : 'cursor'} />
+                  {running ? t('autoclick.stop') : t('autoclick.start')}
+                  {store.shortcut && <span className="ac-kbd">{store.shortcut}</span>}
+                </button>
+                {running && (
+                  <div className="ac-live">
+                    {t('autoclick.liveDone', { n: state.done })}
+                    {state.remaining !== null &&
+                      ` · ${t('autoclick.liveRemaining', { n: state.remaining })}`}
+                  </div>
+                )}
               </div>
 
-              <div className="setting-row">
-                <span>{t('autoclick.startDelay')}</span>
-                <label className="ac-num">
-                  <input
-                    type="number"
-                    min={0}
-                    value={selected.startDelayMs}
-                    onChange={(e) => patchSelected({ startDelayMs: num(e.target.value) })}
+              {/* Paramètres */}
+              <div className="ac-params">
+                <div className="ac-field">
+                  <span className="ac-field-label">{t('autoclick.clickType')}</span>
+                  <Segmented
+                    value={selected.clickType}
+                    onChange={(v) => patchSelected({ clickType: v })}
+                    options={[
+                      { value: 'single', label: t('autoclick.click.single') },
+                      { value: 'double', label: t('autoclick.click.double') }
+                    ]}
                   />
-                  <span className="muted">{t('autoclick.unit.milliseconds')}</span>
-                </label>
-              </div>
+                </div>
 
-              <div className="setting-row">
-                <span>{t('autoclick.shortcut')}</span>
-                <div className="ac-repeat">
-                  <button
-                    type="button"
-                    className={`btn ac-shortcut${capturing ? ' ac-capturing' : ''}`}
-                    onClick={() => setCapturing((c) => !c)}
-                  >
-                    {capturing
-                      ? t('autoclick.press')
-                      : store.shortcut || t('autoclick.noShortcut')}
-                  </button>
-                  {store.shortcut && !capturing && (
+                <div className="ac-field">
+                  <span className="ac-field-label">{t('autoclick.interval')}</span>
+                  <div className="ac-interval">
+                    {(['hours', 'minutes', 'seconds', 'milliseconds'] as const).map((k) => (
+                      <label key={k} className="ac-num">
+                        <input
+                          type="number"
+                          min={0}
+                          value={selected[k]}
+                          onChange={(e) => patchSelected({ [k]: num(e.target.value) })}
+                        />
+                        <span className="muted">{t(`autoclick.unit.${k}`)}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="ac-field">
+                  <span className="ac-field-label">{t('autoclick.repeat')}</span>
+                  <div className="ac-repeat">
+                    <Segmented
+                      value={selected.repeat}
+                      onChange={(v) => patchSelected({ repeat: v })}
+                      options={[
+                        { value: 'infinite', label: t('autoclick.repeat.infinite') },
+                        { value: 'count', label: t('autoclick.repeat.count') }
+                      ]}
+                    />
+                    {selected.repeat === 'count' && (
+                      <label className="ac-num">
+                        <input
+                          type="number"
+                          min={1}
+                          value={selected.repeatCount}
+                          onChange={(e) =>
+                            patchSelected({ repeatCount: Math.max(1, num(e.target.value)) })
+                          }
+                        />
+                        <span className="muted">{t('autoclick.unit.clicks')}</span>
+                      </label>
+                    )}
+                  </div>
+                </div>
+
+                <div className="ac-field">
+                  <span className="ac-field-label">{t('autoclick.startDelay')}</span>
+                  <label className="ac-num">
+                    <input
+                      type="number"
+                      min={0}
+                      value={selected.startDelayMs}
+                      onChange={(e) => patchSelected({ startDelayMs: num(e.target.value) })}
+                    />
+                    <span className="muted">{t('autoclick.unit.milliseconds')}</span>
+                  </label>
+                </div>
+
+                <div className="ac-field">
+                  <span className="ac-field-label">{t('autoclick.shortcut')}</span>
+                  <div className="ac-repeat">
                     <button
                       type="button"
-                      className="btn btn-icon"
-                      title={t('autoclick.clearShortcut')}
-                      onClick={() => void window.api.autoclicker.setShortcut('').then(setStore)}
+                      className={`btn ac-shortcut${capturing ? ' ac-capturing' : ''}`}
+                      onClick={() => setCapturing((c) => !c)}
                     >
-                      <Icon name="close" size={14} />
+                      {capturing
+                        ? t('autoclick.press')
+                        : store.shortcut || t('autoclick.noShortcut')}
                     </button>
-                  )}
+                    {store.shortcut && !capturing && (
+                      <button
+                        type="button"
+                        className="btn btn-icon"
+                        title={t('autoclick.clearShortcut')}
+                        onClick={() => void window.api.autoclicker.setShortcut('').then(setStore)}
+                      >
+                        <Icon name="close" size={14} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              <div className="capture-hint muted">{t('autoclick.streamdeckHint')}</div>
+                <div className="capture-hint muted">{t('autoclick.streamdeckHint')}</div>
+              </div>
             </div>
           </section>
         )}

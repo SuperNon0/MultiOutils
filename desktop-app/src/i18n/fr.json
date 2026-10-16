@@ -320,6 +320,7 @@
   "autoclick.unit.seconds": "s",
   "autoclick.unit.milliseconds": "ms",
   "autoclick.unit.clicks": "clics",
+  "autoclick.pickButton": "Clique le bouton à utiliser",
   "autoclick.button": "Bouton de la souris",
   "autoclick.btn.left": "Gauche",
   "autoclick.btn.right": "Droit",

@@ -1781,6 +1781,7 @@
   padding: 10px 12px;
   text-align: left;
   cursor: pointer;
+  color: var(--text); /* sinon le <button> hérite du noir par défaut → invisible */
   transition: border-color 0.15s, background 0.15s;
 }
 .ac-profile-card:hover {
@@ -1864,4 +1865,91 @@
   gap: 14px;
   flex-wrap: wrap;
   margin-bottom: 8px;
+}
+
+/* ── Autoclic : scène (souris interactive + paramètres) ───────────────── */
+
+.ac-name { color: var(--text); background: var(--surface); }
+
+.ac-stage {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 28px;
+  align-items: start;
+}
+.ac-stage-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.ac-stage-caption {
+  font-size: 12px;
+  text-align: center;
+}
+.ac-stage-caption strong { color: var(--text); }
+
+.ac-mouse {
+  padding: 6px;
+  border-radius: 20px;
+  transition: filter 0.2s;
+}
+.ac-mouse.running {
+  animation: ac-mouse-pulse 1.3s ease-in-out infinite;
+}
+@keyframes ac-mouse-pulse {
+  0%, 100% { filter: drop-shadow(0 0 0 rgb(79 195 161 / 0%)); }
+  50% { filter: drop-shadow(0 0 10px rgb(79 195 161 / 55%)); }
+}
+.ac-zone {
+  cursor: pointer;
+  transition: fill 0.12s;
+}
+.ac-zone:hover {
+  fill: var(--border);
+}
+
+.ac-params {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.ac-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.ac-field-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+/* Sélecteur segmenté */
+.ac-seg {
+  display: inline-flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  padding: 3px;
+  gap: 3px;
+  width: fit-content;
+}
+.ac-seg-btn {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.ac-seg-btn:hover { color: var(--text); }
+.ac-seg-btn.active {
+  background: var(--accent);
+  color: #0e0f11;
+  font-weight: 600;
 }
