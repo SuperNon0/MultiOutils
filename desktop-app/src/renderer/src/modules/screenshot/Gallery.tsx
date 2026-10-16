@@ -27,21 +27,25 @@ type DatePeriod = '' | 'today' | 'week' | 'month';
 type ViewMode = 'grid' | 'list';
 
 const VIEWMODE_KEY = 'multioutils.gallery.viewMode';
-const TILE_KEY = 'multioutils.gallery.tileSize';
+const PERROW_KEY = 'multioutils.gallery.perRow';
 
 /**
- * Tailles de vignette (largeur MINIMALE en px). La grille est responsive :
- * le nombre de colonnes s'adapte à la largeur disponible (1 seule sur une
- * fenêtre étroite, davantage quand il y a la place), mais une vignette n'est
- * JAMAIS rétrécie sous la taille choisie — elle ne fait que grandir pour
- * remplir la ligne. La capture est affichée en entier (object-fit: contain).
+ * Nombre de captures par ligne. 'auto' = responsive : la fenêtre décide combien
+ * en tiennent (1 seule, GRANDE, sur une fenêtre étroite ; davantage en
+ * s'élargissant) sans jamais descendre sous AUTO_MIN. Un nombre fixe (1 à 6)
+ * force ce nombre de colonnes : moins de colonnes = vignettes plus grandes.
+ * Dans tous les cas, la vignette garde le ratio de la capture et l'affiche en
+ * ENTIER (object-fit: contain), pour qu'on voie toute la capture.
  */
-const TILE_SIZES = { s: 220, m: 300, l: 420 } as const;
-/** Hauteur (px) de la vignette par taille : garantit une image bien visible,
- *  sans dépendre d'aspect-ratio (qui s'effondrait → vignettes « compactées »). */
-const TILE_HEIGHTS = { s: 150, m: 210, l: 300 } as const;
-type TileSize = keyof typeof TILE_SIZES;
-const DEFAULT_TILE: TileSize = 'm';
+type PerRow = 'auto' | 1 | 2 | 3 | 4 | 5 | 6;
+const AUTO_MIN = 380; // largeur mini d'une vignette en mode auto (px)
+const DEFAULT_PERROW: PerRow = 'auto';
+
+function parsePerRow(v: string | null): PerRow {
+  if (v === 'auto') return 'auto';
+  const n = Number(v);
+  return n >= 1 && n <= 6 ? (n as PerRow) : DEFAULT_PERROW;
+}
 
 function dateFromFor(period: Exclude<DatePeriod, ''>): string {
   const now = new Date();
@@ -70,10 +74,9 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem(VIEWMODE_KEY) as ViewMode) || 'grid'
   );
-  const [tileSize, setTileSize] = useState<TileSize>(() => {
-    const v = localStorage.getItem(TILE_KEY);
-    return v === 's' || v === 'm' || v === 'l' ? v : DEFAULT_TILE;
-  });
+  const [perRow, setPerRow] = useState<PerRow>(() =>
+    parsePerRow(localStorage.getItem(PERROW_KEY))
+  );
   const [items, setItems] = useState<CaptureListItem[]>([]);
   const [folders, setFolders] = useState<Folder[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
@@ -99,7 +102,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   }, []);
 
   useEffect(() => localStorage.setItem(VIEWMODE_KEY, viewMode), [viewMode]);
-  useEffect(() => localStorage.setItem(TILE_KEY, tileSize), [tileSize]);
+  useEffect(() => localStorage.setItem(PERROW_KEY, String(perRow)), [perRow]);
 
   // recherche avec léger debounce
   useEffect(() => {
@@ -416,14 +419,17 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
             {viewMode === 'grid' && (
               <select
                 className="select"
-                value={tileSize}
-                aria-label={t('library.tileSize')}
-                title={t('library.tileSize')}
-                onChange={(e) => setTileSize(e.target.value as TileSize)}
+                value={String(perRow)}
+                aria-label={t('library.perRow')}
+                title={t('library.perRow')}
+                onChange={(e) => setPerRow(parsePerRow(e.target.value))}
               >
-                <option value="s">{t('library.tileSize.s')}</option>
-                <option value="m">{t('library.tileSize.m')}</option>
-                <option value="l">{t('library.tileSize.l')}</option>
+                <option value="auto">{t('library.perRow.auto')}</option>
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <option key={n} value={n}>
+                    {t('library.perRow.n', { n })}
+                  </option>
+                ))}
               </select>
             )}
             <button
@@ -618,12 +624,15 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
             style={
               viewMode === 'grid'
                 ? ({
-                    // Colonnes automatiques : autant qu'il en tient à cette
-                    // largeur mini, chacune s'étirant pour remplir la ligne
-                    // (jamais en dessous de la taille choisie). La hauteur de
-                    // vignette est fixée via --thumb-h (héritée par .shot-thumb).
-                    gridTemplateColumns: `repeat(auto-fill, minmax(${TILE_SIZES[tileSize]}px, 1fr))`,
-                    '--thumb-h': `${TILE_HEIGHTS[tileSize]}px`
+                    // 'auto' : autant de colonnes qu'il en tient à AUTO_MIN de
+                    // large (1 sur fenêtre étroite → plus en s'élargissant).
+                    // Nombre fixe : exactement N colonnes (moins = plus grand).
+                    // La hauteur suit la largeur (ratio via CSS) → la capture est
+                    // toujours montrée en entier, et plus grande si plus large.
+                    gridTemplateColumns:
+                      perRow === 'auto'
+                        ? `repeat(auto-fill, minmax(${AUTO_MIN}px, 1fr))`
+                        : `repeat(${perRow}, minmax(0, 1fr))`
                   } as CSSProperties)
                 : undefined
             }

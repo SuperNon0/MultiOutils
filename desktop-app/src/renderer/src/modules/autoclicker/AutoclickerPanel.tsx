@@ -45,7 +45,7 @@ function MouseGraphic({
     value === b ? '#0e0f11' : 'var(--muted)';
   return (
     <div className={`ac-mouse${running ? ' running' : ''}`}>
-      <svg viewBox="0 0 200 300" width="178" height="267" role="group">
+      <svg viewBox="0 0 200 300" width="230" height="345" role="group">
         {/* corps */}
         <path
           d="M100 10 C152 10 186 52 186 112 L186 196 C186 258 152 290 100 290 C48 290 14 258 14 196 L14 112 C14 52 48 10 100 10 Z"

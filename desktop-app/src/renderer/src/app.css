@@ -201,17 +201,19 @@
 
 .shot-thumb {
   position: relative;
-  /* Hauteur EXPLICITE pilotée par la taille de vignette choisie (Gallery.tsx
-     fixe --thumb-h en ligne). On n'utilise plus `aspect-ratio` : combiné à une
-     image en height:100%, il pouvait s'effondrer et « compacter » la vignette
-     en une mince bande. Ici la hauteur est garantie, la largeur suit la grille,
-     et object-fit: contain montre la capture entière. */
+  /* Boîte au ratio FIXE via padding (astuce robuste : pas d'`aspect-ratio`,
+     qui s'effondrait en mince bande). La HAUTEUR suit toujours la largeur de la
+     colonne → moins de colonnes = vignette plus large ET plus haute = capture
+     plus grande. 58 % ≈ 16:9/16:10, et object-fit: contain montre TOUT. */
   width: 100%;
-  height: var(--thumb-h, 210px);
+  padding-top: 58%;
+  height: 0;
   background: var(--surface);
   overflow: hidden;
 }
 .shot-thumb img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   /* La capture est montrée EN ENTIER (pas de rognage) : on voit tout ce
@@ -1660,9 +1662,11 @@
 .ac-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  padding: 9px 16px;
+  justify-content: center;
+  gap: 9px;
+  font-size: 16px;
+  padding: 13px 30px;
+  min-width: 190px;
 }
 .ac-toggle:disabled {
   opacity: 0.5;
@@ -1874,9 +1878,10 @@
 .ac-stage {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 28px;
-  align-items: start;
+  gap: 40px;
+  align-items: center;
 }
+.ac-stage-caption { font-size: 13px; }
 .ac-stage-left {
   display: flex;
   flex-direction: column;

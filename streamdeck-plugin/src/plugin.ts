@@ -139,7 +139,13 @@ let runningId: string | null = null;
 let glow = false; // alternance pour l'animation des touches « en cours »
 
 function svgUrl(inner: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">${inner}</svg>`;
+  // Style maison des touches : fond gris arrondi #16181c plein + glyphe plus
+  // petit (inséré à 72 % autour du centre), comme les icônes existantes.
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">` +
+    `<rect width="144" height="144" rx="20" fill="#16181c"/>` +
+    `<g transform="translate(72 72) scale(0.72) translate(-72 -72)">${inner}</g>` +
+    `</svg>`;
   return `data:image/svg+xml;charset=utf8,${encodeURIComponent(svg)}`;
 }
 
