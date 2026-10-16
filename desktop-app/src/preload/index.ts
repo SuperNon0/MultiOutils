@@ -78,13 +78,19 @@ const api: PreloadApi = {
       ipcRenderer.invoke('ocr:extract', captureId, lang)
   },
   autoclicker: {
-    getConfig: () => ipcRenderer.invoke('autoclick:getConfig'),
-    setConfig: (patch) => ipcRenderer.invoke('autoclick:setConfig', patch),
+    getStore: () => ipcRenderer.invoke('autoclick:getStore'),
     getState: () => ipcRenderer.invoke('autoclick:getState'),
-    start: () => ipcRenderer.invoke('autoclick:start'),
+    createProfile: () => ipcRenderer.invoke('autoclick:createProfile'),
+    updateProfile: (id, patch) => ipcRenderer.invoke('autoclick:updateProfile', id, patch),
+    duplicateProfile: (id) => ipcRenderer.invoke('autoclick:duplicateProfile', id),
+    deleteProfile: (id) => ipcRenderer.invoke('autoclick:deleteProfile', id),
+    setSelected: (id) => ipcRenderer.invoke('autoclick:setSelected', id),
+    setShortcut: (shortcut) => ipcRenderer.invoke('autoclick:setShortcut', shortcut),
+    start: (id) => ipcRenderer.invoke('autoclick:start', id),
     stop: () => ipcRenderer.invoke('autoclick:stop'),
-    toggle: () => ipcRenderer.invoke('autoclick:toggle'),
-    onState: (cb) => subscribe('autoclick:state', cb)
+    toggle: (id) => ipcRenderer.invoke('autoclick:toggle', id),
+    onState: (cb) => subscribe('autoclick:state', cb),
+    onStore: (cb) => subscribe('autoclick:store', cb)
   },
   clips: {
     list: () => ipcRenderer.invoke('clips:list'),

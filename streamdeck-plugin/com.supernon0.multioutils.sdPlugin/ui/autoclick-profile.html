@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Autoclic — profil</title>
+    <style>
+      :root {
+        --bg: #0e0f11;
+        --card: #1c1f25;
+        --border: #2a2d35;
+        --text: #f0ede6;
+        --muted: #9aa0a6;
+        --accent: #e8c547;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 14px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 13px;
+      }
+      label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 12px; }
+      .row { margin-bottom: 14px; }
+      select {
+        width: 100%;
+        padding: 8px 10px;
+        background: var(--card);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        font-size: 13px;
+      }
+      select:focus { outline: none; border-color: var(--accent); }
+      .hint { color: var(--muted); font-size: 11px; line-height: 1.5; }
+      .err { color: #e85c47; font-size: 12px; margin-top: 6px; }
+      .refresh {
+        margin-top: 8px;
+        padding: 6px 10px;
+        background: transparent;
+        color: var(--accent);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .refresh:hover { border-color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <div class="row">
+      <label for="profile">Profil d'autoclic</label>
+      <select id="profile"><option value="">— Choisir un profil —</option></select>
+      <div id="err" class="err" style="display: none"></div>
+      <button type="button" id="refresh" class="refresh">Rafraîchir la liste</button>
+    </div>
+    <p class="hint">
+      La liste vient de l'application MultiOutils (elle doit être lancée). Crée tes
+      profils dans l'app : ils apparaissent ici automatiquement. Une pression sur la
+      touche démarre / arrête ce profil.
+    </p>
+
+    <script>
+      const APP = 'http://127.0.0.1:41320';
+      let ws = null;
+      let piContext = null;
+      let settings = {};
+
+      const sel = document.getElementById('profile');
+      const err = document.getElementById('err');
+
+      function showError(msg) {
+        err.style.display = msg ? 'block' : 'none';
+        err.textContent = msg || '';
+      }
+
+      function saveSettings() {
+        if (!ws || ws.readyState !== 1 || !piContext) return;
+        ws.send(
+          JSON.stringify({ event: 'setSettings', context: piContext, payload: settings })
+        );
+      }
+
+      async function loadProfiles() {
+        try {
+          const res = await fetch(APP + '/autoclick/profiles', { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          const data = await res.json();
+          const current = settings.profileId || '';
+          sel.innerHTML = '<option value="">— Choisir un profil —</option>';
+          for (const p of data.profiles || []) {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.textContent = p.name;
+            if (p.id === current) opt.selected = true;
+            sel.appendChild(opt);
+          }
+          showError('');
+        } catch (e) {
+          showError("Application MultiOutils injoignable. Lance-la puis « Rafraîchir ».");
+        }
+      }
+
+      sel.addEventListener('change', () => {
+        settings.profileId = sel.value;
+        saveSettings();
+      });
+      document.getElementById('refresh').addEventListener('click', loadProfiles);
+
+      // Point d'entrée appelé par le logiciel Stream Deck.
+      window.connectElgatoStreamDeckSocket = function (
+        inPort,
+        inUUID,
+        inRegisterEvent,
+        inInfo,
+        inActionInfo
+      ) {
+        piContext = inUUID;
+        try {
+          const info = JSON.parse(inActionInfo);
+          settings = (info && info.payload && info.payload.settings) || {};
+        } catch (e) {
+          settings = {};
+        }
+        ws = new WebSocket('ws://127.0.0.1:' + inPort);
+        ws.onopen = function () {
+          ws.send(JSON.stringify({ event: inRegisterEvent, uuid: inUUID }));
+          loadProfiles();
+        };
+        ws.onmessage = function (evt) {
+          try {
+            const msg = JSON.parse(evt.data);
+            if (msg.event === 'didReceiveSettings' && msg.payload && msg.payload.settings) {
+              settings = msg.payload.settings;
+              loadProfiles();
+            }
+          } catch (e) {
+            /* ignore */
+          }
+        };
+      };
+
+      // Rafraîchit périodiquement pour voir les nouveaux profils de l'app.
+      setInterval(loadProfiles, 3000);
+    </script>
+  </body>
+</html>

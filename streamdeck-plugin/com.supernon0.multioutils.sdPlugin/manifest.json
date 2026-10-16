@@ -1,7 +1,7 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "Name": "MultiOutils",
-  "Version": "0.4.0.0",
+  "Version": "0.5.0.0",
   "Author": "SuperNon0",
   "UUID": "com.supernon0.multioutils",
   "Description": "Pilote MultiOutils : captures plein écran / zone / fenêtre / différée, ouverture de la bibliothèque, dernière capture dans le presse-papier. Nécessite l'application MultiOutils lancée.",
@@ -137,11 +137,24 @@
     {
       "UUID": "com.supernon0.multioutils.autoclick-toggle",
       "Name": "Autoclic marche/arrêt",
-      "Tooltip": "Démarre ou arrête l'autoclic MultiOutils (réglé dans l'application)",
+      "Tooltip": "Démarre ou arrête l'autoclic MultiOutils (profil sélectionné dans l'application)",
       "Icon": "imgs/autoclick",
       "States": [
         {
           "Image": "imgs/key-autoclick"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.autoclick-profile",
+      "Name": "Autoclic — profil",
+      "Tooltip": "Active / désactive un profil d'autoclic. Choisis le profil dans les réglages de la touche (liste mise à jour depuis l'application).",
+      "Icon": "imgs/autoclick",
+      "PropertyInspectorPath": "ui/autoclick-profile.html",
+      "States": [
+        {
+          "Image": "imgs/key-autoclick",
+          "TitleAlignment": "bottom"
         }
       ]
     }

@@ -5,8 +5,9 @@
 import type { Capture, CaptureType, Folder, Tag } from '@multioutils/shared';
 import type {
   AppSettings,
-  AutoclickConfig,
+  AutoclickProfile,
   AutoclickState,
+  AutoclickStore,
   CaptureListItem,
   CaptureTakeOptions,
   DisplayInfo,
@@ -93,13 +94,21 @@ export interface PreloadApi {
     ): Promise<{ ok: true; text: string } | { ok: false; error: string }>;
   };
   autoclicker: {
-    getConfig(): Promise<AutoclickConfig>;
-    setConfig(patch: Partial<AutoclickConfig>): Promise<AutoclickConfig>;
+    getStore(): Promise<AutoclickStore>;
     getState(): Promise<AutoclickState>;
-    start(): Promise<void>;
+    createProfile(): Promise<{ store: AutoclickStore; createdId: string }>;
+    updateProfile(id: string, patch: Partial<AutoclickProfile>): Promise<AutoclickStore>;
+    duplicateProfile(
+      id: string
+    ): Promise<{ store: AutoclickStore; createdId: string | null }>;
+    deleteProfile(id: string): Promise<AutoclickStore>;
+    setSelected(id: string): Promise<AutoclickStore>;
+    setShortcut(shortcut: string): Promise<AutoclickStore>;
+    start(id: string): Promise<void>;
     stop(): Promise<void>;
-    toggle(): Promise<void>;
+    toggle(id: string): Promise<void>;
     onState(cb: (state: AutoclickState) => void): Unsubscribe;
+    onStore(cb: (store: AutoclickStore) => void): Unsubscribe;
   };
   clips: {
     list(): Promise<import('./types').ClipItem[]>;

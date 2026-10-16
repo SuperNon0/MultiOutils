@@ -8607,7 +8607,7 @@ let ColorPickerStart = (() => {
     });
     return _classThis;
 })();
-// ── Module Autoclic (docs/00 §9.5) ───────────────────────────────────────
+// ── Module Autoclic — bascule simple du profil sélectionné (docs/00 §9.5) ──
 let AutoclickToggle = (() => {
     let _classDecorators = [action({ UUID: 'com.supernon0.multioutils.autoclick-toggle' })];
     let _classDescriptor;
@@ -8629,6 +8629,128 @@ let AutoclickToggle = (() => {
     });
     return _classThis;
 })();
+/** Glyphe souris en SVG (data URL) — blanc (arrêt) ou doré avec halo (marche,
+ *  `glow` = intensité du halo pour l'animation). */
+function keyImage(on, glow = 0) {
+    const stroke = on ? '#e8c547' : '#f0ede6';
+    const ring = glow > 0
+        ? `<circle cx="72" cy="72" r="${34 + glow * 14}" fill="none" stroke="#4fc3a1" stroke-width="4" opacity="${(1 - glow) * 0.6}"/>`
+        : '';
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">` +
+        `<rect width="144" height="144" fill="#0e0f11"/>` +
+        ring +
+        `<g fill="none" stroke="${stroke}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round">` +
+        `<rect x="48" y="30" width="48" height="84" rx="24"/>` +
+        `<path d="M72 48v20"/>` +
+        `</g></svg>`;
+    return `data:image/svg+xml;charset=utf8,${encodeURIComponent(svg)}`;
+}
+const entries = new Map();
+let profileNames = new Map();
+let appReachable = true;
+async function appGet(path) {
+    try {
+        const res = await fetch(`${BASE_URL}${path}`, { signal: AbortSignal.timeout(2500) });
+        if (!res.ok)
+            throw new Error(`HTTP ${res.status}`);
+        appReachable = true;
+        return (await res.json());
+    }
+    catch {
+        appReachable = false;
+        return null;
+    }
+}
+/** Petite animation marche/arrêt : fait grossir/estomper le halo puis se fige. */
+async function animate(key, toOn) {
+    const steps = [0.15, 0.4, 0.7, 1];
+    for (const g of steps) {
+        await key.setImage(keyImage(toOn, 1 - g));
+        await new Promise((r) => setTimeout(r, 55));
+    }
+    await key.setImage(keyImage(toOn, 0));
+}
+/** Rafraîchit le libellé + l'image d'une touche selon l'état connu. */
+async function render(entry) {
+    const name = entry.profileId ? (profileNames.get(entry.profileId) ?? '?') : '—';
+    await entry.action.setTitle(name);
+    await entry.action.setImage(keyImage(entry.running, 0));
+}
+/** Interroge l'app : met à jour la liste des profils et l'état de chaque touche
+ *  (avec animation sur transition). Nouveau profil créé dans l'app → son nom
+ *  apparaît ici automatiquement. */
+async function poll() {
+    const data = await appGet('/autoclick/profiles');
+    if (!data)
+        return;
+    profileNames = new Map(data.profiles.map((p) => [p.id, p.name]));
+    for (const entry of entries.values()) {
+        const running = entry.profileId != null && data.runningProfileId === entry.profileId;
+        if (running !== entry.running) {
+            entry.running = running;
+            await animate(entry.action, running);
+            await entry.action.setTitle(entry.profileId ? (profileNames.get(entry.profileId) ?? '?') : '—');
+        }
+        else {
+            await render(entry);
+        }
+    }
+}
+let AutoclickProfile = (() => {
+    let _classDecorators = [action({ UUID: 'com.supernon0.multioutils.autoclick-profile' })];
+    let _classDescriptor;
+    let _classExtraInitializers = [];
+    let _classThis;
+    let _classSuper = SingletonAction;
+    (class extends _classSuper {
+        static { _classThis = this; }
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            __esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, { kind: "class", name: _classThis.name, metadata: _metadata }, null, _classExtraInitializers);
+            _classThis = _classDescriptor.value;
+            if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+            __runInitializers(_classThis, _classExtraInitializers);
+        }
+        async onWillAppear(ev) {
+            const key = ev.action;
+            entries.set(key.id, { action: key, profileId: ev.payload.settings?.profileId, running: false });
+            await render(entries.get(key.id));
+            void poll();
+        }
+        onWillDisappear(ev) {
+            entries.delete(ev.action.id);
+            return Promise.resolve();
+        }
+        async onDidReceiveSettings(ev) {
+            const key = ev.action;
+            const entry = entries.get(key.id);
+            if (entry) {
+                entry.profileId = ev.payload.settings?.profileId;
+                await render(entry);
+            }
+            void poll();
+        }
+        async onKeyDown(ev) {
+            const key = ev.action;
+            const profileId = ev.payload.settings?.profileId;
+            if (!profileId) {
+                await key.showAlert(); // aucun profil choisi dans le panneau
+                return;
+            }
+            try {
+                const res = await fetch(`${BASE_URL}/autoclick/toggle?id=${encodeURIComponent(profileId)}`, { method: 'POST', signal: AbortSignal.timeout(3000) });
+                if (!res.ok)
+                    throw new Error(`HTTP ${res.status}`);
+                await poll(); // reflète immédiatement le nouvel état + anime
+            }
+            catch (error) {
+                streamDeck.logger.warn('Autoclic injoignable', error);
+                await key.showAlert();
+            }
+        }
+    });
+    return _classThis;
+})();
 streamDeck.actions.registerAction(new CaptureFullscreen());
 streamDeck.actions.registerAction(new CaptureRegion());
 streamDeck.actions.registerAction(new CaptureWindow());
@@ -8640,4 +8762,11 @@ streamDeck.actions.registerAction(new ClipsCopyLast());
 streamDeck.actions.registerAction(new ClipsPinCurrent());
 streamDeck.actions.registerAction(new ColorPickerStart());
 streamDeck.actions.registerAction(new AutoclickToggle());
+streamDeck.actions.registerAction(new AutoclickProfile());
 void streamDeck.connect();
+// Sondage régulier : garde les touches « profil » à jour (état + nouveaux
+// profils) même quand le changement vient de l'app ou d'une autre touche.
+setInterval(() => {
+    if (entries.size > 0)
+        void poll();
+}, 1200);

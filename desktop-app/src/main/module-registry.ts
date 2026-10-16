@@ -24,6 +24,16 @@ export interface MainHostContext {
   broadcast(channel: string, payload?: unknown): void;
   /** Commandes exposées au service localhost (Stream Deck, docs/00 §8). */
   registerLocalCommand(id: string, run: () => void | Promise<void>): void;
+  /**
+   * Route HTTP enrichie du service localhost (GET/POST) pour le plugin Stream
+   * Deck — ex. lister des profils. `handler` reçoit l'URL analysée et renvoie
+   * la valeur JSON à sérialiser (undefined → 204).
+   */
+  registerLocalRoute(
+    method: string,
+    pattern: RegExp,
+    handler: (url: URL) => unknown | Promise<unknown>
+  ): void;
 }
 
 /** Contrat d'un outil côté process main. */

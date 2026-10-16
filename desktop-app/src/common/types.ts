@@ -198,7 +198,7 @@ export type AutoclickButton = 'left' | 'right' | 'middle';
 export type AutoclickClick = 'single' | 'double';
 export type AutoclickRepeat = 'infinite' | 'count';
 
-/** Réglages de l'autoclic (persistés en base, clé `autoclick.config`). */
+/** Réglages d'un clic (indépendants du nom/id de profil). */
 export interface AutoclickConfig {
   /** Intervalle entre deux clics : décomposé pour l'UI (h/m/s/ms). */
   hours: number;
@@ -212,6 +212,19 @@ export interface AutoclickConfig {
   repeatCount: number;
   /** Délai avant le tout premier clic (ms). */
   startDelayMs: number;
+}
+
+/** Un profil d'autoclic nommé : des réglages + une identité. */
+export interface AutoclickProfile extends AutoclickConfig {
+  id: string;
+  name: string;
+}
+
+/** Magasin persistant de l'autoclic (clé `autoclick.store`). */
+export interface AutoclickStore {
+  profiles: AutoclickProfile[];
+  /** Profil ciblé par le raccourci global / dernier profil choisi. */
+  selectedId: string | null;
   /** Raccourci global de bascule (accélérateur Electron) ; '' = aucun. */
   shortcut: string;
 }
@@ -225,12 +238,12 @@ export const DEFAULT_AUTOCLICK: AutoclickConfig = {
   clickType: 'single',
   repeat: 'infinite',
   repeatCount: 50,
-  startDelayMs: 0,
-  shortcut: 'F6'
+  startDelayMs: 0
 };
 
 export interface AutoclickState {
-  running: boolean;
+  /** Profil en cours d'exécution (null = arrêté). */
+  runningProfileId: string | null;
   /** Clics restants (null = illimité). */
   remaining: number | null;
   /** Clics déjà effectués dans la série courante. */

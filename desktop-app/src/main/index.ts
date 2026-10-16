@@ -73,7 +73,9 @@ async function bootstrap(): Promise<void> {
     },
     showMainWindow,
     broadcast,
-    registerLocalCommand: (id, run) => localService.register(id, run)
+    registerLocalCommand: (id, run) => localService.register(id, run),
+    registerLocalRoute: (method, pattern, handler) =>
+      localService.registerRoute(method, pattern, handler)
   };
 
   // Résolution des images (l'accès fichier reste confiné au process main).
