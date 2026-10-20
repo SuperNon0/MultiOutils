@@ -1876,20 +1876,26 @@
 
 .ac-stage {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 40px;
+  /* Colonne gauche à largeur FIXE : choisir gauche/droite/molette change le
+     libellé mais ne redimensionne plus la grille (plus de décalage). Le tout
+     est centré et borné pour que la souris ne paraisse pas « dans un coin ». */
+  grid-template-columns: 340px minmax(0, 460px);
+  gap: 44px;
   align-items: center;
+  justify-content: center;
+  max-width: 900px;
+  margin: 8px auto 0;
 }
-.ac-stage-caption { font-size: 13px; }
 .ac-stage-left {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 .ac-stage-caption {
-  font-size: 12px;
+  font-size: 13px;
   text-align: center;
+  min-height: 18px; /* réserve la ligne : pas de saut vertical au changement */
 }
 .ac-stage-caption strong { color: var(--text); }
 
