@@ -784,5 +784,8 @@
   "ai.error.api": "Le fournisseur a renvoyé une erreur.",
   "ai.company.anthropic": "Anthropic",
   "ai.company.openai": "OpenAI",
-  "ai.company.gemini": "Google"
+  "ai.company.gemini": "Google",
+  "text.ai.review": "Revoir la traduction",
+  "ai.retranslate": "Retraduire",
+  "ai.savedOn": "Traduction enregistrée le {date} · modèle {model}"
 }

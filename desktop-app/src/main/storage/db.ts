@@ -41,6 +41,16 @@ CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY, value TEXT
 );
 
+CREATE TABLE IF NOT EXISTS capture_translations (
+  capture_id      TEXT PRIMARY KEY REFERENCES captures(id) ON DELETE CASCADE,
+  target_lang     TEXT NOT NULL,
+  source_language TEXT,
+  original        TEXT NOT NULL,
+  translated      TEXT NOT NULL,
+  model           TEXT,
+  created_at      TEXT NOT NULL
+);
+
 CREATE INDEX IF NOT EXISTS idx_captures_created ON captures(created_at);
 CREATE INDEX IF NOT EXISTS idx_captures_deleted ON captures(deleted_at);
 `;

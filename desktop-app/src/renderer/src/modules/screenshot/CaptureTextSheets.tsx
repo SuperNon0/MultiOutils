@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } fro
 import {
   OCR_LANGS,
   type AiConfig,
+  type AiSavedTranslation,
   type AiTranslateResult,
   type AppSettings,
   type CaptureListItem,
@@ -122,12 +123,14 @@ function TexteCopiable({
   id,
   label,
   value,
-  onChange
+  onChange,
+  onBlur
 }: {
   id: string;
   label: ReactNode;
   value: string;
   onChange(v: string): void;
+  onBlur?(): void;
 }): ReactNode {
   const { t } = useI18n();
   return (
@@ -143,6 +146,7 @@ function TexteCopiable({
           spellCheck={false}
           placeholder={t('text.emptyPlaceholder')}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
         />
         <BoutonCopier texte={value} />
       </div>
@@ -254,7 +258,7 @@ function OcrSheet({ captureId }: { captureId: string }): ReactNode {
 
 /* --------------------------------------------------------- Traduire (IA) */
 function TranslateSheet({ captureId }: { captureId: string }): ReactNode {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const host = useHost();
   const capture = useCapture(captureId);
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -264,6 +268,10 @@ function TranslateSheet({ captureId }: { captureId: string }): ReactNode {
   const [result, setResult] = useState<AiTranslateResult | null>(null);
   const [original, setOriginal] = useState('');
   const [translated, setTranslated] = useState('');
+  /** Traduction enregistrée de cette capture (undefined = en cours de lecture). */
+  const [saved, setSaved] = useState<AiSavedTranslation | null | undefined>(undefined);
+  /** « Retraduire » : ignore la traduction enregistrée. */
+  const [forced, setForced] = useState(false);
   const run = useRef(0);
 
   useEffect(() => {
@@ -278,7 +286,32 @@ function TranslateSheet({ captureId }: { captureId: string }): ReactNode {
   const hasKey = settings && config ? config.hasKey[settings.aiProvider] : undefined;
 
   useEffect(() => {
-    if (!capture || !target || hasKey !== true) return;
+    if (!capture) return;
+    let alive = true;
+    void window.api.ai
+      .getSaved(capture.id)
+      .catch(() => null)
+      .then((s) => {
+        if (alive) setSaved(s);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [capture]);
+
+  // Traduction déjà faite dans cette langue : on la montre, sans rappeler l'IA.
+  const showSaved = Boolean(saved) && !forced && saved?.targetLang === target;
+
+  useEffect(() => {
+    if (showSaved && saved) {
+      setOriginal(saved.original);
+      setTranslated(saved.translated);
+    }
+  }, [showSaved, saved]);
+
+  const loaded = saved !== undefined;
+  useEffect(() => {
+    if (!capture || !target || !loaded || showSaved || hasKey !== true) return;
     const n = ++run.current;
     setResult(null);
     void window.api.ai.translate(capture.id, target).then((res) => {
@@ -287,9 +320,26 @@ function TranslateSheet({ captureId }: { captureId: string }): ReactNode {
       if (res.ok) {
         setOriginal(res.original);
         setTranslated(res.translated);
+        // le processus principal l'a enregistrée : on garde la même chose ici
+        setSaved({ ...res, targetLang: target, createdAt: new Date().toISOString() });
+        setForced(false);
       }
     });
-  }, [capture, target, hasKey, attempt]);
+  }, [capture, target, loaded, showSaved, hasKey, attempt]);
+
+  const retranslate = (): void => {
+    setForced(true);
+    setResult(null);
+    setAttempt((a) => a + 1);
+  };
+
+  /** Modifications à la main du texte : enregistrées avec la traduction. */
+  const persistEdit = (): void => {
+    if (!capture || !saved) return;
+    if (original === saved.original && translated === saved.translated) return;
+    setSaved({ ...saved, original, translated });
+    void window.api.ai.saveEdit(capture.id, original, translated);
+  };
 
   const changeTarget = (v: string): void => {
     setTarget(v);
@@ -301,8 +351,16 @@ function TranslateSheet({ captureId }: { captureId: string }): ReactNode {
     host.openSettings('ai');
   };
 
-  const error = hasKey === false ? ({ ok: false, error: 'noKey' } as const) : result && !result.ok ? result : null;
-  const waiting = capture && hasKey === true && !result;
+  const error =
+    !loaded || showSaved
+      ? null
+      : hasKey === false
+        ? ({ ok: false, error: 'noKey' } as const)
+        : result && !result.ok
+          ? result
+          : null;
+  const waiting = capture && loaded && !showSaved && hasKey === true && !result;
+  const shown = showSaved ? saved : result?.ok ? result : null;
   const langs = target && !COMMON_TARGET_LANGS.includes(target) ? [target, ...COMMON_TARGET_LANGS] : COMMON_TARGET_LANGS;
   const model = settings && provider ? settings.aiModels[provider.id] || provider.defaultModel : '';
 
@@ -369,9 +427,9 @@ function TranslateSheet({ captureId }: { captureId: string }): ReactNode {
                 )}
               </div>
             </div>
-          ) : result?.ok ? (
+          ) : shown ? (
             <>
-              {!result.original && (
+              {!shown.original && (
                 <p className="statut">
                   <Icon name="info" size={16} /> {t('ai.noText')}
                 </p>
@@ -380,23 +438,39 @@ function TranslateSheet({ captureId }: { captureId: string }): ReactNode {
               <TexteCopiable
                 id="ai-origine"
                 label={
-                  result.sourceLanguage
-                    ? t('ai.original.lang', { lang: result.sourceLanguage })
+                  shown.sourceLanguage
+                    ? t('ai.original.lang', { lang: shown.sourceLanguage })
                     : t('ai.original')
                 }
                 value={original}
                 onChange={setOriginal}
+                onBlur={persistEdit}
               />
               <TexteCopiable
                 id="ai-traduction"
                 label={t('ai.translation', { lang: target ?? '' })}
                 value={translated}
                 onChange={setTranslated}
+                onBlur={persistEdit}
               />
               </div>
-              <p className="muted petit">
-                {t('ai.answeredBy', { model: result.model })}
-              </p>
+              <div className="ligne">
+                <p className="muted petit">
+                  {showSaved && saved
+                    ? t('ai.savedOn', { date: formatDate(saved.createdAt, lang), model: saved.model })
+                    : t('ai.answeredBy', { model: shown.model })}
+                </p>
+                <span className="esp" />
+                <button
+                  type="button"
+                  className="btn sm"
+                  disabled={hasKey !== true}
+                  onClick={retranslate}
+                >
+                  <Icon name="refresh" size={16} />
+                  {t('ai.retranslate')}
+                </button>
+              </div>
             </>
           ) : null}
         </div>

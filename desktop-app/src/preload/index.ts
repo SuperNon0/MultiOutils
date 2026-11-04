@@ -81,6 +81,9 @@ const api: PreloadApi = {
     setKey: (provider, key) => ipcRenderer.invoke('ai:setKey', provider, key),
     testKey: (provider) => ipcRenderer.invoke('ai:testKey', provider),
     listModels: (provider) => ipcRenderer.invoke('ai:listModels', provider),
+    getSaved: (captureId) => ipcRenderer.invoke('ai:getSaved', captureId),
+    saveEdit: (captureId, original, translated) =>
+      ipcRenderer.invoke('ai:saveEdit', captureId, original, translated),
     translate: (captureId, targetLang) => ipcRenderer.invoke('ai:translate', captureId, targetLang)
   },
   autoclicker: {

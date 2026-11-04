@@ -784,5 +784,8 @@
   "ai.error.api": "The provider returned an error.",
   "ai.company.anthropic": "Anthropic",
   "ai.company.openai": "OpenAI",
-  "ai.company.gemini": "Google"
+  "ai.company.gemini": "Google",
+  "text.ai.review": "View translation",
+  "ai.retranslate": "Translate again",
+  "ai.savedOn": "Translation saved on {date} · model {model}"
 }

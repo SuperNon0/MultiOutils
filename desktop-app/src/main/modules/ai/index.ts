@@ -6,7 +6,9 @@ import {
   type AiConfig,
   type AiProviderId,
   type AiSimpleResult,
+  type AiSavedTranslation,
   type AiTranslateResult,
+  type AiTranslation,
   type AppSettings
 } from '../../../common/types';
 import type { MainHostContext, MainToolModule } from '../../module-registry';
@@ -118,6 +120,61 @@ export function createAiMainModule(): MainToolModule {
         }
       });
 
+      const getSaved = ctx.db.prepare(
+        'SELECT * FROM capture_translations WHERE capture_id = ?'
+      );
+      const putSaved = ctx.db.prepare(
+        `INSERT INTO capture_translations
+           (capture_id, target_lang, source_language, original, translated, model, created_at)
+         VALUES (@captureId, @targetLang, @sourceLanguage, @original, @translated, @model, @createdAt)
+         ON CONFLICT(capture_id) DO UPDATE SET
+           target_lang = excluded.target_lang, source_language = excluded.source_language,
+           original = excluded.original, translated = excluded.translated,
+           model = excluded.model, created_at = excluded.created_at`
+      );
+      const editSaved = ctx.db.prepare(
+        'UPDATE capture_translations SET original = ?, translated = ? WHERE capture_id = ?'
+      );
+      const save = (captureId: string, targetLang: string, r: AiTranslation): void => {
+        putSaved.run({
+          captureId,
+          targetLang,
+          sourceLanguage: r.sourceLanguage,
+          original: r.original,
+          translated: r.translated,
+          model: r.model,
+          createdAt: new Date().toISOString()
+        });
+      };
+
+      ipcMain.handle('ai:getSaved', (_e, captureId: unknown): AiSavedTranslation | null => {
+        if (typeof captureId !== 'string') return null;
+        const row = getSaved.get(captureId) as
+          | {
+              target_lang: string;
+              source_language: string | null;
+              original: string;
+              translated: string;
+              model: string | null;
+              created_at: string;
+            }
+          | undefined;
+        if (!row) return null;
+        return {
+          targetLang: row.target_lang,
+          sourceLanguage: row.source_language ?? '',
+          original: row.original,
+          translated: row.translated,
+          model: row.model ?? '',
+          createdAt: row.created_at
+        };
+      });
+
+      ipcMain.handle('ai:saveEdit', (_e, captureId: unknown, original: unknown, translated: unknown): void => {
+        if (typeof captureId !== 'string' || typeof original !== 'string' || typeof translated !== 'string') return;
+        editSaved.run(original, translated, captureId);
+      });
+
       ipcMain.handle(
         'ai:translate',
         async (_e, captureId: unknown, targetLang?: unknown): Promise<AiTranslateResult> => {
@@ -139,7 +196,9 @@ export function createAiMainModule(): MainToolModule {
               )
             };
             try {
-              return { ok: true, ...(await p.translate(request)) };
+              const result = await p.translate(request);
+              save(capture.id, request.targetLang, result);
+              return { ok: true, ...result };
             } catch (err) {
               // Modèle retiré ou inconnu (champ libre) : on prend le plus récent
               // proposé par le fournisseur, on réessaie une fois et on le garde.
@@ -149,6 +208,7 @@ export function createAiMainModule(): MainToolModule {
                   : null;
               if (!replacement) throw err;
               const result = await p.translate({ ...request, model: replacement });
+              save(capture.id, request.targetLang, result);
               ctx.settings.set({ aiModels: { [provider]: replacement } as AppSettings['aiModels'] });
               return { ok: true, ...result };
             }
