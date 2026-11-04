@@ -18,13 +18,14 @@ import {
   type UpdateStatus
 } from '../../../common/types';
 import { applyAppearance } from '../encre/appearance';
-import { ui } from '../encre/ui';
+import { Aide, ui } from '../encre/ui';
 import { translate, useI18n } from '../i18n';
 import { displayAccelerator } from '../lib/format';
 import { eventToAccelerator } from '../lib/shortcuts';
 import { Brand } from './Sidebar';
 import { Icon } from './Icon';
 import { RegLigne, RegSec, RegSwitch } from './reglages';
+import { TraductionSection } from './TraductionReglages';
 import type { ToolModule } from './types';
 
 interface Props {
@@ -106,6 +107,14 @@ export function settingsSections(modules: ToolModule[]): SectionDef[] {
         icon: m.icon,
         keywords: [m.name]
       })),
+    {
+      id: 'ai',
+      group: 'reglages.group.tools',
+      title: 'ai.section',
+      sub: 'reglages.sub.ai',
+      icon: 'sparkle',
+      keywords: ['ai.provider', 'ai.model', 'ai.target', 'ai.keywords']
+    },
     {
       id: 'server',
       group: 'reglages.group.advanced',
@@ -271,6 +280,7 @@ export function SettingsView({ settings, version, section, modules, update }: Pr
             {current.id === 'shortcuts' && <ShortcutsSection onSaved={flash} />}
             {current.id === 'storage' && <StorageSection settings={settings} update={update} />}
             {current.id === 'server' && <ServerSection onSaved={flash} />}
+            {current.id === 'ai' && <TraductionSection settings={settings} update={update} />}
             {current.id === 'updates' && <UpdatesSection version={version} />}
             {current.id === 'about' && (
               <div className="reg-sec apropos">
@@ -406,6 +416,11 @@ function ServerSection({ onSaved }: { onSaved(): void }): ReactNode {
         <div>
           <label className="lbl" htmlFor="srv-url">
             {t('settings.server.url')}
+            <Aide
+              titre={t('settings.server.url')}
+              texte={t('settings.help.url')}
+              exemple={t('settings.help.url.ex')}
+            />
           </label>
           <input
             id="srv-url"
@@ -421,6 +436,11 @@ function ServerSection({ onSaved }: { onSaved(): void }): ReactNode {
         <div>
           <label className="lbl" htmlFor="srv-token">
             {t('settings.server.token')}
+            <Aide
+              titre={t('settings.server.token')}
+              texte={t('settings.help.token')}
+              exemple={t('settings.help.token.ex')}
+            />
           </label>
           <input
             id="srv-token"
@@ -580,6 +600,9 @@ function GeneralSection({
   );
 }
 
+/** Raccourcis qui ont une bulle « ? » (les autres parlent d'eux-mêmes). */
+const SHORTCUT_HELP = ['region', 'delayed'];
+
 function ShortcutsSection({ onSaved }: { onSaved(): void }): ReactNode {
   const { t } = useI18n();
   const [statuses, setStatuses] = useState<ShortcutStatus[]>([]);
@@ -608,6 +631,15 @@ function ShortcutsSection({ onSaved }: { onSaved(): void }): ReactNode {
             <RegLigne
               key={status.id}
               titre={t(`settings.shortcuts.${status.id}`)}
+              aide={
+                SHORTCUT_HELP.includes(status.id) ? (
+                  <Aide
+                    titre={t(`settings.shortcuts.${status.id}`)}
+                    texte={t(`settings.help.${status.id}`)}
+                    exemple={t(`settings.help.${status.id}.ex`)}
+                  />
+                ) : undefined
+              }
               sous={
                 !status.ok ? (
                   <span className="dan">{t('settings.shortcuts.conflict')}</span>
@@ -721,7 +753,14 @@ function StorageSection({
 
   return (
     <>
-      <RegSec titre={t('settings.storage.dir')}>
+      <RegSec
+        titre={
+          <>
+            {t('settings.storage.dir')}
+            <Aide titre={t('settings.storage.dir')} texte={t('settings.help.dir')} exemple={t('settings.help.dir.ex')} />
+          </>
+        }
+      >
         <div className="copie">
           <code title={settings.storageDir}>{settings.storageDir}</code>
           <button type="button" className="btn sm" onClick={() => void chooseFolder()}>
@@ -731,7 +770,18 @@ function StorageSection({
         </div>
       </RegSec>
 
-      <RegSec titre={t('settings.storage.template')}>
+      <RegSec
+        titre={
+          <>
+            {t('settings.storage.template')}
+            <Aide
+              titre={t('settings.storage.template')}
+              texte={t('settings.help.template')}
+              exemple={t('settings.help.template.ex')}
+            />
+          </>
+        }
+      >
         <input
           className="input mono"
           value={template}
@@ -747,7 +797,16 @@ function StorageSection({
       </RegSec>
 
       <RegSec>
-        <RegLigne titre={t('settings.storage.trashRetention')}>
+        <RegLigne
+          titre={t('settings.storage.trashRetention')}
+          aide={
+            <Aide
+              titre={t('settings.storage.trashRetention')}
+              texte={t('settings.help.trash')}
+              exemple={t('settings.help.trash.ex')}
+            />
+          }
+        >
           <select
             className="select reg-select"
             value={settings.trashRetentionDays}

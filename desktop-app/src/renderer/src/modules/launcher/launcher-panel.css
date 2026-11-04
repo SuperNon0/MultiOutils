@@ -42,51 +42,97 @@
   margin-bottom: 6px;
 }
 
-/* Fournisseurs : mot-clé + interrupteur */
-.lzr-ctl {
-  flex-wrap: nowrap;
-  flex: none;
+/* ------------------------------------------------------------ réglages */
+/* groupes aérés : plus d'air entre les sections qu'entre les lignes */
+.lzr > .reg-sec,
+.lzr > .lzr-sous-t,
+.lzr > .faq,
+.lzr > .lzr-bloc {
+  margin-top: 30px;
 }
-.ligne > .input.lzr-mot {
-  flex: none;
-  width: 104px;
-  height: 34px;
-  min-height: 34px;
-  font-family: var(--f-mono);
-  font-size: 13px;
+.lzr > .reg-sec:first-child {
+  margin-top: 6px;
+}
+.lzr .reg-l .tx b {
+  flex-wrap: wrap;
+}
+.lzr-intro {
+  margin: -2px 0 12px;
+}
+.lzr .reg-select.lzr-sel {
+  min-width: 160px;
 }
 .reg-select.lzr-court {
-  min-width: 90px;
+  min-width: 96px;
 }
 
-/* Moteurs web : une grille par moteur */
-.lzr-moteurs {
-  margin-top: 4px;
-}
-.lzr-moteur {
-  display: grid;
-  grid-template-columns: minmax(110px, 1fr) 90px minmax(180px, 2.6fr) auto auto;
+/* titre de sous-groupe avec une action à droite (Moteurs, Apparence) */
+.lzr-sous-t {
+  display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  border-top: 1px solid var(--line);
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
 }
-.lzr-moteur:first-child {
-  border-top: 0;
+.lzr > .lzr-sous-t {
+  margin-top: 18px;
 }
-.lzr-moteur .input {
-  width: 100%;
-  min-width: 0;
-}
-.lzr-moteur.off .input {
-  opacity: 0.6;
-}
-.lzr-entete {
+
+/* Sources et moteurs : une ligne par élément (liste du kit) */
+.lzr-sources .li,
+.lzr-moteurs .li {
+  gap: 12px;
   padding-top: 10px;
-  padding-bottom: 6px;
+  padding-bottom: 10px;
 }
-.lzr-actions {
-  margin-top: 10px;
+.lzr-src .tx b {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+.lzr-src.off .li-ic,
+.lzr-src.off .tx {
+  opacity: 0.55;
+}
+.lzr-moteurs .tx small {
+  font-size: 11.5px;
+}
+
+/* mot-clé : kbd cliquable, puis petit champ */
+.lzr-mot {
+  flex: none;
+  min-width: 46px;
+  height: 26px;
+  padding: 0 9px;
+  font-size: 12px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--text);
+  background: var(--surface);
+}
+button.lzr-mot {
+  cursor: pointer;
+}
+button.lzr-mot:hover {
+  border-color: var(--acc-line);
+  color: var(--accent);
+}
+.lzr-mot.vide {
+  color: var(--muted);
+  font-style: italic;
+  border-style: dashed;
+}
+.lzr-mot.fixe {
+  background: none;
+}
+.input.lzr-mot-in {
+  flex: none;
+  width: 92px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 8px;
+  font-size: 13px;
 }
 
 /* Dossiers indexés et exclusions */
@@ -100,24 +146,139 @@
   user-select: text;
 }
 .lzr-bloc {
-  margin-top: 16px;
   display: grid;
   gap: 6px;
+}
+.lzr > .lzr-bloc {
+  margin-top: 16px;
 }
 .lzr-excl {
   width: 100%;
   font-size: 13px;
 }
 
+/* Avancé : repliable, comme une question de l'aide du kit */
+.lzr-avance {
+  max-width: none;
+}
+.lzr-avance summary .tx {
+  flex: 1;
+  min-width: 0;
+}
+.lzr-avance summary small {
+  display: block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.lzr-avance-c {
+  padding: 0 16px 14px;
+  border-top: 1px solid var(--line);
+}
+.lzr-avance-c .reg-sec {
+  margin-top: 16px;
+}
+
+/* Zone sensible : les lignes reprennent le kit, sur le fond rouge pâle */
+.lzr-zone .reg-lignes {
+  margin-top: 8px;
+}
+.lzr-zone .reg-l {
+  border-top-color: color-mix(in srgb, var(--danger) 22%, var(--line));
+}
+.lzr-zone .reg-l:first-child {
+  border-top: 0;
+}
+.lzr-credit {
+  margin-top: 22px;
+}
+
+/* --------------------------------------------- apparence de la barre */
+.lzr-apercu {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--r-lg);
+  border: 1px solid var(--line);
+  background:
+    radial-gradient(120% 90% at 15% 0%, var(--acc-dim), transparent 60%),
+    var(--creux);
+  margin-bottom: 8px;
+}
+.lzr-apercu-in {
+  transform-origin: top left;
+  pointer-events: none;
+  user-select: none;
+}
+.lzr-apercu .palette.lz {
+  animation: none;
+}
+.lzr-apercu .lz-champ input {
+  pointer-events: none;
+}
+
+.lzr-curseur {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+.lzr-range {
+  width: 170px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.lzr-val {
+  min-width: 56px;
+  text-align: right;
+  font-size: 12.5px;
+  color: var(--soft);
+}
+
+/* mini écran dans les boutons de position (la barre en haut, au tiers, au centre) */
+.lzr-ecran {
+  position: relative;
+  width: 20px;
+  height: 15px;
+  border: 1.5px solid currentColor;
+  border-radius: 3px;
+  flex: none;
+  opacity: 0.85;
+}
+.lzr-ecran i {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  height: 2.5px;
+  border-radius: 2px;
+  background: currentColor;
+}
+.lzr-pos-top i {
+  top: 1.5px;
+}
+.lzr-pos-third i {
+  top: 3.5px;
+}
+.lzr-pos-center i {
+  top: calc(50% - 1.25px);
+}
+
+.lzr-accent {
+  flex-wrap: wrap;
+}
+.lzr-accent .pastilles {
+  gap: 10px;
+}
+.lzr-accent .past i {
+  width: 34px;
+  height: 34px;
+}
+.past[data-v='app'] i {
+  background: var(--accent);
+  box-shadow: inset 0 0 0 6px var(--card), var(--sh-past);
+}
+
 @media (max-width: 720px) {
-  .lzr-moteur {
-    grid-template-columns: 1fr 90px auto auto;
-  }
-  .lzr-moteur > :nth-child(3) {
-    grid-column: 1 / -1;
-    grid-row: 2;
-  }
-  .lzr-entete {
-    display: none;
+  .lzr-range {
+    width: 120px;
   }
 }

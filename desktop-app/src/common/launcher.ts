@@ -106,6 +106,52 @@ export interface LauncherWebEngine {
 }
 
 export type LauncherLastQuery = 'selected' | 'keep' | 'empty';
+
+/** Accent propre à la barre, ou « app » pour suivre Réglages → Apparence. */
+export type LauncherLookAccent = 'app' | 'lavande' | 'or' | 'ambre' | 'corail' | 'menthe';
+export type LauncherLookPosition = 'top' | 'third' | 'center';
+
+/**
+ * Apparence de la barre du lanceur (comme les thèmes de Flow Launcher).
+ * Traduite en variables CSS posées sur la fenêtre (voir renderer look.ts).
+ */
+export interface LauncherLook {
+  /** Largeur de la barre, en px (560 à 1000). */
+  width: number;
+  /** Taille du texte (recherche et résultats), en % (85 à 130). */
+  textSize: number;
+  /** Lignes de résultats visibles avant défilement (3 à 12). */
+  visibleRows: number;
+  /** Opacité du fond en verre, en % (60 à 100). */
+  opacity: number;
+  /** Arrondi des coins de la barre, en px (4 à 32). */
+  radius: number;
+  position: LauncherLookPosition;
+  showSubtitles: boolean;
+  /** Numéros Alt+1…9 à droite des résultats. */
+  showHotkeys: boolean;
+  accent: LauncherLookAccent;
+}
+
+export const LAUNCHER_LOOK_LIMITS = {
+  width: [560, 1000],
+  textSize: [85, 130],
+  visibleRows: [3, 12],
+  opacity: [60, 100],
+  radius: [4, 32]
+} as const;
+
+export const DEFAULT_LAUNCHER_LOOK: LauncherLook = {
+  width: 720,
+  textSize: 100,
+  visibleRows: 8,
+  opacity: 93,
+  radius: 24,
+  position: 'third',
+  showSubtitles: true,
+  showHotkeys: true,
+  accent: 'app'
+};
 export type LauncherFileBackend = 'auto' | 'everything' | 'windows' | 'walk';
 
 export interface LauncherSettings {
@@ -128,6 +174,8 @@ export interface LauncherSettings {
   indexedFolders: string[];
   /** Motifs exclus (sous-chaîne ou joker *), un par ligne. */
   excludes: string[];
+  /** Apparence de la barre. */
+  look: LauncherLook;
 }
 
 export interface LauncherState {

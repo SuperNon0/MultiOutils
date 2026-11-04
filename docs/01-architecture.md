@@ -67,7 +67,9 @@ export interface HostContext {
 - **Ajout d'un outil** = créer un dossier `modules/<mon-outil>/`, exporter un `ToolModule`,
   l'ajouter au registre. Rien d'autre à modifier.
 
-Modules prévus : `screenshot` (MVP), `color-picker` (Bonus), `ocr` (Bonus), puis d'autres.
+Modules prévus : `screenshot` (MVP), `color-picker` (Bonus), puis d'autres. L'OCR
+(`main/modules/ocr`) et la traduction IA (`main/modules/ai`) n'ont pas d'onglet : ce
+sont des actions du menu « ⋯ » d'une capture (voir docs/00 §9.1).
 
 ---
 
@@ -99,8 +101,7 @@ MultiOutils/
 │   │   │   ├── host/             # coquille : barre latérale, tray, réglages
 │   │   │   └── modules/          # LES OUTILS
 │   │   │       ├── screenshot/   # module capture (galerie + éditeur)
-│   │   │       ├── color-picker/ # bonus
-│   │   │       └── ocr/          # bonus
+│   │   │       └── color-picker/ # bonus
 │   │   └── registry.ts           # enregistrement des modules
 │   ├── electron-builder.yml      # build .exe + config publish GitHub
 │   └── package.json

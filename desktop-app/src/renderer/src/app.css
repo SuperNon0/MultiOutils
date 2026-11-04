@@ -19,7 +19,6 @@ input,
 textarea,
 code,
 .clip-text-full,
-.ocr-text,
 .selectable {
   user-select: text;
 }
@@ -80,7 +79,7 @@ input[type='radio'] {
   padding: 0;
 }
 
-/* Marque de l'appli (comme demo.html du kit) : lettre en italique sur l'accent. */
+/* Marque de l'appli : le symbole de l'icône (quatre tuiles) sur l'accent. */
 .marque {
   width: 30px;
   height: 30px;
@@ -89,9 +88,11 @@ input[type='radio'] {
   color: var(--ink);
   display: grid;
   place-items: center;
-  font: italic 400 22px/1 var(--f-title);
   flex: none;
-  padding-bottom: 3px;
+}
+.marque-sym {
+  width: 78%;
+  height: 78%;
 }
 .side .ver {
   max-width: 76px;
@@ -1094,61 +1095,81 @@ input[type='radio'] {
   color: var(--soft);
 }
 
-/* ---------------------------------------------------------------- OCR */
-.ocr-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 26px;
-  align-items: start;
+/* ------------------------------- Extraire le texte / Traduire (IA) */
+.feuille.large.texte-feuille {
+  width: min(760px, calc(100vw - 48px));
 }
-@media (max-width: 1099px) {
-  .ocr-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
+/* la feuille reçoit le focus à l'ouverture : pas d'anneau sur le cadre entier */
+.feuille.texte-feuille:focus {
+  outline: none;
 }
-.ocr-layout .sec-h {
-  margin-top: 4px;
+.texte-barre {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 10px;
 }
-.ocr-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
-  gap: 8px;
+.texte-barre .lbl {
+  margin: 0;
 }
-.ocr-item {
-  aspect-ratio: 16 / 10;
-  border-radius: 12px;
-  overflow: hidden;
-  border: 1px solid var(--line);
-  background: var(--img-bg);
-  transition: transform 0.15s var(--ease), border-color 0.2s, box-shadow 0.2s;
+.texte-barre .esp {
+  flex: 1;
 }
-.ocr-item:hover {
-  transform: translateY(-2px);
-  border-color: var(--line2);
-}
-.ocr-item.selected {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--acc-dim);
-}
-.ocr-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.ocr-src {
+.texte-modele {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
 }
-.ocr-result {
-  display: grid;
-  gap: 10px;
+.texte-bloc .lbl {
+  margin-bottom: 0;
 }
-.ocr-text {
-  min-height: 340px;
-  font: 500 13.5px/1.6 var(--f-mono);
+/* Brique « copie » du kit en version multiligne : la zone de texte, puis Copier. */
+.copie.copie-texte {
+  align-items: flex-start;
+  padding: 8px;
+}
+.copie-texte .texte-zone {
+  flex: 1;
+  min-width: 0;
+  min-height: 120px;
+  max-height: 40vh;
   resize: vertical;
+  border: 0;
+  background: none;
+  padding: 4px 6px;
+  color: var(--text);
+  font: 500 13.5px/1.6 var(--f-mono);
+  outline: none;
+}
+.copie-texte .texte-zone::placeholder {
+  color: var(--muted);
+}
+.copie.copie-texte:focus-within {
+  border-color: var(--line2);
+}
+/* Attente : la roue du kit (icône spin + animation tourne). */
+.attente {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 160px;
+  color: var(--soft);
+  font-size: 14px;
+}
+.attente svg.i {
+  color: var(--accent);
+  animation: tourne 0.9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .attente svg.i {
+    animation-duration: 2.4s;
+  }
+}
+.texte-erreur {
+  display: grid;
+  gap: 8px;
 }
 
 /* ------------------------------------------------------------- autoclic */
@@ -1811,4 +1832,10 @@ body[data-fenetre='launcher'] #root {
 .picker-sk {
   height: 190px;
   border-radius: var(--r-lg);
+}
+
+/* bulle « ? » à côté d'un libellé de champ (.lbl est en bloc) */
+.lbl .q {
+  margin-left: 6px;
+  margin-top: -2px;
 }

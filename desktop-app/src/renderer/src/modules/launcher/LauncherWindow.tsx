@@ -17,6 +17,7 @@ import type {
 import { useAppearance } from '../../encre/appearance';
 import { I18nProvider, useI18n } from '../../i18n';
 import { cycleIndex, splitHighlight } from './highlight';
+import { lookClass, lookVars } from './look';
 import './launcher.css';
 
 const iconCache = new Map<string, string | null>();
@@ -353,8 +354,8 @@ function Launcher({ state }: { state: LauncherState }): ReactNode {
   const emptyQuery = !query.trim();
 
   return (
-    <div className="lz-shell" ref={shellRef}>
-      <div className="palette lz" role="dialog" aria-label={t('launcher.title')}>
+    <div className="lz-shell" ref={shellRef} style={lookVars(settings.look)}>
+      <div className={`palette lz${lookClass(settings.look)}`} role="dialog" aria-label={t('launcher.title')}>
         <div className="champ lz-champ">
           <Ico name={loading ? 'spin' : 'search'} className={`s22 ${loading ? 'lz-spin' : ''}`} />
           <input

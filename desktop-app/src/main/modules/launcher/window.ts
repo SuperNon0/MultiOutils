@@ -4,12 +4,27 @@
  * cachée à la perte du focus.
  */
 import { BrowserWindow, screen } from 'electron';
+import type { LauncherLook } from '../../../common/launcher';
 import { loadRenderer, preloadPath } from '../../windows';
 
-/** Largeur de la palette + marge transparente pour l'ombre (px CSS). */
-export const LAUNCHER_WIDTH = 760;
+/** Marge transparente autour de la palette, pour l'ombre (.lz-shell, px CSS). */
+const SHELL_MARGIN_X = 40;
 const MIN_HEIGHT = 96;
-const MAX_HEIGHT = 720;
+const MAX_HEIGHT = 1100;
+/** Hauteur de la barre seule (champ + marges), pour la position « centre ». */
+const BAR_HEIGHT = 120;
+
+/** Largeur de la fenêtre pour une barre de `look.width` px. */
+export function launcherWindowWidth(look: Pick<LauncherLook, 'width'>): number {
+  return Math.round(look.width) + SHELL_MARGIN_X;
+}
+
+/** Haut de la fenêtre dans la zone de travail, selon la position choisie. */
+export function launcherTop(position: LauncherLook['position'], areaY: number, areaHeight: number): number {
+  if (position === 'top') return Math.round(areaY + areaHeight * 0.06);
+  if (position === 'center') return Math.round(areaY + Math.max(0, areaHeight / 2 - BAR_HEIGHT));
+  return Math.round(areaY + areaHeight * 0.18);
+}
 
 export class LauncherWindow {
   private win: BrowserWindow | null = null;
@@ -19,13 +34,20 @@ export class LauncherWindow {
   /** Masquage récent : évite qu'un raccourci tapé pendant le blur rouvre aussitôt. */
   private hiddenAt = 0;
 
-  constructor(private readonly hideOnBlur: () => boolean) {}
+  constructor(
+    private readonly hideOnBlur: () => boolean,
+    private readonly look: () => LauncherLook
+  ) {}
+
+  private width(): number {
+    return launcherWindowWidth(this.look());
+  }
 
   create(): BrowserWindow {
     if (this.win && !this.win.isDestroyed()) return this.win;
     this.ready = false;
     const win = new BrowserWindow({
-      width: LAUNCHER_WIDTH,
+      width: this.width(),
       height: this.height,
       show: false,
       frame: false,
@@ -83,9 +105,16 @@ export class LauncherWindow {
     if (!this.win) return;
     const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const wa = display.workArea;
-    const x = Math.round(wa.x + (wa.width - LAUNCHER_WIDTH) / 2);
-    const y = Math.round(wa.y + wa.height * 0.18);
-    this.win.setBounds({ x, y, width: LAUNCHER_WIDTH, height: this.height });
+    const width = Math.min(this.width(), wa.width);
+    const x = Math.round(wa.x + (wa.width - width) / 2);
+    const y = launcherTop(this.look().position, wa.y, wa.height);
+    this.height = Math.min(this.height, wa.y + wa.height - y);
+    this.win.setBounds({ x, y, width, height: this.height });
+  }
+
+  /** Apparence changée : replace la fenêtre tout de suite si elle est ouverte. */
+  applyLook(): void {
+    if (this.isVisible()) this.place();
   }
 
   show(): void {
@@ -120,7 +149,7 @@ export class LauncherWindow {
     this.height = h;
     if (!this.win || this.win.isDestroyed()) return;
     const b = this.win.getBounds();
-    this.win.setBounds({ x: b.x, y: b.y, width: LAUNCHER_WIDTH, height: h });
+    this.win.setBounds({ x: b.x, y: b.y, width: b.width, height: h });
   }
 
   send(channel: string, payload?: unknown): void {

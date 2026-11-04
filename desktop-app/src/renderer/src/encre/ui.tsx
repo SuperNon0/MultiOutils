@@ -646,3 +646,124 @@ function Palette({
     </>
   );
 }
+
+/* ------------------------------------------------------- bulle « ? » (Aide) */
+/** Ferme la bulle ouverte (une seule à la fois, comme dans encre.js). */
+let fermerBulleOuverte: (() => void) | null = null;
+
+/**
+ * Bouton « ? » du kit (`class="q"`) qui ouvre une bulle d'explication
+ * (`class="bulle"`) : un titre, un texte, et un exemple facultatif dans un
+ * `pre` (libellé `.k`). Même placement que encre.js : sous le bouton, ou
+ * au-dessus s'il n'y a pas la place. Se ferme au clic ailleurs, avec Échap,
+ * au défilement ou en cliquant de nouveau sur « ? ».
+ */
+export function Aide({
+  titre,
+  texte,
+  exemple,
+  exempleLabel
+}: {
+  titre?: ReactNode;
+  texte: ReactNode;
+  /** Un exemple concret (plusieurs lignes possibles). */
+  exemple?: string;
+  /** Libellé au-dessus de l'exemple (« Exemple » par défaut). */
+  exempleLabel?: string;
+}): ReactNode {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const qRef = useRef<HTMLButtonElement>(null);
+  const bRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    const fermer = (): void => setOpen(false);
+    fermerBulleOuverte?.();
+    fermerBulleOuverte = fermer;
+
+    const q = qRef.current;
+    const el = bRef.current;
+    if (q && el) {
+      const r = q.getBoundingClientRect();
+      const w = el.offsetWidth;
+      const h = el.offsetHeight;
+      const left = Math.min(Math.max(12, r.left + r.width / 2 - w / 2), window.innerWidth - w - 12);
+      let top = r.bottom + 8;
+      if (top + h > window.innerHeight - 12) top = Math.max(12, r.top - h - 8);
+      setPos({ left, top });
+    }
+
+    const dehors = (e: PointerEvent): void => {
+      const cible = e.target as Node;
+      if (!bRef.current?.contains(cible) && !qRef.current?.contains(cible)) fermer();
+    };
+    const touche = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      fermer();
+      qRef.current?.focus({ preventScroll: true });
+    };
+    const defile = (e: Event): void => {
+      if (!bRef.current?.contains(e.target as Node)) fermer();
+    };
+    document.addEventListener('pointerdown', dehors, true);
+    window.addEventListener('keydown', touche, true);
+    window.addEventListener('scroll', defile, true);
+    window.addEventListener('resize', fermer);
+    window.addEventListener('blur', fermer);
+    return () => {
+      if (fermerBulleOuverte === fermer) fermerBulleOuverte = null;
+      document.removeEventListener('pointerdown', dehors, true);
+      window.removeEventListener('keydown', touche, true);
+      window.removeEventListener('scroll', defile, true);
+      window.removeEventListener('resize', fermer);
+      window.removeEventListener('blur', fermer);
+    };
+  }, [open]);
+
+  const nom = typeof titre === 'string' ? titre : undefined;
+  return (
+    <>
+      <button
+        ref={qRef}
+        type="button"
+        className="q"
+        aria-label={nom ? t('aide.about', { name: nom }) : t('aide.label')}
+        aria-expanded={open}
+        onClick={(e) => {
+          // dans une ligne <label>, le clic ne doit pas basculer l'interrupteur
+          e.preventDefault();
+          e.stopPropagation();
+          setOpen((v) => !v);
+        }}
+      >
+        ?
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={bRef}
+            className="bulle"
+            role="tooltip"
+            style={pos ? { left: pos.left, top: pos.top } : { left: -9999, top: -9999 }}
+          >
+            {titre && <b>{titre}</b>}
+            <div>{texte}</div>
+            {exemple && (
+              <>
+                <div className="k">{exempleLabel ?? t('aide.example')}</div>
+                <pre>{exemple}</pre>
+              </>
+            )}
+          </div>,
+          document.body
+        )}
+    </>
+  );
+}

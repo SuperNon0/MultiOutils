@@ -1,5 +1,8 @@
 import {
+  DEFAULT_LAUNCHER_LOOK,
+  LAUNCHER_LOOK_LIMITS,
   LAUNCHER_PROVIDER_IDS,
+  type LauncherLook,
   type LauncherProviderConfig,
   type LauncherSettings,
   type LauncherWebEngine
@@ -37,7 +40,8 @@ export function defaultLauncherSettings(): LauncherSettings {
     shell: { kind: 'cmd', keepOpen: true },
     fileBackend: 'auto',
     indexedFolders: [],
-    excludes: ['\\node_modules\\', '\\.git\\', '\\AppData\\Local\\Temp\\']
+    excludes: ['\\node_modules\\', '\\.git\\', '\\AppData\\Local\\Temp\\'],
+    look: { ...DEFAULT_LAUNCHER_LOOK }
   };
 }
 
@@ -50,6 +54,28 @@ const str = (v: unknown, fallback: string): string => (typeof v === 'string' ? v
 
 const strList = (v: unknown, fallback: string[]): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.trim() !== '').map((x) => x.trim()) : fallback;
+
+const LOOK_ACCENTS: LauncherLook['accent'][] = ['app', 'lavande', 'or', 'ambre', 'corail', 'menthe'];
+
+/** Apparence de la barre : chaque valeur bornée, sinon celle par défaut. */
+export function sanitizeLauncherLook(raw: unknown): LauncherLook {
+  const d = DEFAULT_LAUNCHER_LOOK;
+  if (!raw || typeof raw !== 'object') return { ...d };
+  const r = raw as Partial<LauncherLook>;
+  const num = (k: keyof typeof LAUNCHER_LOOK_LIMITS): number =>
+    clampInt(r[k], LAUNCHER_LOOK_LIMITS[k][0], LAUNCHER_LOOK_LIMITS[k][1], d[k]);
+  return {
+    width: num('width'),
+    textSize: num('textSize'),
+    visibleRows: num('visibleRows'),
+    opacity: num('opacity'),
+    radius: num('radius'),
+    position: r.position === 'top' || r.position === 'center' ? r.position : 'third',
+    showSubtitles: typeof r.showSubtitles === 'boolean' ? r.showSubtitles : d.showSubtitles,
+    showHotkeys: typeof r.showHotkeys === 'boolean' ? r.showHotkeys : d.showHotkeys,
+    accent: LOOK_ACCENTS.includes(r.accent as LauncherLook['accent']) ? (r.accent as LauncherLook['accent']) : d.accent
+  };
+}
 
 /** Nettoie une valeur lue en base (ou reçue du renderer) : toujours complète et valide. */
 export function sanitizeLauncherSettings(raw: unknown): LauncherSettings {
@@ -96,7 +122,8 @@ export function sanitizeLauncherSettings(raw: unknown): LauncherSettings {
         ? r.fileBackend
         : 'auto',
     indexedFolders: strList(r.indexedFolders, d.indexedFolders),
-    excludes: strList(r.excludes, d.excludes)
+    excludes: strList(r.excludes, d.excludes),
+    look: sanitizeLauncherLook(r.look)
   };
 }
 
@@ -109,6 +136,7 @@ export function mergeLauncherSettings(
     ...current,
     ...patch,
     providers: { ...current.providers, ...(patch.providers ?? {}) },
-    shell: { ...current.shell, ...(patch.shell ?? {}) }
+    shell: { ...current.shell, ...(patch.shell ?? {}) },
+    look: { ...current.look, ...(patch.look ?? {}) }
   });
 }

@@ -233,9 +233,32 @@ pas du module screenshot.
   action explicite.
 - `asarUnpack` sur tesseract.js/tesseract.js-core (le worker thread doit charger ses
   fichiers hors de l'asar).
-- Le panneau choisit une capture via l'**API bibliothèque de l'hôte** (pas de
-  référence au module capture) ; langue FR/EN, texte affiché sélectionnable +
-  bouton Copier.
+- ~~Le panneau choisit une capture via l'API bibliothèque de l'hôte~~ — **v0.6.1** :
+  l'onglet « Extraire le texte (OCR) » est supprimé. Le moteur et l'IPC
+  `ocr:extract` restent ; l'interface est l'action « Extraire le texte » du menu ⋯
+  (et du clic droit) d'une capture, qui ouvre une feuille (texte modifiable +
+  Copier, langue fra / eng / fra+eng). La langue par défaut est le réglage
+  `ocrLang` (Réglages → Capture). Une navigation vers l'ancien outil `ocr` (entrée
+  du lanceur) ouvre la feuille sur la dernière capture.
+
+### Traduction IA (`ai`, v0.6.1)
+- Module **main uniquement** (`src/main/modules/ai`) : la clé API ne va jamais dans
+  le renderer, qui ne voit que « une clé est enregistrée ». Clé **par fournisseur**,
+  chiffrée par `safeStorage` (clé `ai.key.<fournisseur>` de la table `settings`,
+  valeur `enc:…`) ; sans chiffrement disponible, on refuse de l'enregistrer.
+- Interface `TranslateProvider { info, translate(), testKey() }` : **Anthropic**
+  (SDK `@anthropic-ai/sdk`, `beta.messages.create` avec `output_config.format`
+  JSON Schema strict, `effort: "low"`, repli serveur `fallbacks: "default"` + beta
+  `server-side-fallback-2026-07-01`, gestion de `stop_reason` `refusal` /
+  `max_tokens`, erreurs typées du SDK), **OpenAI** (Chat Completions par `fetch`,
+  `response_format` `json_schema` strict) et **Gemini** (`generateContent` par
+  `fetch`, `responseSchema`). Ajouter un fournisseur = un fichier + une ligne dans
+  `providers.ts`.
+- Image : le fichier de la capture tel quel (PNG ≤ ~3,7 Mo, ≤ 8000 px) ; sinon
+  réduite avec `nativeImage` (paliers 2560 → 1024 px, PNG puis JPEG) pour rester
+  sous la limite de ~5 Mo des API.
+- Logique pure (requêtes, lecture des réponses, choix du modèle, image, clés)
+  testée par vitest avec un faux client / un faux `fetch` — aucun appel réseau.
 
 ## Déploiement du serveur (Proxmox / mise à jour)
 

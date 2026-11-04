@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MultiOutils">
+  <!-- Icône MultiOutils, style « encre » : fond encre en carré arrondi, quatre
+       tuiles (une boîte à outils à plusieurs usages), trois au trait et une
+       pleine en lavande. Source des PNG : icon.png (512) et tray.png (32). -->
+  <rect x="8" y="8" width="496" height="496" rx="116" fill="#0b0f17"/>
+  <rect x="8" y="8" width="496" height="496" rx="116" fill="none" stroke="#2b3549" stroke-width="8"/>
+  <g fill="none" stroke="#e7ebf3" stroke-width="34" stroke-linejoin="round">
+    <rect x="113" y="113" width="106" height="106" rx="26"/>
+    <rect x="113" y="293" width="106" height="106" rx="26"/>
+    <rect x="293" y="293" width="106" height="106" rx="26"/>
+  </g>
+  <rect x="276" y="96" width="140" height="140" rx="43" fill="#a99bff"/>
+</svg>

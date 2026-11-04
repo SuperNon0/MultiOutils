@@ -56,7 +56,72 @@ export interface AppSettings {
   trashRetentionDays: number;
   firstRunDone: boolean;
   shortcuts: Record<ShortcutId, string>;
+  /** Langue de l'OCR (« Extraire le texte » d'une capture, Tesseract). */
+  ocrLang: OcrLang;
+  /** Traduction IA : fournisseur choisi. */
+  aiProvider: AiProviderId;
+  /** Traduction IA : modèle retenu POUR CHAQUE fournisseur. */
+  aiModels: Record<AiProviderId, string>;
+  /** Traduction IA : langue cible (nom en clair, ex. « Français »). */
+  aiTargetLang: string;
 }
+
+// ── Extraire le texte / Traduction IA ─────────────────────────────────────
+
+export type OcrLang = 'fra' | 'eng' | 'fra+eng';
+export const OCR_LANGS: OcrLang[] = ['fra', 'eng', 'fra+eng'];
+
+export type AiProviderId = 'anthropic' | 'openai' | 'gemini';
+export const AI_PROVIDERS: AiProviderId[] = ['anthropic', 'openai', 'gemini'];
+
+/** Description d'un fournisseur, telle que l'affiche Réglages → Traduction IA. */
+export interface AiProviderInfo {
+  id: AiProviderId;
+  label: string;
+  /** Modèles proposés (id + clé i18n facultative d'un mot d'explication). */
+  models: Array<{ id: string; hint?: string }>;
+  defaultModel: string;
+  /** true : liste fermée (sélecteur) ; false : champ libre + suggestions. */
+  fixedModels: boolean;
+  /** Page où créer une clé API. */
+  keyUrl: string;
+}
+
+export interface AiConfig {
+  providers: AiProviderInfo[];
+  /** Une clé est-elle enregistrée pour ce fournisseur ? (jamais la clé elle-même) */
+  hasKey: Record<AiProviderId, boolean>;
+  /** safeStorage disponible (sinon on refuse d'enregistrer une clé). */
+  encryptionAvailable: boolean;
+}
+
+export type AiErrorCode =
+  | 'noKey'
+  | 'invalidKey'
+  | 'rateLimit'
+  | 'network'
+  | 'server'
+  | 'refusal'
+  | 'truncated'
+  | 'badResponse'
+  | 'image'
+  | 'notFound'
+  | 'encryptionUnavailable'
+  | 'api';
+
+export interface AiTranslation {
+  sourceLanguage: string;
+  original: string;
+  translated: string;
+  /** Modèle qui a répondu (peut différer du modèle demandé : repli serveur). */
+  model: string;
+}
+
+export type AiTranslateResult =
+  | ({ ok: true } & AiTranslation)
+  | { ok: false; error: AiErrorCode; message?: string };
+
+export type AiSimpleResult = { ok: true } | { ok: false; error: AiErrorCode; message?: string };
 
 export interface DisplayInfo {
   id: number;
@@ -114,7 +179,7 @@ export type LibraryAction =
 
 export type { Folder, Tag };
 
-export type QuickbarAction = 'edit' | 'copy' | 'saveAs' | 'send' | 'delete';
+export type QuickbarAction = 'edit' | 'copy' | 'saveAs' | 'send' | 'delete' | 'translate';
 
 export interface RegionShot {
   dataUrl: string;
@@ -165,14 +230,18 @@ export type UpdateStatus =
   | { state: 'downloaded'; version: string }
   | { state: 'error'; message: string };
 
+export type NavAction = 'select' | 'edit' | 'ocr' | 'translate';
+
 export type NavigateMsg =
   | { view: 'settings'; section?: string }
   | {
       view: 'tool';
       toolId: string;
       captureId?: string;
-      /** 'edit' ouvre l'éditeur sur la capture, 'select' la met en avant. */
-      action?: 'select' | 'edit';
+      /** 'edit' ouvre l'éditeur sur la capture, 'select' la met en avant,
+       * 'ocr' / 'translate' ouvrent la feuille « Extraire le texte » /
+       * « Traduire (IA) » (captureId 'latest' = la plus récente). */
+      action?: NavAction;
     };
 
 /** Élément du presse-papiers (module clipboard, docs/00 §9.4). */

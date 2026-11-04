@@ -88,7 +88,10 @@ export function createLauncherMainModule(): MainToolModule {
     }, 1500);
   };
 
-  const launcher = new LauncherWindow(() => settings.hideOnBlur);
+  const launcher = new LauncherWindow(
+    () => settings.hideOnBlur,
+    () => settings.look
+  );
   let programIndex: ProgramIndex;
   let bookmarkIndex: BookmarkIndex;
   let fileSearcher: FileSearcher;
@@ -182,6 +185,7 @@ export function createLauncherMainModule(): MainToolModule {
     kvSet(SETTINGS_KEY, settings);
     engine.setProviders(activeProviders());
     if (settings.shortcut !== before.shortcut) applyShortcut();
+    if (JSON.stringify(settings.look) !== JSON.stringify(before.look)) launcher.applyLook();
     if (
       JSON.stringify(settings.indexedFolders) !== JSON.stringify(before.indexedFolders) ||
       JSON.stringify(settings.excludes) !== JSON.stringify(before.excludes) ||

@@ -3,7 +3,7 @@ import type { Capture } from '@multioutils/shared';
 import { loadRenderer, preloadPath } from '../../windows';
 import { clamp } from './utils';
 
-const BAR_WIDTH = 480;
+const BAR_WIDTH = 560;
 const BAR_HEIGHT = 60;
 const AUTO_HIDE_MS = 6000;
 

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="MultiOutils">
+  <!-- Version zone de notification (32 px, source de tray.png) : même symbole
+       que icon.svg, traits plus épais, sur son carré d'encre bordé pour rester
+       lisible sur une barre des tâches claire comme sombre. -->
+  <rect x="0.5" y="0.5" width="31" height="31" rx="8" fill="#0b0f17" stroke="#3a4560"/>
+  <g fill="none" stroke="#e7ebf3" stroke-width="2.4" stroke-linejoin="round">
+    <rect x="6.7" y="6.7" width="7" height="7" rx="1.8"/>
+    <rect x="6.7" y="18.3" width="7" height="7" rx="1.8"/>
+    <rect x="18.3" y="18.3" width="7" height="7" rx="1.8"/>
+  </g>
+  <rect x="17.1" y="5.5" width="9.4" height="9.4" rx="2.8" fill="#a99bff"/>
+</svg>
