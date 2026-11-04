@@ -1814,3 +1814,9 @@ body[data-fenetre='launcher'] #root {
   height: 190px;
   border-radius: var(--r-lg);
 }
+
+/* bulle « ? » à côté d'un libellé de champ (.lbl est en bloc) */
+.lbl .q {
+  margin-left: 6px;
+  margin-top: -2px;
+}

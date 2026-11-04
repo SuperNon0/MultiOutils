@@ -8,12 +8,15 @@ import type { ReactNode } from 'react';
 export function RegLigne({
   titre,
   sous,
+  aide,
   children,
   htmlFor,
   className = ''
 }: {
   titre: ReactNode;
   sous?: ReactNode;
+  /** Bulle « ? » (composant Aide) affichée après le titre. */
+  aide?: ReactNode;
   children?: ReactNode;
   htmlFor?: string;
   className?: string;
@@ -22,7 +25,10 @@ export function RegLigne({
   return (
     <Tag className={`reg-l${className ? ` ${className}` : ''}`} htmlFor={htmlFor}>
       <span className="tx">
-        <b>{titre}</b>
+        <b>
+          {titre}
+          {aide}
+        </b>
         {sous && <span>{sous}</span>}
       </span>
       {children}
@@ -34,12 +40,14 @@ export function RegLigne({
 export function RegSwitch({
   titre,
   sous,
+  aide,
   checked,
   disabled,
   onChange
 }: {
   titre: ReactNode;
   sous?: ReactNode;
+  aide?: ReactNode;
   checked: boolean;
   disabled?: boolean;
   onChange(checked: boolean): void;
@@ -47,7 +55,10 @@ export function RegSwitch({
   return (
     <label className={`reg-l${disabled ? ' off' : ''}`}>
       <span className="tx">
-        <b>{titre}</b>
+        <b>
+          {titre}
+          {aide}
+        </b>
         {sous && <span>{sous}</span>}
       </span>
       <input
