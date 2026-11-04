@@ -20,8 +20,10 @@ import { ShortcutManager } from './shortcuts';
 import { TrayController } from './tray';
 import { setupUpdater } from './updater';
 import {
+  applyAppearance,
   broadcast,
   createMainWindow,
+  installAppearanceHooks,
   setCloseToTray,
   setQuitting,
   showMainWindow
@@ -59,6 +61,8 @@ async function bootstrap(): Promise<void> {
   const registry = new MainModuleRegistry();
 
   setCloseToTray(settings.get().closeToTray);
+  installAppearanceHooks();
+  applyAppearance(settings.get().appearance);
 
   const localService = new LocalService();
 
