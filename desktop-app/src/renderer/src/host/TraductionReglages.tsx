@@ -5,8 +5,7 @@ import type {
   AiSimpleResult,
   AppSettings
 } from '../../../common/types';
-import { BulleQ } from '../encre/BulleQ';
-import { ui } from '../encre/ui';
+import { Aide, ui } from '../encre/ui';
 import { useI18n } from '../i18n';
 import { Icon } from './Icon';
 import { RegLigne, RegSec } from './reglages';
@@ -144,7 +143,7 @@ export function TraductionSection({
             titre={
               <>
                 {t('ai.model')}{' '}
-                <BulleQ titre={t('ai.model')}>{t(`ai.model.help.${provider.id}`)}</BulleQ>
+                <Aide titre={t('ai.model')} texte={t(`ai.model.help.${provider.id}`)} />
               </>
             }
             sous={t('ai.model.free', { model: provider.defaultModel })}
@@ -191,9 +190,7 @@ export function TraductionSection({
       <div className="reg-sec">
         <div className="lbl-mono">
           {t('ai.key', { provider: provider.label })}{' '}
-          <BulleQ titre={t('ai.privacy.title')}>
-            {t('ai.privacy.body', { provider: t(`ai.company.${provider.id}`) })}
-          </BulleQ>
+          <Aide titre={t('ai.privacy.title')} texte={t('ai.privacy.body', { provider: t(`ai.company.${provider.id}`) })} />
         </div>
         <div className="form">
           {!config.encryptionAvailable && (
