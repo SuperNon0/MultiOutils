@@ -1,12 +1,17 @@
 /**
- * Réglages du lanceur, avec les briques « encre » de l'hôte (RegSec, RegLigne,
- * RegSwitch). Affichés dans Réglages → Lanceur et sous le panneau de l'outil.
- * Les interrupteurs et listes s'appliquent tout de suite ; les champs texte
+ * Réglages du lanceur, rangés comme les réglages « téléphone » du kit :
+ * Général, Apparence de la barre (avec aperçu), Sources de résultats (une ligne par fournisseur), Recherche web,
+ * Fichiers, Avancé (repliable) et la zone sensible tout en bas. Chaque
+ * réglage a sa bulle « ? » (Aide) avec une explication et un exemple.
+ *
+ * Affichés dans Réglages → Lanceur et sous le panneau de l'outil. Les
+ * interrupteurs et listes s'appliquent tout de suite ; les champs texte
  * s'enregistrent en sortant (ou avec Entrée), comme dans le reste de l'hôte.
  */
 import {
   useEffect,
   useState,
+  type FormEvent,
   type InputHTMLAttributes,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode
@@ -17,29 +22,37 @@ import type {
   LauncherSettings as Settings,
   LauncherWebEngine
 } from '../../../../common/launcher';
-import { ui } from '../../encre/ui';
+import { Aide, ui } from '../../encre/ui';
+import { Feuille } from '../../host/Feuille';
 import { Icon } from '../../host/Icon';
 import { RegLigne, RegSec, RegSwitch } from '../../host/reglages';
-import { useI18n } from '../../i18n';
+import { useI18n, type TFunc } from '../../i18n';
 import { displayAccelerator } from '../../lib/format';
 import { eventToAccelerator } from '../../lib/shortcuts';
+import { LookSettings } from './LookSettings';
 import './launcher-panel.css';
 
 type ProviderKey = Exclude<LauncherProviderId, 'history'>;
 
-const PROVIDERS: ProviderKey[] = [
-  'programs',
-  'files',
-  'calculator',
-  'websearch',
-  'url',
-  'shell',
-  'system',
-  'winsettings',
-  'processes',
-  'bookmarks',
-  'tools'
+/** Fournisseurs dans l'ordre d'affichage, avec l'icône de leurs résultats. */
+const PROVIDERS: Array<[ProviderKey, string]> = [
+  ['programs', 'grid'],
+  ['files', 'folder'],
+  ['calculator', 'hash'],
+  ['websearch', 'compass'],
+  ['url', 'external'],
+  ['shell', 'zap'],
+  ['system', 'lock'],
+  ['winsettings', 'gear'],
+  ['processes', 'x'],
+  ['bookmarks', 'bookmark'],
+  ['tools', 'wrench']
 ];
+
+/** Bulle « ? » à partir des clés `<cle>` (texte) et `<cle>.ex` (exemple). */
+function aide(t: TFunc, titre: string, cle: string): ReactNode {
+  return <Aide titre={titre} texte={t(cle)} exemple={t(`${cle}.ex`)} />;
+}
 
 /** Champ texte qui n'enregistre qu'en sortant (ou avec Entrée). */
 function Champ({
@@ -62,10 +75,17 @@ function Champ({
       className={className}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
-      onBlur={commit}
+      onBlur={(e) => {
+        commit();
+        rest.onBlur?.(e);
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
-        if (e.key === 'Escape') setDraft(value);
+        if (e.key === 'Escape') {
+          e.stopPropagation();
+          setDraft(value);
+          rest.onKeyDown?.(e);
+        }
       }}
     />
   );
@@ -105,10 +125,123 @@ function ShortcutRecorder({ value, ok, onSet }: { value: string; ok: boolean; on
   );
 }
 
+/** Mot-clé affiché en `kbd` ; un clic le transforme en petit champ. */
+function MotCle({
+  value,
+  nom,
+  onCommit
+}: {
+  value: string;
+  nom: string;
+  onCommit(v: string): void;
+}): ReactNode {
+  const { t } = useI18n();
+  const [edit, setEdit] = useState(false);
+  const label = t('launcher.reg.editKeyword', { name: nom });
+  if (edit) {
+    return (
+      <Champ
+        className="input mono lzr-mot-in"
+        value={value}
+        autoFocus
+        maxLength={16}
+        spellCheck={false}
+        aria-label={label}
+        placeholder={t('launcher.reg.noKeyword')}
+        onCommit={(v) => onCommit(v.trim())}
+        onBlur={() => setEdit(false)}
+        onKeyDown={() => setEdit(false)}
+      />
+    );
+  }
+  return (
+    <button
+      type="button"
+      className={`kbd lzr-mot${value ? '' : ' vide'}`}
+      title={label}
+      aria-label={label}
+      onClick={() => setEdit(true)}
+    >
+      {value || t('launcher.reg.noKeyword')}
+    </button>
+  );
+}
+
+/** Fenêtre d'ajout / de modification d'un moteur web. */
+function MoteurFeuille({
+  engine,
+  onSave,
+  onClose
+}: {
+  engine: LauncherWebEngine;
+  onSave(e: LauncherWebEngine): void;
+  onClose(): void;
+}): ReactNode {
+  const { t } = useI18n();
+  const [name, setName] = useState(engine.name);
+  const [keyword, setKeyword] = useState(engine.keyword);
+  const [url, setUrl] = useState(engine.url);
+  const submit = (e: FormEvent): void => {
+    e.preventDefault();
+    onSave({ ...engine, name: name.trim() || engine.name, keyword: keyword.trim(), url: url.trim() });
+    onClose();
+  };
+  return (
+    <Feuille titre={t('launcher.reg.editEngine')} onClose={onClose}>
+      <form className="form" onSubmit={submit}>
+        <div>
+          <label className="lbl" htmlFor="lzr-m-nom">
+            {t('launcher.settings.engineName')}
+          </label>
+          <input id="lzr-m-nom" className="input" autoFocus value={name} onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div>
+          <label className="lbl" htmlFor="lzr-m-mot">
+            {t('launcher.settings.keyword')}
+          </label>
+          <input
+            id="lzr-m-mot"
+            className="input mono"
+            maxLength={16}
+            spellCheck={false}
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="lbl" htmlFor="lzr-m-url">
+            {t('launcher.settings.engineUrl')}
+          </label>
+          <input
+            id="lzr-m-url"
+            className="input mono"
+            spellCheck={false}
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+          />
+          <p className="muted petit reg-note">{t('launcher.reg.urlHelp')}</p>
+        </div>
+        <div className="conf">
+          <div className="bts">
+            <button type="button" className="btn" onClick={onClose}>
+              {t('common.cancel')}
+            </button>
+            <button type="submit" className="btn pri">
+              {t('common.save')}
+            </button>
+          </div>
+        </div>
+      </form>
+    </Feuille>
+  );
+}
+
 export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {}): ReactNode {
   const { t, lang } = useI18n();
   const [info, setInfo] = useState<LauncherSettingsInfo | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /** Moteur ouvert dans la fenêtre d'édition (index -1 = nouveau). */
+  const [moteur, setMoteur] = useState<{ index: number; engine: LauncherWebEngine } | null>(null);
 
   useEffect(() => {
     void window.api.launcher.getSettings().then(setInfo);
@@ -139,18 +272,21 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
     void save({ webEngines: s.webEngines.map((e, i) => (i === index ? { ...e, ...patch } : e)) });
   };
 
-  const addEngine = (): void => {
-    void save({
-      webEngines: [
-        ...s.webEngines,
-        {
-          id: `custom-${Date.now().toString(36)}`,
-          name: t('launcher.settings.newEngine'),
-          keyword: '',
-          url: 'https://example.com/search?q={q}',
-          enabled: true
-        }
-      ]
+  const saveEngine = (index: number, engine: LauncherWebEngine): void => {
+    if (index < 0) void save({ webEngines: [...s.webEngines, engine] });
+    else setEngine(index, engine);
+  };
+
+  const newEngine = (): void => {
+    setMoteur({
+      index: -1,
+      engine: {
+        id: `custom-${Date.now().toString(36)}`,
+        name: t('launcher.settings.newEngine'),
+        keyword: '',
+        url: 'https://example.com/search?q={q}',
+        enabled: true
+      }
     });
   };
 
@@ -208,14 +344,19 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
   };
 
   const indexedAt = info.stats.indexedAt
-    ? new Date(info.stats.indexedAt).toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR')
+    ? new Date(info.stats.indexedAt).toLocaleString(lang === 'en' ? 'en-GB' : 'fr-FR', {
+        dateStyle: 'short',
+        timeStyle: 'short'
+      })
     : t('launcher.settings.never');
 
   return (
     <div className="lzr">
-      <RegSec titre={t('launcher.settings.general')}>
+      {/* ------------------------------------------------------------ Général */}
+      <RegSec titre={t('launcher.reg.general')}>
         <RegLigne
           titre={t('launcher.settings.shortcut')}
+          aide={aide(t, t('launcher.settings.shortcut'), 'launcher.help.shortcut')}
           sous={
             info.shortcutOk ? (
               t('launcher.settings.shortcutDesc')
@@ -226,10 +367,15 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
         >
           <ShortcutRecorder value={s.shortcut} ok={info.shortcutOk} onSet={(v) => void save({ shortcut: v })} />
         </RegLigne>
-        <RegLigne titre={t('launcher.settings.lastQuery')} sous={t('launcher.settings.lastQueryDesc')}>
+        <RegLigne
+          titre={t('launcher.settings.lastQuery')}
+          aide={aide(t, t('launcher.settings.lastQuery'), 'launcher.help.lastQuery')}
+          sous={t('launcher.settings.lastQueryDesc')}
+        >
           <select
-            className="select reg-select"
+            className="select reg-select lzr-sel"
             value={s.lastQuery}
+            aria-label={t('launcher.settings.lastQuery')}
             onChange={(e) => void save({ lastQuery: e.target.value as Settings['lastQuery'] })}
           >
             {(['selected', 'keep', 'empty'] as const).map((v) => (
@@ -239,10 +385,15 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
             ))}
           </select>
         </RegLigne>
-        <RegLigne titre={t('launcher.settings.maxResults')} sous={t('launcher.settings.maxResultsDesc')}>
+        <RegLigne
+          titre={t('launcher.settings.maxResults')}
+          aide={aide(t, t('launcher.settings.maxResults'), 'launcher.help.maxResults')}
+          sous={t('launcher.settings.maxResultsDesc')}
+        >
           <select
             className="select reg-select lzr-court"
             value={s.maxResults}
+            aria-label={t('launcher.settings.maxResults')}
             onChange={(e) => void save({ maxResults: Number(e.target.value) })}
           >
             {[...new Set([5, 6, 8, 10, 12, 15, 20, 30, s.maxResults])].sort((a, b) => a - b).map((n) => (
@@ -254,55 +405,68 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
         </RegLigne>
         <RegSwitch
           titre={t('launcher.settings.hideOnBlur')}
+          aide={aide(t, t('launcher.settings.hideOnBlur'), 'launcher.help.hideOnBlur')}
           sous={t('launcher.settings.hideOnBlurDesc')}
           checked={s.hideOnBlur}
           onChange={(v) => void save({ hideOnBlur: v })}
         />
-        <RegSwitch
-          titre={t('launcher.settings.showHistory')}
-          sous={t('launcher.settings.showHistoryDesc')}
-          checked={s.showHistory}
-          onChange={(v) => void save({ showHistory: v })}
-        />
       </RegSec>
 
-      <RegSec titre={t('launcher.settings.providers')}>
-        {PROVIDERS.map((id) => (
-          <RegLigne
-            key={id}
-            titre={t(`launcher.provider.${id}`)}
-            sous={t(`launcher.provider.${id}.desc`)}
-            className={s.providers[id].enabled ? '' : 'off'}
-          >
-            <div className="ligne lzr-ctl">
-              <Champ
-                className="input lzr-mot"
-                value={s.providers[id].keyword}
-                placeholder={t('launcher.settings.global')}
-                aria-label={t('launcher.settings.keywordOf', { name: t(`launcher.provider.${id}`) })}
-                title={t('launcher.settings.keyword')}
-                maxLength={16}
-                spellCheck={false}
-                onCommit={(v) => setProvider(id, { keyword: v })}
-              />
-              <input
-                type="checkbox"
-                className="sw"
-                aria-label={t(`launcher.provider.${id}`)}
-                checked={s.providers[id].enabled}
-                onChange={(e) => setProvider(id, { enabled: e.target.checked })}
-              />
-            </div>
-          </RegLigne>
-        ))}
-      </RegSec>
-      <p className="muted petit reg-note">{t('launcher.settings.providersDesc')}</p>
+      {/* ------------------------------------------------ Apparence de la barre */}
+      <LookSettings look={s.look} onSave={(look) => save({ look })} />
 
-      <RegSec titre={t('launcher.settings.web')}>
-        <RegLigne titre={t('launcher.settings.defaultEngine')} sous={t('launcher.settings.defaultEngineDesc')}>
+      {/* ------------------------------------------------ Sources de résultats */}
+      <div className="reg-sec">
+        <div className="lbl-mono">
+          {t('launcher.reg.sources')}
+          <Aide
+            titre={t('launcher.reg.keywords')}
+            texte={t('launcher.reg.keywordsHelp')}
+            exemple={t('launcher.reg.keywordsHelp.ex')}
+          />
+        </div>
+        <p className="muted petit lzr-intro">{t('launcher.reg.sourcesIntro')}</p>
+        <div className="liste-r lzr-sources">
+          {PROVIDERS.map(([id, icone]) => {
+            const nom = t(`launcher.provider.${id}`);
+            const p = s.providers[id];
+            return (
+              <div className={`li lzr-src${p.enabled ? '' : ' off'}`} key={id}>
+                <span className={`li-ic${p.enabled ? ' acc' : ''}`}>
+                  <Icon name={icone} />
+                </span>
+                <span className="tx">
+                  <b>
+                    {nom}
+                    {aide(t, nom, `launcher.help.${id}`)}
+                  </b>
+                  <small>{t(`launcher.reg.p.${id}`)}</small>
+                </span>
+                <MotCle value={p.keyword} nom={nom} onCommit={(v) => setProvider(id, { keyword: v })} />
+                <input
+                  type="checkbox"
+                  className="sw"
+                  aria-label={nom}
+                  checked={p.enabled}
+                  onChange={(e) => setProvider(id, { enabled: e.target.checked })}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------- Recherche web */}
+      <RegSec titre={t('launcher.reg.web')}>
+        <RegLigne
+          titre={t('launcher.settings.defaultEngine')}
+          aide={aide(t, t('launcher.settings.defaultEngine'), 'launcher.help.defaultEngine')}
+          sous={t('launcher.settings.defaultEngineDesc')}
+        >
           <select
-            className="select reg-select"
+            className="select reg-select lzr-sel"
             value={s.defaultEngine}
+            aria-label={t('launcher.settings.defaultEngine')}
             onChange={(e) => void save({ defaultEngine: e.target.value })}
           >
             <option value="">{t('launcher.settings.none')}</option>
@@ -314,36 +478,53 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
           </select>
         </RegLigne>
       </RegSec>
+      <div className="lzr-sous-t">
+        <span className="lbl-mono">
+          {t('launcher.reg.engines')}
+          <Aide
+            titre={t('launcher.reg.engines')}
+            texte={t('launcher.reg.enginesHelp')}
+            exemple={t('launcher.reg.enginesHelp.ex')}
+          />
+        </span>
+        <button type="button" className="btn sm gh" onClick={newEngine}>
+          <Icon name="plus" size={16} />
+          {t('launcher.settings.addEngine')}
+        </button>
+      </div>
       <div className="liste-r lzr-moteurs">
-        <div className="lzr-moteur lzr-entete lbl-mono" aria-hidden="true">
-          <span>{t('launcher.settings.engineName')}</span>
-          <span>{t('launcher.settings.keyword')}</span>
-          <span>{t('launcher.settings.engineUrl')}</span>
-          <span />
-          <span />
-        </div>
         {s.webEngines.map((e, i) => (
-          <div className={`lzr-moteur${e.enabled ? '' : ' off'}`} key={e.id}>
-            <Champ
-              className="input sm"
-              value={e.name}
-              aria-label={t('launcher.settings.engineName')}
-              onCommit={(v) => setEngine(i, { name: v })}
-            />
-            <Champ
-              className="input sm mono"
-              value={e.keyword}
-              aria-label={t('launcher.settings.keyword')}
-              spellCheck={false}
-              onCommit={(v) => setEngine(i, { keyword: v })}
-            />
-            <Champ
-              className="input sm mono"
-              value={e.url}
-              aria-label={t('launcher.settings.engineUrl')}
-              spellCheck={false}
-              onCommit={(v) => setEngine(i, { url: v })}
-            />
+          <div className={`li lzr-src${e.enabled ? '' : ' off'}`} key={e.id}>
+            <span className="li-ic">
+              <Icon name="compass" />
+            </span>
+            <span className="tx">
+              <b>{e.name}</b>
+              <small className="mono">{e.url}</small>
+            </span>
+            {e.keyword ? (
+              <span className="kbd lzr-mot fixe">{e.keyword}</span>
+            ) : (
+              <span className="kbd lzr-mot fixe vide">{t('launcher.reg.noKeyword')}</span>
+            )}
+            <button
+              type="button"
+              className="ib"
+              title={t('launcher.reg.edit')}
+              aria-label={`${t('launcher.reg.edit')} : ${e.name}`}
+              onClick={() => setMoteur({ index: i, engine: e })}
+            >
+              <Icon name="edit" size={16} />
+            </button>
+            <button
+              type="button"
+              className="ib"
+              title={t('launcher.settings.remove')}
+              aria-label={`${t('launcher.settings.remove')} : ${e.name}`}
+              onClick={() => void removeEngine(i)}
+            >
+              <Icon name="trash" size={16} />
+            </button>
             <input
               type="checkbox"
               className="sw"
@@ -351,53 +532,21 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
               checked={e.enabled}
               onChange={(ev) => setEngine(i, { enabled: ev.target.checked })}
             />
-            <button
-              type="button"
-              className="ib"
-              title={t('launcher.settings.remove')}
-              aria-label={t('launcher.settings.remove')}
-              onClick={() => void removeEngine(i)}
-            >
-              <Icon name="trash" size={16} />
-            </button>
           </div>
         ))}
       </div>
-      <div className="ligne lzr-actions">
-        <button type="button" className="btn sm" onClick={addEngine}>
-          <Icon name="plus" size={16} />
-          {t('launcher.settings.addEngine')}
-        </button>
-        <span className="muted petit">{t('launcher.settings.engineHelp')}</span>
-      </div>
 
-      <RegSec titre={t('launcher.settings.shell')}>
-        <RegLigne titre={t('launcher.settings.shellKind')} sous={t('launcher.settings.shellKindDesc')}>
-          <select
-            className="select reg-select"
-            value={s.shell.kind}
-            onChange={(e) => void save({ shell: { ...s.shell, kind: e.target.value as Settings['shell']['kind'] } })}
-          >
-            <option value="cmd">cmd</option>
-            <option value="powershell">PowerShell</option>
-          </select>
-        </RegLigne>
-        <RegSwitch
-          titre={t('launcher.settings.keepOpen')}
-          sous={t('launcher.settings.keepOpenDesc')}
-          checked={s.shell.keepOpen}
-          onChange={(v) => void save({ shell: { ...s.shell, keepOpen: v } })}
-        />
-      </RegSec>
-
-      <RegSec titre={t('launcher.settings.files')}>
+      {/* ------------------------------------------------------------ Fichiers */}
+      <RegSec titre={t('launcher.reg.files')}>
         <RegLigne
           titre={t('launcher.settings.backend')}
+          aide={aide(t, t('launcher.settings.backend'), 'launcher.help.backend')}
           sous={info.stats.everything ? t('launcher.settings.everythingFound') : t('launcher.settings.everythingMissing')}
         >
           <select
-            className="select reg-select"
+            className="select reg-select lzr-sel"
             value={s.fileBackend}
+            aria-label={t('launcher.settings.backend')}
             onChange={(e) => void save({ fileBackend: e.target.value as Settings['fileBackend'] })}
           >
             {(['auto', 'everything', 'windows', 'walk'] as const).map((v) => (
@@ -407,45 +556,9 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
             ))}
           </select>
         </RegLigne>
-        <RegLigne titre={t('launcher.settings.folders')} sous={t('launcher.settings.foldersDesc')}>
-          <button type="button" className="btn sm" onClick={() => void addFolder()}>
-            <Icon name="plus" size={16} />
-            {t('launcher.settings.addFolder')}
-          </button>
-        </RegLigne>
-      </RegSec>
-      {s.indexedFolders.length > 0 && (
-        <div className="liste-r lzr-dossiers">
-          {s.indexedFolders.map((dir) => (
-            <div className="li" key={dir}>
-              <span className="li-ic">
-                <Icon name="folder" size={18} />
-              </span>
-              <span className="tx mono petit">{dir}</span>
-              <button
-                type="button"
-                className="ib"
-                title={t('launcher.settings.remove')}
-                aria-label={t('launcher.settings.remove')}
-                onClick={() => void save({ indexedFolders: s.indexedFolders.filter((d) => d !== dir) })}
-              >
-                <Icon name="x" size={16} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-      <div className="lzr-bloc">
-        <label className="lbl-mono" htmlFor="lzr-excl">
-          {t('launcher.settings.excludes')}
-        </label>
-        <p className="muted petit">{t('launcher.settings.excludesDesc')}</p>
-        <ExcludesField value={s.excludes} onCommit={(v) => void save({ excludes: v })} />
-      </div>
-
-      <RegSec titre={t('launcher.settings.data')}>
         <RegLigne
           titre={t('launcher.settings.index')}
+          aide={aide(t, t('launcher.settings.index'), 'launcher.help.index')}
           sous={t('launcher.settings.indexStats', {
             programs: info.stats.programs,
             bookmarks: info.stats.bookmarks,
@@ -471,49 +584,170 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
             {busy === 'reindex' ? t('launcher.settings.indexing') : t('launcher.settings.reindex')}
           </button>
         </RegLigne>
-        <RegLigne titre={t('launcher.settings.clearHistory')} sous={t('launcher.settings.clearHistoryDesc')}>
-          <button
-            type="button"
-            className="btn sm"
-            disabled={busy === 'history'}
-            onClick={() =>
-              void clearWithConfirm(
-                'history',
-                t('launcher.settings.clearHistoryConfirm'),
-                () => window.api.launcher.clearHistory(),
-                t('launcher.settings.clearHistoryDone')
-              )
-            }
-          >
-            {t('launcher.settings.clear')}
-          </button>
-        </RegLigne>
-        <RegLigne titre={t('launcher.settings.clearUsage')} sous={t('launcher.settings.clearUsageDesc')}>
-          <button
-            type="button"
-            className="btn sm"
-            disabled={busy === 'usage'}
-            onClick={() =>
-              void clearWithConfirm(
-                'usage',
-                t('launcher.settings.clearUsageConfirm'),
-                () => window.api.launcher.clearUsage(),
-                t('launcher.settings.clearUsageDone')
-              )
-            }
-          >
-            {t('launcher.settings.clear')}
-          </button>
-        </RegLigne>
-        <RegLigne titre={t('launcher.settings.reset')} sous={t('launcher.settings.resetDesc')}>
-          <button type="button" className="btn sm dn" disabled={busy === 'reset'} onClick={() => void reset()}>
-            <Icon name="undo" size={16} />
-            {t('launcher.settings.resetBtn')}
+        <RegLigne
+          titre={t('launcher.settings.folders')}
+          aide={aide(t, t('launcher.settings.folders'), 'launcher.help.folders')}
+          sous={t('launcher.settings.foldersDesc')}
+        >
+          <button type="button" className="btn sm" onClick={() => void addFolder()}>
+            <Icon name="plus" size={16} />
+            {t('launcher.settings.addFolder')}
           </button>
         </RegLigne>
       </RegSec>
+      {s.indexedFolders.length > 0 && (
+        <div className="liste-r lzr-dossiers">
+          {s.indexedFolders.map((dir) => (
+            <div className="li" key={dir}>
+              <span className="li-ic">
+                <Icon name="folder" size={18} />
+              </span>
+              <span className="tx mono petit" title={dir}>
+                {dir}
+              </span>
+              <button
+                type="button"
+                className="ib"
+                title={t('launcher.settings.remove')}
+                aria-label={`${t('launcher.settings.remove')} : ${dir}`}
+                onClick={() => void save({ indexedFolders: s.indexedFolders.filter((d) => d !== dir) })}
+              >
+                <Icon name="x" size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="lzr-bloc">
+        <label className="lbl-mono" htmlFor="lzr-excl">
+          {t('launcher.settings.excludes')}
+          {aide(t, t('launcher.settings.excludes'), 'launcher.help.excludes')}
+        </label>
+        <p className="muted petit">{t('launcher.settings.excludesDesc')}</p>
+        <ExcludesField value={s.excludes} onCommit={(v) => void save({ excludes: v })} />
+      </div>
 
-      <p className="muted petit reg-note">{t('launcher.credit')}</p>
+      {/* ------------------------------------------------- Avancé (repliable) */}
+      <div className="faq lzr-avance">
+        <details>
+          <summary>
+            <span className="li-ic">
+              <Icon name="wrench" size={18} />
+            </span>
+            <span className="tx">
+              {t('launcher.reg.advanced')}
+              <small>{t('launcher.reg.advancedSub')}</small>
+            </span>
+            <Icon name="chev" className="chev" />
+          </summary>
+          <div className="lzr-avance-c">
+            <RegSec titre={t('launcher.reg.shell')}>
+              <RegLigne
+                titre={t('launcher.settings.shellKind')}
+                aide={aide(t, t('launcher.settings.shellKind'), 'launcher.help.shellKind')}
+                sous={t('launcher.settings.shellKindDesc')}
+              >
+                <select
+                  className="select reg-select lzr-court"
+                  value={s.shell.kind}
+                  aria-label={t('launcher.settings.shellKind')}
+                  onChange={(e) =>
+                    void save({ shell: { ...s.shell, kind: e.target.value as Settings['shell']['kind'] } })
+                  }
+                >
+                  <option value="cmd">cmd</option>
+                  <option value="powershell">PowerShell</option>
+                </select>
+              </RegLigne>
+              <RegSwitch
+                titre={t('launcher.settings.keepOpen')}
+                aide={aide(t, t('launcher.settings.keepOpen'), 'launcher.help.keepOpen')}
+                sous={t('launcher.settings.keepOpenDesc')}
+                checked={s.shell.keepOpen}
+                onChange={(v) => void save({ shell: { ...s.shell, keepOpen: v } })}
+              />
+            </RegSec>
+            <RegSec titre={t('launcher.reg.history')}>
+              <RegSwitch
+                titre={t('launcher.settings.showHistory')}
+                aide={aide(t, t('launcher.settings.showHistory'), 'launcher.help.showHistory')}
+                sous={t('launcher.settings.showHistoryDesc')}
+                checked={s.showHistory}
+                onChange={(v) => void save({ showHistory: v })}
+              />
+            </RegSec>
+          </div>
+        </details>
+      </div>
+
+      {/* ------------------------------------------------------ Zone sensible */}
+      <div className="reg-sec">
+        <div className="zone-d lzr-zone">
+          <h3>
+            <Icon name="alert" />
+            {t('reglages.danger')}
+          </h3>
+          <p>{t('launcher.reg.dangerIntro')}</p>
+          <div className="reg-lignes">
+            <RegLigne titre={t('launcher.settings.clearHistory')} sous={t('launcher.settings.clearHistoryDesc')}>
+              <button
+                type="button"
+                className="btn sm dn"
+                disabled={busy === 'history'}
+                onClick={() =>
+                  void clearWithConfirm(
+                    'history',
+                    t('launcher.settings.clearHistoryConfirm'),
+                    () => window.api.launcher.clearHistory(),
+                    t('launcher.settings.clearHistoryDone')
+                  )
+                }
+              >
+                <Icon name="trash" size={16} />
+                {t('launcher.settings.clear')}
+              </button>
+            </RegLigne>
+            <RegLigne
+              titre={t('launcher.settings.clearUsage')}
+              aide={aide(t, t('launcher.settings.clearUsage'), 'launcher.help.usage')}
+              sous={t('launcher.settings.clearUsageDesc')}
+            >
+              <button
+                type="button"
+                className="btn sm dn"
+                disabled={busy === 'usage'}
+                onClick={() =>
+                  void clearWithConfirm(
+                    'usage',
+                    t('launcher.settings.clearUsageConfirm'),
+                    () => window.api.launcher.clearUsage(),
+                    t('launcher.settings.clearUsageDone')
+                  )
+                }
+              >
+                <Icon name="refresh" size={16} />
+                {t('launcher.reg.forget')}
+              </button>
+            </RegLigne>
+            <RegLigne titre={t('launcher.settings.reset')} sous={t('launcher.settings.resetDesc')}>
+              <button type="button" className="btn sm dn" disabled={busy === 'reset'} onClick={() => void reset()}>
+                <Icon name="undo" size={16} />
+                {t('launcher.settings.resetBtn')}
+              </button>
+            </RegLigne>
+          </div>
+        </div>
+      </div>
+
+      <p className="muted petit reg-note lzr-credit">{t('launcher.credit')}</p>
+
+      {moteur && (
+        <MoteurFeuille
+          engine={moteur.engine}
+          onSave={(e) => saveEngine(moteur.index, e)}
+          onClose={() => setMoteur(null)}
+        />
+      )}
     </div>
   );
 }
@@ -527,7 +761,7 @@ function ExcludesField({ value, onCommit }: { value: string[]; onCommit(v: strin
     <textarea
       id="lzr-excl"
       className="input mono lzr-excl"
-      rows={4}
+      rows={3}
       spellCheck={false}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}

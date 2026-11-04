@@ -341,6 +341,21 @@ describe('réglages', () => {
     expect(s.shell).toEqual({ kind: 'powershell', keepOpen: false });
     expect(s.providers.programs.enabled).toBe(true);
   });
+
+  it("borne l'apparence de la barre et fusionne un patch partiel", () => {
+    const s = sanitizeLauncherSettings({
+      look: { width: 5000, textSize: 10, opacity: 'x', position: 'bas', accent: 'rose', showHotkeys: false }
+    });
+    expect(s.look.width).toBe(1000);
+    expect(s.look.textSize).toBe(85);
+    expect(s.look.opacity).toBe(93);
+    expect(s.look.position).toBe('third');
+    expect(s.look.accent).toBe('app');
+    expect(s.look.showHotkeys).toBe(false);
+    const m = mergeLauncherSettings(s, { look: { radius: 8 } as never });
+    expect(m.look.radius).toBe(8);
+    expect(m.look.width).toBe(1000);
+  });
 });
 
 describe('moteur', () => {

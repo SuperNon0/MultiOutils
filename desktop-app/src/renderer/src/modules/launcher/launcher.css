@@ -13,8 +13,21 @@ body[data-fenetre='launcher'] {
   color: var(--text);
 }
 
-/* marge transparente autour de la palette : place pour l'ombre */
+/* Apparence réglable (Réglages → Lanceur → Apparence de la barre), posée en
+   variables sur .lz-shell par look.ts :
+   --lz-w largeur · --lz-scale taille du texte · --lz-rows lignes visibles ·
+   --lz-verre opacité du fond · --lz-r arrondi des coins. */
 .lz-shell {
+  --lz-w: 720px;
+  --lz-scale: 1;
+  --lz-rows: 8;
+  --lz-verre: 93%;
+  --lz-r: 24px;
+  /* coins intérieurs : suivent l'arrondi de la barre */
+  --lz-r-in: clamp(4px, calc(var(--lz-r) - 8px), 16px);
+  /* hauteur d'une ligne de résultat (.pal-it : min-height 54px à l'échelle) */
+  --lz-row: calc(54px * var(--lz-scale) + 1px);
+  /* marge transparente autour de la palette : place pour l'ombre */
   padding: 14px 20px 30px;
 }
 
@@ -27,13 +40,14 @@ body[data-fenetre='launcher'] {
   right: auto;
   transform: none;
   width: 100%;
+  max-width: none;
   max-height: none;
   padding: 12px;
-  border-radius: 24px;
+  border-radius: var(--lz-r);
   border: 1px solid var(--line2);
   /* verre : l'arrière-plan du bureau n'est pas flouté par Chromium, donc on
      garde un verre presque opaque pour la lisibilité */
-  background: color-mix(in srgb, var(--pop) 93%, transparent);
+  background: color-mix(in srgb, var(--pop) var(--lz-verre), transparent);
   -webkit-backdrop-filter: blur(18px) saturate(1.5);
   backdrop-filter: blur(18px) saturate(1.5);
   box-shadow: var(--shadow);
@@ -49,15 +63,15 @@ body[data-fenetre='launcher'] {
 }
 
 .lz-champ.champ {
-  height: 54px;
-  border-radius: 16px;
+  height: calc(54px * var(--lz-scale));
+  border-radius: var(--lz-r-in);
   padding: 0 10px 0 16px;
   gap: 12px;
   background: var(--card);
   color: var(--soft);
 }
 .lz-champ input {
-  font-size: 19px;
+  font-size: calc(19px * var(--lz-scale));
   font-weight: 500;
   letter-spacing: -0.005em;
 }
@@ -71,7 +85,8 @@ body[data-fenetre='launcher'] {
 @keyframes tourne { to { transform: rotate(360deg); } }
 
 .lz-list.res-p {
-  max-height: 460px;
+  /* lignes visibles avant défilement */
+  max-height: calc(var(--lz-rows) * var(--lz-row));
   overflow-y: auto;
   margin-top: 8px;
   scrollbar-width: thin;
@@ -80,8 +95,8 @@ body[data-fenetre='launcher'] {
 .lz-list .pal-g { margin-top: 8px; }
 
 .lz .pal-it {
-  min-height: 54px;
-  border-radius: 14px;
+  min-height: calc(54px * var(--lz-scale));
+  border-radius: var(--lz-r-in);
   border: 1px solid transparent;
   cursor: default;
   transition: background-color 0.12s;
@@ -96,11 +111,22 @@ body[data-fenetre='launcher'] {
   border-color: var(--acc-line);
   background: color-mix(in srgb, var(--accent) 10%, var(--surface));
 }
-.lz .pal-it .ico { width: 36px; height: 36px; border-radius: 10px; }
+.lz .pal-it .ico {
+  width: calc(36px * var(--lz-scale));
+  height: calc(36px * var(--lz-scale));
+  border-radius: clamp(4px, calc(var(--lz-r-in) - 4px), 10px);
+}
 .lz .pal-it .ico.lz-img { background: transparent; border-color: transparent; }
-.lz .pal-it .ico img { width: 28px; height: 28px; object-fit: contain; }
-.lz .pal-it .tx b { font-size: 14.5px; }
-.lz .pal-it .tx span { font-size: 12px; }
+.lz .pal-it .ico img {
+  width: calc(28px * var(--lz-scale));
+  height: calc(28px * var(--lz-scale));
+  object-fit: contain;
+}
+.lz .pal-it .tx b { font-size: calc(14.5px * var(--lz-scale)); }
+.lz .pal-it .tx span { font-size: calc(12px * var(--lz-scale)); }
+/* options d'affichage */
+.lz.lz-sans-sous .pal-it .tx > span { display: none; }
+.lz.lz-sans-alt .lz-alt { display: none; }
 .lz .pal-it.lz-danger .tx b,
 .lz .pal-it.lz-danger .ico { color: var(--danger); }
 
@@ -178,4 +204,9 @@ mark.lz-hl {
 .lz .btn { font-size: 13px; }
 
 /* résultat de calcul : grand chiffre en titre */
-.lz .pal-it.lz-calc .tx b { font-family: var(--f-title); font-weight: 400; font-size: 24px; line-height: 1.15; }
+.lz .pal-it.lz-calc .tx b {
+  font-family: var(--f-title);
+  font-weight: 400;
+  font-size: calc(24px * var(--lz-scale));
+  line-height: 1.15;
+}
