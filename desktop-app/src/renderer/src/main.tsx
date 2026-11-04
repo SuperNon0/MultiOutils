@@ -1,9 +1,14 @@
 import { StrictMode, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Language } from '../../common/types';
-import './fonts.css';
-import './theme.css';
+// Design « encre » : polices et briques du kit (copies conformes de design-encre/),
+// puis les surcharges propres à l'appli (app.css).
+import './encre/polices.css';
+import './encre/encre.css';
 import './app.css';
+import { useAppearance } from './encre/appearance';
+import { installSprites } from './encre/sprite';
+import { EncreLayer } from './encre/ui';
 import { App } from './host/App';
 import { I18nProvider } from './i18n';
 import { Eyedropper } from './windows/Eyedropper';
@@ -22,6 +27,9 @@ function Root(): ReactNode {
   );
   const [lang, setLang] = useState<Language | null>(null);
 
+  // Couleur d'accent + thème (Réglages → Apparence) dans TOUTES les fenêtres.
+  useAppearance();
+
   useEffect(() => {
     if (match) void window.api.settings.get().then((s) => setLang(s.language));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -31,6 +39,7 @@ function Root(): ReactNode {
   if (!lang) return null;
 
   const [, route, param] = match;
+  document.body.dataset.fenetre = route;
   return (
     <I18nProvider lang={lang}>
       {route === 'region' && param ? (
@@ -42,9 +51,12 @@ function Root(): ReactNode {
       ) : route === 'picker' ? (
         <WindowPicker />
       ) : null}
+      <EncreLayer />
     </I18nProvider>
   );
 }
+
+installSprites();
 
 createRoot(document.getElementById('root') as HTMLElement).render(
   <StrictMode>

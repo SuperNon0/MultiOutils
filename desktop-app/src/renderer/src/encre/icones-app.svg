@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="sprite" aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden">
+<!-- Icônes propres à MultiOutils, dans le style du sprite « encre » (icones.svg) :
+     24 × 24, tracées au trait (le trait de 1,8 vient de svg.i dans encre.css).
+     Elles complètent le jeu du kit pour les outils (capture, éditeur, pipette…). -->
+<symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 7.5h3l1.6-2.5h6.8L17 7.5h3a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 20 19.5H4A1.5 1.5 0 0 1 2.5 18V9A1.5 1.5 0 0 1 4 7.5z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+<symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M8.5 20.5h7M12 17v3.5"/></symbol>
+<symbol id="i-fullscreen" viewBox="0 0 24 24"><path d="M3.5 8V5.5a2 2 0 0 1 2-2H8M16 3.5h2.5a2 2 0 0 1 2 2V8M20.5 16v2.5a2 2 0 0 1-2 2H16M8 20.5H5.5a2 2 0 0 1-2-2V16"/><rect x="7.5" y="7.5" width="9" height="9" rx="1.5"/></symbol>
+<symbol id="i-region" viewBox="0 0 24 24"><path d="M7 3v13a1 1 0 0 0 1 1h13"/><path d="M3 7h13a1 1 0 0 1 1 1v13"/></symbol>
+<symbol id="i-window" viewBox="0 0 24 24"><rect x="3" y="4.5" width="18" height="15" rx="2"/><path d="M3 9h18"/><circle cx="6.2" cy="6.8" r=".6" fill="currentColor" stroke="none"/><circle cx="8.6" cy="6.8" r=".6" fill="currentColor" stroke="none"/></symbol>
+<symbol id="i-eyedropper" viewBox="0 0 24 24"><path d="m14.5 6.5 3 3"/><path d="M16.2 3.8a2.4 2.4 0 0 1 3.4 3.4l-2.3 2.3-3.4-3.4z"/><path d="M13.6 7.6 5.5 15.7l-1 3.8 3.8-1 8.1-8.1"/></symbol>
+<symbol id="i-textscan" viewBox="0 0 24 24"><path d="M3.5 8V5.5a2 2 0 0 1 2-2H8M16 3.5h2.5a2 2 0 0 1 2 2V8M20.5 16v2.5a2 2 0 0 1-2 2H16M8 20.5H5.5a2 2 0 0 1-2-2V16"/><path d="M8 9h8M12 9v7"/></symbol>
+<symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="5" y="4.5" width="14" height="16.5" rx="2"/><path d="M9 4.5V3.5h6v1"/><rect x="9" y="2.8" width="6" height="3.4" rx="1"/><path d="M8.5 11h7M8.5 14.5h7M8.5 18h4"/></symbol>
+<symbol id="i-mouse" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 3v6.5M6 9.5h12"/></symbol>
+<symbol id="i-cursor" viewBox="0 0 24 24"><path d="M5 3.5 18.5 10l-6 1.6-2.5 6z"/><path d="m12.6 11.7 5 5"/></symbol>
+<symbol id="i-rect" viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="13" rx="1.5"/></symbol>
+<symbol id="i-ellipse" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="8.5" ry="6.5"/></symbol>
+<symbol id="i-triangle" viewBox="0 0 24 24"><path d="M12 4.5 20.5 19h-17z"/></symbol>
+<symbol id="i-line" viewBox="0 0 24 24"><path d="M5 19 19 5"/></symbol>
+<symbol id="i-arrowtool" viewBox="0 0 24 24"><path d="M5 19 19 5M10.5 5H19v8.5"/></symbol>
+<symbol id="i-pen" viewBox="0 0 24 24"><path d="M3.5 17c2.5-4 4.5-6 6.5-6s1 4 3 4 3.5-3 7.5-7"/></symbol>
+<symbol id="i-highlight" viewBox="0 0 24 24"><path d="m9 15 7.5-10.5 3 2.2L12 17z"/><path d="M9 15 7.5 18h3.2L12 17"/><path d="M4 21h16"/></symbol>
+<symbol id="i-blur" viewBox="0 0 24 24"><circle cx="6" cy="6" r="1.4"/><circle cx="12" cy="6" r="1.4"/><circle cx="18" cy="6" r="1.4"/><circle cx="6" cy="12" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="18" cy="12" r="1.4"/><circle cx="6" cy="18" r="1.4"/><circle cx="12" cy="18" r="1.4"/><circle cx="18" cy="18" r="1.4"/></symbol>
+<symbol id="i-steps" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M10.5 9 12.5 8v8"/></symbol>
+<symbol id="i-crop" viewBox="0 0 24 24"><path d="M6.5 2.5v13a2 2 0 0 0 2 2h13"/><path d="M2.5 6.5h13a2 2 0 0 1 2 2v13"/></symbol>
+<symbol id="i-eraser" viewBox="0 0 24 24"><path d="m14.5 4.5 5 5-9 9H6l-2.5-2.5a1.5 1.5 0 0 1 0-2.1z"/><path d="M9.5 9.5l5 5M10 20.5h10"/></symbol>
+<symbol id="i-redo" viewBox="0 0 24 24"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></symbol>
+<symbol id="i-zoomin" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6M11 8v6M8 11h6"/></symbol>
+<symbol id="i-zoomout" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6M8 11h6"/></symbol>
+<symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a1.5 1.5 0 0 1 1.5-1.5h4.6l2 2.2h8.4A1.5 1.5 0 0 1 21 9.2v9.3a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></symbol>
+<symbol id="i-folderopen" viewBox="0 0 24 24"><path d="M3 18V7a1.5 1.5 0 0 1 1.5-1.5h4.6l2 2.2h7.4A1.5 1.5 0 0 1 20 9.2V11"/><path d="M3 18.5 5.6 12a1.5 1.5 0 0 1 1.4-1h13.4a1 1 0 0 1 .9 1.4L18.6 19a1.5 1.5 0 0 1-1.4 1H4.4A1.4 1.4 0 0 1 3 18.5z"/></symbol>
+<symbol id="i-file" viewBox="0 0 24 24"><path d="M6.5 2.5h7.5L19 7.5v12.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 20V4a1.5 1.5 0 0 1 1.5-1.5z"/><path d="M13.5 2.5V8H19"/></symbol>
+<symbol id="i-phone" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></symbol>
+<symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 3.5h6M10 3.5v6L7 13.5h10L14 9.5v-6M12 13.5v7"/></symbol>
+<symbol id="i-expand" viewBox="0 0 24 24"><path d="M14.5 3.5h6v6M20.5 3.5 14 10M9.5 20.5h-6v-6M3.5 20.5 10 14"/></symbol>
+<symbol id="i-send" viewBox="0 0 24 24"><path d="M20.5 3.5 10 14"/><path d="M20.5 3.5 14 20.5l-4-6.5-6.5-4z"/></symbol>
+<symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.7"/><path d="m3.5 17.5 5-5 4 4 3-3 5 5"/></symbol>
+<symbol id="i-keyboard" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6 9.5h.01M9 9.5h.01M12 9.5h.01M15 9.5h.01M18 9.5h.01M6 12.5h.01M18 12.5h.01M8 15h8"/></symbol>
+<symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 4.5v6.3a1.5 1.5 0 0 0 .44 1.06l8.2 8.2a1.5 1.5 0 0 0 2.12 0l5.8-5.8a1.5 1.5 0 0 0 0-2.12l-8.2-8.2A1.5 1.5 0 0 0 10.8 3.5H4.5a1 1 0 0 0-1 1z"/><circle cx="8" cy="8" r="1.3"/></symbol>
+</svg>

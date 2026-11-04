@@ -1,13 +1,30 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" data-accent-defaut="lavande">
   <head>
     <meta charset="UTF-8" />
     <title>MultiOutils</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light" />
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' mo-media: data: blob:; font-src 'self' data:; connect-src 'self' ws: mo-media: blob:"
     />
+    <script>
+      /* Design « encre » : accent et thème posés avant l'affichage (rien ne
+         clignote). Copie locale de Réglages → Apparence (encre/appearance.ts),
+         relue ensuite dans les réglages de l'appli. */
+      try {
+        var p = JSON.parse(localStorage.getItem('encre-apparence') || '{}'),
+          h = document.documentElement;
+        h.dataset.accent = p.accent || 'lavande';
+        if (p.theme === 'sombre') h.dataset.theme = 'dark';
+        else if (p.theme === 'clair') h.dataset.theme = 'light';
+        else {
+          h.dataset.theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          h.dataset.encreAuto = '';
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
