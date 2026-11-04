@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState, type ReactNode } from 'react';
+import { lazy, StrictMode, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import type { Language } from '../../common/types';
 // Design « encre » : polices et briques du kit (copies conformes de design-encre/),
@@ -16,12 +16,26 @@ import { QuickBar } from './windows/QuickBar';
 import { RegionOverlay } from './windows/RegionOverlay';
 import { WindowPicker } from './windows/WindowPicker';
 
+// Lanceur : chargé à part (son CSS « encre » ne touche pas la fenêtre principale).
+const Launcher = lazy(() => import('./windows/Launcher'));
+
 /**
  * Une seule entrée renderer, plusieurs fenêtres : la fenêtre principale (App)
  * et les fenêtres satellites routées par hash (#/region/…, #/quickbar/…,
  * #/picker) — voir src/main/windows.ts (loadRenderer).
  */
 function Root(): ReactNode {
+  if (window.location.hash.startsWith('#/launcher')) {
+    return (
+      <Suspense fallback={null}>
+        <Launcher />
+      </Suspense>
+    );
+  }
+  return <SatelliteOrApp />;
+}
+
+function SatelliteOrApp(): ReactNode {
   const match = window.location.hash.match(
     /^#\/(region|quickbar|picker|eyedropper)(?:\/(.+))?$/
   );

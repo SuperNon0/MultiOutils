@@ -11,6 +11,7 @@ import { MainModuleRegistry } from './module-registry';
 import { createAutoclickerMainModule } from './modules/autoclicker';
 import { createClipboardMainModule } from './modules/clipboard';
 import { createColorPickerMainModule } from './modules/color-picker';
+import { createLauncherMainModule } from './modules/launcher';
 import { createOcrMainModule } from './modules/ocr';
 import { createScreenshotMainModule } from './modules/screenshot';
 import { SettingsStore } from './settings';
@@ -79,7 +80,9 @@ async function bootstrap(): Promise<void> {
     broadcast,
     registerLocalCommand: (id, run) => localService.register(id, run),
     registerLocalRoute: (method, pattern, handler) =>
-      localService.registerRoute(method, pattern, handler)
+      localService.registerRoute(method, pattern, handler),
+    hasLocalCommand: (id) => localService.has(id),
+    runLocalCommand: (id) => localService.run(id)
   };
 
   // Résolution des images (l'accès fichier reste confiné au process main).
@@ -108,6 +111,7 @@ async function bootstrap(): Promise<void> {
   registry.register(createOcrMainModule());
   registry.register(createClipboardMainModule());
   registry.register(createAutoclickerMainModule());
+  registry.register(createLauncherMainModule());
   await registry.activateAll(ctx);
 
   registerHostIpc(ctx);

@@ -34,6 +34,9 @@ export interface MainHostContext {
     pattern: RegExp,
     handler: (url: URL) => unknown | Promise<unknown>
   ): void;
+  /** Lanceur : une commande locale existe-t-elle ? / l'exécuter (false si inconnue). */
+  hasLocalCommand?(id: string): boolean;
+  runLocalCommand?(id: string): Promise<boolean>;
 }
 
 /** Contrat d'un outil côté process main. */

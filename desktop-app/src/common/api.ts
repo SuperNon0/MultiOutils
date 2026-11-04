@@ -199,4 +199,42 @@ export interface PreloadApi {
     }): Promise<boolean>;
     copy(dataUrl: string): Promise<void>;
   };
+  /** Module « Lanceur » (recréation de Flow Launcher, docs/07-lanceur.md). */
+  launcher: {
+    getState(): Promise<import('./launcher').LauncherState>;
+    /** Les résultats arrivent par onResults (au fil des fournisseurs). */
+    query(text: string, queryId: number): Promise<void>;
+    execute(
+      resultId: string,
+      mode: import('./launcher').LauncherExecMode,
+      query: string
+    ): Promise<import('./launcher').LauncherOutcome>;
+    actions(resultId: string): Promise<import('./launcher').LauncherAction[]>;
+    runAction(
+      resultId: string,
+      actionId: string,
+      query: string
+    ): Promise<import('./launcher').LauncherOutcome>;
+    /** Icône système d'un fichier (data URL) ou null. */
+    icon(path: string): Promise<string | null>;
+    hide(): void;
+    resize(height: number): void;
+    open(): Promise<void>;
+    getSettings(): Promise<LauncherSettingsInfo>;
+    setSettings(patch: Partial<import('./launcher').LauncherSettings>): Promise<LauncherSettingsInfo>;
+    resetSettings(): Promise<LauncherSettingsInfo>;
+    reindex(): Promise<import('./launcher').LauncherStats>;
+    clearHistory(): Promise<void>;
+    clearUsage(): Promise<void>;
+    onResults(cb: (msg: import('./launcher').LauncherResultsMsg) => void): Unsubscribe;
+    onShown(cb: () => void): Unsubscribe;
+    onHidden(cb: () => void): Unsubscribe;
+    onState(cb: (state: import('./launcher').LauncherState) => void): Unsubscribe;
+  };
+}
+
+export interface LauncherSettingsInfo {
+  settings: import('./launcher').LauncherSettings;
+  shortcutOk: boolean;
+  stats: import('./launcher').LauncherStats;
 }

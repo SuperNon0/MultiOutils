@@ -159,6 +159,28 @@ const api: PreloadApi = {
     save: (payload) => ipcRenderer.invoke('editor:save', payload),
     exportAs: (payload) => ipcRenderer.invoke('editor:export', payload),
     copy: (dataUrl: string) => ipcRenderer.invoke('editor:copy', dataUrl)
+  },
+  launcher: {
+    getState: () => ipcRenderer.invoke('launcher:getState'),
+    query: (text, queryId) => ipcRenderer.invoke('launcher:query', text, queryId),
+    execute: (resultId, mode, query) => ipcRenderer.invoke('launcher:execute', resultId, mode, query),
+    actions: (resultId) => ipcRenderer.invoke('launcher:actions', resultId),
+    runAction: (resultId, actionId, query) =>
+      ipcRenderer.invoke('launcher:runAction', resultId, actionId, query),
+    icon: (path) => ipcRenderer.invoke('launcher:icon', path),
+    hide: () => ipcRenderer.send('launcher:hide'),
+    resize: (height) => ipcRenderer.send('launcher:resize', height),
+    open: () => ipcRenderer.invoke('launcher:open'),
+    getSettings: () => ipcRenderer.invoke('launcher:getSettings'),
+    setSettings: (patch) => ipcRenderer.invoke('launcher:setSettings', patch),
+    resetSettings: () => ipcRenderer.invoke('launcher:resetSettings'),
+    reindex: () => ipcRenderer.invoke('launcher:reindex'),
+    clearHistory: () => ipcRenderer.invoke('launcher:clearHistory'),
+    clearUsage: () => ipcRenderer.invoke('launcher:clearUsage'),
+    onResults: (cb) => subscribe('launcher:results', cb),
+    onShown: (cb) => subscribe<void>('launcher:shown', cb),
+    onHidden: (cb) => subscribe<void>('launcher:hidden', cb),
+    onState: (cb) => subscribe('launcher:state', cb)
   }
 };
 
