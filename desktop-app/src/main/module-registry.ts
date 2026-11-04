@@ -57,7 +57,13 @@ export class MainModuleRegistry {
 
   async activateAll(ctx: MainHostContext): Promise<void> {
     for (const module of this.modules) {
-      await module.activate(ctx);
+      // Un outil qui échoue au démarrage ne doit pas empêcher l'appli (tray,
+      // mises à jour, autres outils) de se lancer.
+      try {
+        await module.activate(ctx);
+      } catch (err) {
+        console.error(`[modules] échec de l'activation de « ${module.id} »`, err);
+      }
     }
   }
 
