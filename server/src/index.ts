@@ -3,6 +3,7 @@ import session from 'express-session';
 import helmet from 'helmet';
 import path from 'node:path';
 import { ensureDirs, env, sessionSecret } from './env';
+import { accessCard, socleLayout } from './html';
 import { adminRouter } from './routes/admin';
 import { apiRouter } from './routes/api';
 import { webRouter } from './routes/web';
@@ -58,7 +59,9 @@ async function main(): Promise<void> {
     })
   );
 
-  // assets publics (css, polices) — aucune donnée utilisateur ici
+  // assets publics (design « encre » dans public/encre/, site.css, site.js,
+  // theme.js) — aucune donnée utilisateur ici. Tous servis par nous-mêmes :
+  // la CSP ci-dessus (script-src/style-src 'self') suffit, sans script en ligne.
   app.use('/public', express.static(path.resolve(__dirname, '..', 'public')));
 
   // Premier lancement : tant qu'aucun mot de passe de secours local n'existe
@@ -84,6 +87,27 @@ async function main(): Promise<void> {
   app.use('/api', apiRouter);
   app.use(adminRouter);
   app.use(webRouter);
+
+  // Page introuvable (hors API, qui garde la réponse d'Express) : même
+  // écran que la connexion, au design « encre ».
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api') || req.method !== 'GET') {
+      next();
+      return;
+    }
+    res.status(404).send(
+      socleLayout(
+        'Page introuvable',
+        accessCard({
+          icone: 'compass',
+          ton: 'warn',
+          titre: 'Page introuvable',
+          texte: "Cette adresse ne mène nulle part. Le lien est peut-être ancien, ou mal recopié.",
+          actions: `<a class="btn pri w" href="/">Retour à la galerie</a>`
+        })
+      )
+    );
+  });
 
   // On écoute explicitement sur toutes les interfaces IPv4 (0.0.0.0) pour
   // garantir l'accès depuis le réseau local par l'IP du conteneur, même si
