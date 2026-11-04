@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { useHost } from '../../host/context';
 import { Icon } from '../../host/Icon';
+import { RegLigne, RegSec } from '../../host/reglages';
 import { useI18n } from '../../i18n';
 import { formatColor, readableText, toHex } from '../../lib/color';
 
@@ -44,12 +45,28 @@ export function ColorPickerPanel(): ReactNode {
 
   return (
     <div className="panel">
-      <header className="panel-header">
-        <h2>{t('colorpicker.title')}</h2>
-        <div className="capture-bar">
+      <div className="page-h">
+        <h1 className="page-t">{t('colorpicker.title')}</h1>
+        <div className="ligne capture-bar">
+          <div className="seg reg-seg" role="group" aria-label={t('colorpicker.format')}>
+            {(['hex', 'rgb', 'hsl'] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                className={format === f ? 'on' : ''}
+                aria-pressed={format === f}
+                onClick={() => {
+                  setFormat(f);
+                  void window.api.colorpicker.setFormat(f);
+                }}
+              >
+                {f.toUpperCase()}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
-            className="btn btn-primary cp-pick"
+            className="btn pri cp-pick"
             onClick={() => void window.api.colorpicker.start()}
           >
             {/* La pipette « se remplit » de la dernière couleur prélevée. */}
@@ -68,26 +85,14 @@ export function ColorPickerPanel(): ReactNode {
             </span>
             {t('colorpicker.pick')}
           </button>
-          <select
-            className="select"
-            value={format}
-            aria-label={t('colorpicker.format')}
-            onChange={(e) => {
-              const value = e.target.value as Format;
-              setFormat(value);
-              void window.api.colorpicker.setFormat(value);
-            }}
-          >
-            <option value="hex">HEX</option>
-            <option value="rgb">RGB</option>
-            <option value="hsl">HSL</option>
-          </select>
         </div>
+      </div>
+      <p className="intro-p">{t('colorpicker.help')}</p>
 
         {current && (
           <button
             type="button"
-            className="cp-current"
+            className="cp-current carte"
             title={t('colorpicker.copyTooltip')}
             onClick={() => void copyEntry(current)}
           >
@@ -101,40 +106,39 @@ export function ColorPickerPanel(): ReactNode {
                 {formatColor(current.r, current.g, current.b, format)}
               </span>
             </span>
-            <span className="cp-current-copy">
+            <span className="cp-current-copy ib">
               <Icon name="copy" />
             </span>
           </button>
         )}
 
-        <div className="capture-hint muted">{t('colorpicker.help')}</div>
-      </header>
-
       <section className="cp-history">
-        <div className="gallery-toolbar">
-          <h3 className="cp-history-title">{t('colorpicker.history')}</h3>
+        <div className="sec-h">
+          <h2 className="sec-t">{t('colorpicker.history')}</h2>
           {history.length > 0 && (
-            <div className="gallery-toolbar-right">
-              <button
-                type="button"
-                className="btn"
-                onClick={() => void window.api.colorpicker.clearHistory()}
-              >
-                {t('colorpicker.clear')}
-              </button>
-            </div>
+            <button
+              type="button"
+              className="btn gh sm"
+              onClick={() => void window.api.colorpicker.clearHistory()}
+            >
+              <Icon name="trash" size={16} />
+              {t('colorpicker.clear')}
+            </button>
           )}
         </div>
 
         {history.length === 0 ? (
-          <div className="gallery-empty muted">{t('colorpicker.historyEmpty')}</div>
+          <div className="vide">
+            <Icon name="eyedropper" />
+            <span>{t('colorpicker.historyEmpty')}</span>
+          </div>
         ) : (
-          <div className="cp-grid">
+          <div className="cp-grid anim-in">
             {history.map((entry) => (
               <button
                 key={`${entry.hex}-${entry.pickedAt}`}
                 type="button"
-                className="cp-swatch card"
+                className="cp-swatch"
                 title={t('colorpicker.copyTooltip')}
                 onClick={() => void copyEntry(entry)}
               >
@@ -164,21 +168,25 @@ export function ColorPickerSettings(): ReactNode {
   }, []);
 
   return (
-    <div className="setting-row">
-      <span>{t('colorpicker.format')}</span>
-      <select
-        className="select"
-        value={format}
-        onChange={(e) => {
-          const value = e.target.value as Format;
-          setFormat(value);
-          void window.api.colorpicker.setFormat(value);
-        }}
-      >
-        <option value="hex">HEX</option>
-        <option value="rgb">RGB</option>
-        <option value="hsl">HSL</option>
-      </select>
-    </div>
+    <RegSec>
+      <RegLigne titre={t('colorpicker.format')}>
+        <div className="seg reg-seg" role="group" aria-label={t('colorpicker.format')}>
+          {(['hex', 'rgb', 'hsl'] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              className={format === f ? 'on' : ''}
+              aria-pressed={format === f}
+              onClick={() => {
+                setFormat(f);
+                void window.api.colorpicker.setFormat(f);
+              }}
+            >
+              {f.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </RegLigne>
+    </RegSec>
   );
 }

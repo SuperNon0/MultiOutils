@@ -1,0 +1,123 @@
+/* Lanceur : panneau de l'outil et réglages. Mise en page seulement : les
+   couleurs, champs, boutons et interrupteurs viennent du kit « encre ». */
+
+.lzr-kbd {
+  font-size: 12px;
+  padding: 3px 8px;
+}
+
+/* Exemples de requêtes */
+.lzr-exemples {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.lzr-ex {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+}
+.lzr-ex code {
+  justify-self: start;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.lzr-panneau {
+  padding: 22px;
+}
+/* même titre que le panneau de détail des Réglages (.reg-det h2) */
+.lzr-panneau h2 {
+  font-family: var(--f-title);
+  font-size: calc(24px * var(--t-scale));
+  line-height: 1.1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+/* Fournisseurs : mot-clé + interrupteur */
+.lzr-ctl {
+  flex-wrap: nowrap;
+  flex: none;
+}
+.ligne > .input.lzr-mot {
+  flex: none;
+  width: 104px;
+  height: 34px;
+  min-height: 34px;
+  font-family: var(--f-mono);
+  font-size: 13px;
+}
+.reg-select.lzr-court {
+  min-width: 90px;
+}
+
+/* Moteurs web : une grille par moteur */
+.lzr-moteurs {
+  margin-top: 4px;
+}
+.lzr-moteur {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) 90px minmax(180px, 2.6fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid var(--line);
+}
+.lzr-moteur:first-child {
+  border-top: 0;
+}
+.lzr-moteur .input {
+  width: 100%;
+  min-width: 0;
+}
+.lzr-moteur.off .input {
+  opacity: 0.6;
+}
+.lzr-entete {
+  padding-top: 10px;
+  padding-bottom: 6px;
+}
+.lzr-actions {
+  margin-top: 10px;
+}
+
+/* Dossiers indexés et exclusions */
+.lzr-dossiers {
+  margin-top: 4px;
+}
+.lzr-dossiers .tx {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  user-select: text;
+}
+.lzr-bloc {
+  margin-top: 16px;
+  display: grid;
+  gap: 6px;
+}
+.lzr-excl {
+  width: 100%;
+  font-size: 13px;
+}
+
+@media (max-width: 720px) {
+  .lzr-moteur {
+    grid-template-columns: 1fr 90px auto auto;
+  }
+  .lzr-moteur > :nth-child(3) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .lzr-entete {
+    display: none;
+  }
+}

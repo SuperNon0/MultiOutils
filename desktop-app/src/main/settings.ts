@@ -1,11 +1,31 @@
 import type Database from 'better-sqlite3';
 import { DEFAULT_FILENAME_TEMPLATE } from '@multioutils/shared';
-import { DEFAULT_SHORTCUTS, type AppSettings } from '../common/types';
+import {
+  APPEARANCE_ACCENTS,
+  APPEARANCE_THEMES,
+  DEFAULT_APPEARANCE,
+  DEFAULT_SHORTCUTS,
+  type AppSettings
+} from '../common/types';
+
+/** Valide une apparence lue en base (valeurs inconnues → défaut). */
+export function normalizeAppearance(value: unknown): AppSettings['appearance'] {
+  const v = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
+  return {
+    accent: APPEARANCE_ACCENTS.includes(v.accent as never)
+      ? (v.accent as AppSettings['appearance']['accent'])
+      : DEFAULT_APPEARANCE.accent,
+    theme: APPEARANCE_THEMES.includes(v.theme as never)
+      ? (v.theme as AppSettings['appearance']['theme'])
+      : DEFAULT_APPEARANCE.theme
+  };
+}
 
 export function buildDefaults(defaultStorageDir: string): AppSettings {
   return {
     language: 'fr',
     theme: 'dark',
+    appearance: { ...DEFAULT_APPEARANCE },
     autostart: false,
     startMinimized: false,
     closeToTray: true,
@@ -50,15 +70,32 @@ export class SettingsStore {
   private load(): AppSettings {
     const merged: AppSettings = {
       ...this.defaults,
+      appearance: { ...this.defaults.appearance },
       shortcuts: { ...this.defaults.shortcuts }
     };
     const rows = this.getStmt.all() as Array<{ key: string; value: string }>;
+    // Migration : l'ancien réglage `theme` ('dark' | 'light') devient
+    // appearance.theme si aucune apparence n'a encore été enregistrée.
+    if (!rows.some((r) => r.key === 'appearance')) {
+      const old = rows.find((r) => r.key === 'theme');
+      try {
+        const value = old ? JSON.parse(old.value) : null;
+        if (value === 'dark') merged.appearance.theme = 'sombre';
+        else if (value === 'light') merged.appearance.theme = 'clair';
+      } catch {
+        // ancienne valeur illisible → automatique
+      }
+    }
     for (const row of rows) {
       if (!(row.key in merged)) continue;
       try {
         const value = JSON.parse(row.value);
         if (row.key === 'shortcuts' && value && typeof value === 'object') {
           merged.shortcuts = { ...merged.shortcuts, ...value };
+        } else if (row.key === 'appearance') {
+          merged.appearance = normalizeAppearance(value);
+        } else if (row.key === 'theme') {
+          // ancien réglage : déjà migré ci-dessus
         } else {
           (merged as unknown as Record<string, unknown>)[row.key] = value;
         }
@@ -70,13 +107,20 @@ export class SettingsStore {
   }
 
   get(): AppSettings {
-    return { ...this.cache, shortcuts: { ...this.cache.shortcuts } };
+    return {
+      ...this.cache,
+      appearance: { ...this.cache.appearance },
+      shortcuts: { ...this.cache.shortcuts }
+    };
   }
 
   set(patch: Partial<AppSettings>): AppSettings {
     const next = {
       ...this.cache,
       ...patch,
+      appearance: patch.appearance
+        ? normalizeAppearance({ ...this.cache.appearance, ...patch.appearance })
+        : this.cache.appearance,
       shortcuts: { ...this.cache.shortcuts, ...(patch.shortcuts ?? {}) }
     };
     const write = this.db.transaction(() => {

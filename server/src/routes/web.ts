@@ -12,7 +12,17 @@ import {
 } from '../security';
 import { getDb, parseTags, type ServerCapture, type ServerClip } from '../db';
 import { uploadsDir } from '../env';
-import { e, layout, socleLayout } from '../html';
+import {
+  dateFr,
+  e,
+  errorBlock,
+  filtersBlock,
+  ic,
+  layout,
+  loginLogo,
+  selectField,
+  socleLayout
+} from '../html';
 import { getMaxUploadMb, rejectIfTooLarge, UPLOAD_CEILING_MB } from '../uploads';
 import {
   ALLOWED_MIME,
@@ -26,28 +36,27 @@ import {
 /** Interface web de consultation (docs/00 §7.1). Auth : session. */
 export const webRouter = Router();
 
-// ── Connexion & secours local (thème PARTAGÉ du socle) ──────────────────
+// ── Connexion & secours local ───────────────────────────────────────────
 // Identité normale = badge Cloudflare (voir security.ts / gateway). Le mot de
-// passe local est un SECOURS : un seul champ, aucun identifiant. La page de
-// connexion reproduit `socle-lite/panel/templates/login.html` à l'identique.
+// passe local est un SECOURS : un seul champ, aucun identifiant. Écrans au
+// design « encre » (login-page / login-card).
 
-/** Page de connexion — reproduction fidèle du login.html du socle. */
+/** Page de connexion locale (secours). */
 function loginPage(failed: boolean): string {
   return socleLayout(
     'Connexion locale',
-    `${failed ? '<div class="flash-stack"><div class="flash error">Mot de passe incorrect.</div></div>' : ''}
-    <form class="login-card" method="post" action="/login">
-      <div class="login-logo">
-        <img class="logo-mark" src="/public/logo.svg" alt="" width="44" height="44">
-        <span class="logo"><span class="g">multi</span><span class="i">outils</span></span>
-      </div>
-      <span class="badge">accès local</span>
-      <input type="password" name="password" placeholder="Mot de passe" autofocus autocomplete="current-password">
-      <button type="submit" class="btn primary full">Se connecter</button>
+    `<div class="login-card">
+      ${loginLogo()}
+      <span class="badge">Accès local</span>
+      <h1 class="h-acces">Connexion</h1>
+      ${failed ? `<p class="login-error" role="alert">Mot de passe incorrect.</p>` : ''}
+      <form method="post" action="/login" data-occupe>
+        <input type="password" name="password" placeholder="Mot de passe" aria-label="Mot de passe" autofocus autocomplete="current-password">
+        <button type="submit" class="btn pri w">${ic('lock', 's18')}Se connecter</button>
+      </form>
       <a class="forgot-link" href="/oubli">Mot de passe oublié ?</a>
-      <p class="access-note">Accès local (réseau domestique) · secours</p>
-    </form>`,
-    { bodyClass: 'login-page' }
+      <p class="access-note">Accès local (réseau domestique) · secours si Cloudflare est indisponible</p>
+    </div>`
   );
 }
 
@@ -55,20 +64,19 @@ function loginPage(failed: boolean): string {
 function setupPage(error?: string): string {
   return socleLayout(
     'Première configuration',
-    `${error ? `<div class="flash-stack"><div class="flash error">${e(error)}</div></div>` : ''}
-    <form class="login-card" method="post" action="/setup">
-      <div class="login-logo">
-        <img class="logo-mark" src="/public/logo.svg" alt="" width="44" height="44">
-        <span class="logo"><span class="g">multi</span><span class="i">outils</span></span>
-      </div>
-      <h2>Mot de passe de secours</h2>
+    `<div class="login-card">
+      ${loginLogo()}
+      <span class="badge">Première configuration</span>
+      <h1 class="h-acces">Mot de passe de secours</h1>
       <p class="access-text">Définis un mot de passe local (secours si Cloudflare
       tombe). L'entrée normale, elle, passe par Cloudflare.</p>
-      <input type="password" name="password" placeholder="Mot de passe (8+ caractères)" autofocus autocomplete="new-password" minlength="8">
-      <input type="password" name="confirm" placeholder="Confirmer le mot de passe" autocomplete="new-password" minlength="8">
-      <button type="submit" class="btn primary full">Enregistrer</button>
-    </form>`,
-    { bodyClass: 'login-page' }
+      ${error ? `<p class="login-error" role="alert">${e(error)}</p>` : ''}
+      <form method="post" action="/setup" data-occupe>
+        <input type="password" name="password" placeholder="Mot de passe (8 caractères ou plus)" aria-label="Mot de passe" autofocus autocomplete="new-password" minlength="8">
+        <input type="password" name="confirm" placeholder="Confirmer le mot de passe" aria-label="Confirmer le mot de passe" autocomplete="new-password" minlength="8">
+        <button type="submit" class="btn pri w">${ic('check', 's18')}Enregistrer</button>
+      </form>
+    </div>`
   );
 }
 
@@ -87,7 +95,7 @@ webRouter.post('/setup', requireLocalLoginEnabled, (req, res) => {
   }
   const { password, confirm } = req.body as Record<string, string>;
   if (!password || password.length < 8) {
-    res.status(400).send(setupPage('Mot de passe (8+ caractères) requis.'));
+    res.status(400).send(setupPage('Mot de passe de 8 caractères ou plus requis.'));
     return;
   }
   if (password !== confirm) {
@@ -122,25 +130,24 @@ webRouter.post('/login', requireLocalLoginEnabled, (req, res) => {
 });
 
 // « Mot de passe oublié » : AUCUN reset depuis le web. On indique la commande
-// serveur (script deploy/reset_admin.sh). Reproduit oubli.html du socle.
+// serveur (script deploy/reset_admin.sh).
+const RESET_CMD = 'cd /opt/multioutils/server && sudo bash deploy/reset_admin.sh';
+
 webRouter.get('/oubli', requireLocalLoginEnabled, (_req, res) => {
   res.send(
     socleLayout(
       'Mot de passe oublié',
-      `<div class="login-card">
-        <div class="login-logo">
-          <img class="logo-mark" src="/public/logo.svg" alt="" width="44" height="44">
-          <span class="logo"><span class="g">multi</span><span class="i">outils</span></span>
-        </div>
-        <h2>Mot de passe oublié</h2>
-        <p class="access-text">Par sécurité, le mot de passe local ne se
+      `<div class="login-card forgot-card">
+        ${loginLogo()}
+        <span class="badge">Secours</span>
+        <h1 class="h-acces">Mot de passe oublié</h1>
+        <p class="forgot-intro">Par sécurité, le mot de passe local ne se
         réinitialise pas depuis le web. Sur le <b>serveur</b>, lance :</p>
-        <pre class="cmd" style="white-space:pre-wrap;text-align:left">cd /opt/multioutils/server && sudo bash deploy/reset_admin.sh</pre>
-        <p class="access-note">Un nouveau mot de passe est généré et affiché (ou
+        <div class="copie"><code>${e(RESET_CMD)}</code><button type="button" class="btn sm" data-copier="${e(RESET_CMD)}">${ic('copy', 's16')}Copier</button></div>
+        <p class="forgot-note">Un nouveau mot de passe est généré et affiché (ou
         passe-le en argument). L'entrée normale, elle, passe par <b>Cloudflare</b>.</p>
-        <a class="forgot-link" href="/login">← Retour</a>
-      </div>`,
-      { bodyClass: 'login-page' }
+        <a class="btn gh w" href="/login">${ic('chevl', 's18')}Retour à la connexion</a>
+      </div>`
     )
   );
 });
@@ -173,66 +180,60 @@ webRouter.get('/', gateway, (req, res) => {
     for (const tag of parseTags(row.tags)) tagSet.add(tag);
   }
 
-  const options = (values: Set<string>, current?: string): string =>
-    [...values]
-      .sort((a, b) => a.localeCompare(b))
-      .map(
-        (v) =>
-          `<option value="${e(v)}"${v === current ? ' selected' : ''}>${e(v)}</option>`
-      )
-      .join('');
-
-  const qs = (p: number): string => {
+  type Filters = typeof filters;
+  const qs = (p: number, without?: keyof Filters): string => {
     const params = new URLSearchParams();
-    if (filters.folder) params.set('folder', filters.folder);
-    if (filters.tag) params.set('tag', filters.tag);
-    if (filters.from) params.set('from', filters.from);
-    if (filters.to) params.set('to', filters.to);
-    params.set('page', String(p));
-    return `/?${params.toString()}`;
+    if (filters.folder && without !== 'folder') params.set('folder', filters.folder);
+    if (filters.tag && without !== 'tag') params.set('tag', filters.tag);
+    if (filters.from && without !== 'from') params.set('from', filters.from);
+    if (filters.to && without !== 'to') params.set('to', filters.to);
+    if (p > 1) params.set('page', String(p));
+    const s = params.toString();
+    return s ? `/?${s}` : '/';
   };
 
+  const actifs: Array<{ label: string; href: string }> = [];
+  if (filters.folder) actifs.push({ label: filters.folder, href: qs(1, 'folder') });
+  if (filters.tag) actifs.push({ label: `#${filters.tag}`, href: qs(1, 'tag') });
+  if (filters.from) actifs.push({ label: `Depuis le ${dateFr(filters.from)}`, href: qs(1, 'from') });
+  if (filters.to) actifs.push({ label: `Jusqu'au ${dateFr(filters.to)}`, href: qs(1, 'to') });
+
   const cards = items
-    .map(
-      (c) => `<a class="shot" href="/captures/${e(c.id)}">
-        <img src="/media/${e(c.id)}" alt="${e(c.filename)}" loading="lazy">
-        <div class="meta">
-          <div class="name">${e(c.filename)}</div>
-          <div class="muted">${e(c.created_at.slice(0, 16).replace('T', ' '))}${
-            c.folder ? ` · ${e(c.folder)}` : ''
-          }</div>
-          ${
-            parseTags(c.tags).length > 0
-              ? `<div class="tags">${parseTags(c.tags)
-                  .map((t) => `<span class="tag">${e(t)}</span>`)
-                  .join('')}</div>`
-              : ''
-          }
-        </div>
-      </a>`
-    )
+    .map((c) => {
+      const tags = parseTags(c.tags);
+      return `<a class="shot" href="/captures/${e(c.id)}">
+        <span class="shot-img"><img src="/media/${e(c.id)}" alt="${e(c.filename)}" loading="lazy"></span>
+        <span class="shot-meta">
+          <b class="shot-nom">${e(c.filename)}</b>
+          <span class="shot-sous">${dateFr(c.created_at)}${c.folder ? ` · ${e(c.folder)}` : ''}</span>
+          ${tags.length > 0 ? `<span class="shot-tags">${tags.map((t) => `<span class="etq">${e(t)}</span>`).join('')}</span>` : ''}
+        </span>
+      </a>`;
+    })
     .join('');
+
+  const champs = `${selectField('Dossier', 'folder', folderSet, filters.folder, 'Tous les dossiers')}
+    ${selectField('Étiquette', 'tag', tagSet, filters.tag, 'Toutes les étiquettes')}
+    <label class="filtre-champ"><span class="lbl">Depuis le</span><input class="input" type="date" name="from" value="${e(filters.from ?? '')}"></label>
+    <label class="filtre-champ"><span class="lbl">Jusqu'au</span><input class="input" type="date" name="to" value="${e(filters.to ?? '')}"></label>`;
+
+  const empty = actifs.length
+    ? `<div class="carte vide">${ic('filter')}<b>Aucune capture avec ces filtres</b><span>Essaie d'en retirer un, ou réinitialise.</span><a class="btn sm" href="/">Réinitialiser</a></div>`
+    : `<div class="carte vide">${ic('grid')}<b>Aucune capture pour l'instant</b><span>Envoie-en une depuis le logiciel (bouton « Envoyer au serveur »).</span></div>`;
 
   res.send(
     layout(
       'Galerie',
-      `<h1>Galerie <span class="muted" style="font-size:14px">${total} capture(s)</span></h1>
-      <form class="filters" method="get" action="/">
-        <select name="folder"><option value="">Tous les dossiers</option>${options(folderSet, filters.folder)}</select>
-        <select name="tag"><option value="">Tous les tags</option>${options(tagSet, filters.tag)}</select>
-        <input type="date" name="from" value="${e(filters.from ?? '')}">
-        <input type="date" name="to" value="${e(filters.to ?? '')}">
-        <button class="btn" type="submit">Filtrer</button>
-        <a class="btn" href="/">Réinitialiser</a>
-      </form>
-      ${items.length === 0 ? '<div class="gallery-empty">Aucune capture pour l’instant.<br>Envoie-en une depuis le logiciel (bouton « Envoyer au serveur »).</div>' : `<div class="grid">${cards}</div>`}
+      `<div class="page-h"><h1 class="page-t">Galerie<span class="n">${total}</span></h1></div>
+      ${filtersBlock({ id: 'filtres-galerie', action: '/', champs, resetHref: '/', actifs })}
+      ${items.length === 0 ? empty : `<div class="grille-captures">${cards}</div>`}
       ${
         pages > 1
-          ? `<div class="pager">
-              ${page > 1 ? `<a class="btn" href="${qs(page - 1)}">← Précédent</a>` : ''}
-              <span class="muted">Page ${page} / ${pages}</span>
-              ${page < pages ? `<a class="btn" href="${qs(page + 1)}">Suivant →</a>` : ''}
-            </div>`
+          ? `<nav class="pager" aria-label="Pages">
+              ${page > 1 ? `<a class="btn sm" href="${qs(page - 1)}">${ic('chevl', 's16')}Précédent</a>` : '<span></span>'}
+              <span class="pager-n">Page ${page} / ${pages}</span>
+              ${page < pages ? `<a class="btn sm" href="${qs(page + 1)}">Suivant${ic('chev', 's16')}</a>` : '<span></span>'}
+            </nav>`
           : ''
       }`,
       { nav: true, active: 'gallery' }
@@ -247,27 +248,40 @@ webRouter.get('/captures/:id', gateway, (req, res) => {
     .prepare('SELECT * FROM captures WHERE id = ?')
     .get(req.params.id) as ServerCapture | undefined;
   if (!c) {
-    res.status(404).send(layout('Introuvable', '<p class="error">Capture inconnue.</p><p><a href="/">← Retour</a></p>', { nav: true }));
+    res.status(404).send(
+      layout(
+        'Introuvable',
+        errorBlock({
+          titre: 'Capture introuvable',
+          texte: "Elle a peut-être été supprimée, ou le lien n'est plus valable.",
+          retour: { href: '/', label: 'Retour à la galerie' }
+        }),
+        { nav: true, active: 'gallery' }
+      )
+    );
     return;
   }
+  const tags = parseTags(c.tags);
   res.send(
     layout(
       c.filename,
-      `<p><a href="/">← Galerie</a></p>
-      <h1>${e(c.filename)}</h1>
-      <p class="muted">${e(c.created_at.slice(0, 16).replace('T', ' '))}
-        ${c.width && c.height ? ` · ${c.width}×${c.height}` : ''}
-        ${c.folder ? ` · dossier : ${e(c.folder)}` : ''}
-        ${parseTags(c.tags).length > 0 ? ` · tags : ${parseTags(c.tags).map(e).join(', ')}` : ''}
-      </p>
-      <div class="capture-actions">
-        <a class="btn btn-primary" href="/media/${e(c.id)}?download=1">Télécharger</a>
+      `<a class="btn sm gh retour" href="/">${ic('chevl', 's18')}Galerie</a>
+      <div class="page-h"><h1 class="page-t titre-long">${e(c.filename)}</h1></div>
+      <div class="chips infos">
+        <span class="chip">${ic('cal', 's16')}${dateFr(c.created_at)}</span>
+        ${c.width && c.height ? `<span class="chip">${ic('layers', 's16')}${c.width} × ${c.height}</span>` : ''}
+        ${c.folder ? `<a class="chip" href="/?folder=${encodeURIComponent(c.folder)}">${ic('lib', 's16')}${e(c.folder)}</a>` : ''}
+        ${tags.map((t) => `<a class="chip" href="/?tag=${encodeURIComponent(t)}">${ic('hash', 's16')}${e(t)}</a>`).join('')}
+      </div>
+      <div class="ligne actions">
+        <a class="btn pri" href="/media/${e(c.id)}?download=1" download>${ic('download', 's18')}Télécharger</a>
         <form method="post" action="/captures/${e(c.id)}/delete"
-              onsubmit="return confirm('Supprimer cette capture du serveur ?')">
-          <button class="btn btn-danger" type="submit">Supprimer</button>
+              data-confirmer="Cette capture sera supprimée du serveur. Le logiciel garde sa copie locale."
+              data-titre="Supprimer la capture ?" data-ok="Supprimer" data-danger>
+          <button class="btn dn" type="submit">${ic('trash', 's18')}Supprimer</button>
         </form>
       </div>
-      <div class="capture-view"><img src="/media/${e(c.id)}" alt="${e(c.filename)}"></div>`,
+      <div class="carte capture-view"><img src="/media/${e(c.id)}" alt="${e(c.filename)}"></div>`,
       { nav: true, active: 'gallery' }
     )
   );
@@ -304,7 +318,15 @@ function humanSize(bytes: number | null): string {
   if (!bytes) return '';
   if (bytes < 1024) return `${bytes} o`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+  return `${(bytes / (1024 * 1024)).toFixed(1).replace('.', ',')} Mo`;
+}
+
+/** Libellé et icône de la provenance d'un clip. */
+function sourceOf(source: string | null): { label: string; icone: string } {
+  if (source === 'iphone') return { label: 'iPhone', icone: 'share' };
+  if (source === 'ipad') return { label: 'iPad', icone: 'share' };
+  if (source === 'web') return { label: 'Site web', icone: 'cloud' };
+  return { label: 'Logiciel PC', icone: 'tv' };
 }
 
 webRouter.get('/clips', gateway, (req, res) => {
@@ -322,13 +344,6 @@ webRouter.get('/clips', gateway, (req, res) => {
     if (clip.folder) folderSet.add(clip.folder);
     for (const tag of parseTags(clip.tags)) tagSet.add(tag);
   }
-  const options = (values: Set<string>, current: string): string =>
-    [...values]
-      .sort((a, b) => a.localeCompare(b))
-      .map(
-        (v) => `<option value="${e(v)}"${v === current ? ' selected' : ''}>${e(v)}</option>`
-      )
-      .join('');
 
   const clips = all.filter((clip) => {
     if (filterFolder && clip.folder !== filterFolder) return false;
@@ -336,76 +351,82 @@ webRouter.get('/clips', gateway, (req, res) => {
     return true;
   });
 
+  const href = (folder: string, tag: string): string => {
+    const p = new URLSearchParams();
+    if (folder) p.set('folder', folder);
+    if (tag) p.set('tag', tag);
+    const s = p.toString();
+    return s ? `/clips?${s}` : '/clips';
+  };
+  const actifs: Array<{ label: string; href: string }> = [];
+  if (filterFolder) actifs.push({ label: filterFolder, href: href('', filterTag) });
+  if (filterTag) actifs.push({ label: `#${filterTag}`, href: href(filterFolder, '') });
+
   const rows = clips
     .map((clip) => {
-      const when = clip.created_at.slice(0, 16).replace('T', ' ');
-      const badge =
-        clip.source === 'iphone' || clip.source === 'ipad'
-          ? '📱'
-          : clip.source === 'web'
-            ? '🌐'
-            : '💻';
+      const src = sourceOf(clip.source);
       const tags = parseTags(clip.tags);
-      const organizeLine = [
-        clip.folder ? `📁 ${e(clip.folder)}` : '',
-        tags.length > 0
-          ? `<span class="tags">${tags.map((tg) => `<span class="tag">${e(tg)}</span>`).join('')}</span>`
-          : ''
-      ]
-        .filter(Boolean)
-        .join(' · ');
       const body =
         clip.kind === 'text'
           ? `<pre class="clip-text" data-clip>${e(clip.content ?? '')}</pre>
-             <div class="row-gap">
-               <button class="btn clip-copy" type="button" data-copy>Copier</button>
-               <button class="btn" type="button" data-expand>Agrandir</button>
+             <div class="ligne">
+               <button class="btn sm" type="button" data-copy>${ic('copy', 's16')}Copier</button>
+               <button class="btn sm gh" type="button" data-expand>${ic('external', 's16')}Agrandir</button>
              </div>`
           : clip.kind === 'image'
-            ? `<a href="/api/clips/${e(clip.id)}/raw" target="_blank">
-                 <img class="clip-img" src="/api/clips/${e(clip.id)}/raw" alt="${e(clip.filename ?? '')}" loading="lazy">
+            ? `<a class="clip-img" href="/api/clips/${e(clip.id)}/raw" target="_blank" rel="noopener">
+                 <img src="/api/clips/${e(clip.id)}/raw" alt="${e(clip.filename ?? '')}" loading="lazy">
                </a>`
-            : `<a class="btn clip-file" href="/api/clips/${e(clip.id)}/raw?download=1">
-                 📄 ${e(clip.filename ?? 'fichier')}${clip.size_bytes ? ` · ${humanSize(clip.size_bytes)}` : ''}
+            : `<a class="clip-file" href="/api/clips/${e(clip.id)}/raw?download=1">
+                 <span class="li-ic">${ic('download', 's18')}</span>
+                 <span class="tx"><b>${e(clip.filename ?? 'fichier')}</b><small>${clip.size_bytes ? humanSize(clip.size_bytes) : 'Fichier'} · toucher pour télécharger</small></span>
                </a>`;
-      return `<div class="card clip-card">
-        <div class="clip-head muted">${badge} ${e(when)}${clip.filename ? ` · ${e(clip.filename)}` : ''}${organizeLine ? ` · ${organizeLine}` : ''}</div>
+      return `<article class="carte clip">
+        <div class="clip-h">
+          <span class="li-ic">${ic(src.icone, 's18')}</span>
+          <span class="tx"><b>${src.label}</b><small>${dateFr(clip.created_at)}${clip.filename && clip.kind !== 'file' ? ` · ${e(clip.filename)}` : ''}</small></span>
+          <form method="post" action="/clips/${e(clip.id)}/delete" data-confirmer="Ce clip sera supprimé du serveur." data-titre="Supprimer le clip ?" data-ok="Supprimer" data-danger>
+            <button class="btn sm ico dn gh" type="submit" aria-label="Supprimer ce clip" title="Supprimer">${ic('trash', 's16')}</button>
+          </form>
+        </div>
         ${body}
-        <details class="clip-organize">
-          <summary class="muted">Dossier & tags</summary>
-          <form method="post" action="/clips/${e(clip.id)}/organize" class="row-gap">
-            <input type="text" name="folder" placeholder="Dossier (ex. Travail / Projet A)"
-                   value="${e(clip.folder ?? '')}">
-            <input type="text" name="tags" placeholder="Tags séparés par des virgules"
-                   value="${e(tags.join(', '))}">
-            <button class="btn" type="submit">Enregistrer</button>
+        ${
+          clip.folder || tags.length > 0
+            ? `<div class="clip-org-l">${clip.folder ? `<a class="etq" href="${e(href(clip.folder, ''))}">${ic('lib', 's16')}${e(clip.folder)}</a>` : ''}${tags
+                .map((tg) => `<a class="etq" href="${e(href('', tg))}">#${e(tg)}</a>`)
+                .join('')}</div>`
+            : ''
+        }
+        <details class="clip-org">
+          <summary>${ic('edit', 's16')}Dossier et étiquettes${ic('chevd', 's16 chev')}</summary>
+          <form method="post" action="/clips/${e(clip.id)}/organize" class="form" data-occupe>
+            <label><span class="lbl">Dossier</span><input class="input" type="text" name="folder" placeholder="Ex. : Travail / Projet A" value="${e(clip.folder ?? '')}"></label>
+            <label><span class="lbl">Étiquettes</span><input class="input" type="text" name="tags" placeholder="Séparées par des virgules" value="${e(tags.join(', '))}"></label>
+            <button class="btn sm pri" type="submit">${ic('check', 's16')}Enregistrer</button>
           </form>
         </details>
-        <form method="post" action="/clips/${e(clip.id)}/delete" class="clip-del"
-              onsubmit="return confirm('Supprimer ce clip ?')">
-          <button class="btn btn-danger" type="submit">Supprimer</button>
-        </form>
-      </div>`;
+      </article>`;
     })
     .join('');
+
+  const champs = `${selectField('Dossier', 'folder', folderSet, filterFolder, 'Tous les dossiers')}
+    ${selectField('Étiquette', 'tag', tagSet, filterTag, 'Toutes les étiquettes')}`;
+
+  const empty = actifs.length
+    ? `<div class="carte vide">${ic('filter')}<b>Aucun clip avec ces filtres</b><span>Essaie d'en retirer un, ou réinitialise.</span><a class="btn sm" href="/clips">Réinitialiser</a></div>`
+    : `<div class="carte vide">${ic('layers')}<b>Aucun clip pour l'instant</b><span>Dépose-en un, ou partage depuis ton iPhone (Raccourci « Envoyer à MultiOutils »).</span><a class="btn sm pri" href="/clips/deposer">${ic('upload', 's16')}Déposer un clip</a></div>`;
 
   res.send(
     layout(
       'Clips',
-      `<div class="gallery-toolbar-row">
-        <h1>Clips <span class="muted" style="font-size:14px">${clips.length} élément(s)</span></h1>
-        <a class="btn btn-primary" href="/clips/deposer">+ Déposer</a>
+      `<div class="page-h">
+        <h1 class="page-t">Clips<span class="n">${clips.length}</span></h1>
+        <a class="btn sm pri" href="/clips/deposer">${ic('plus', 's16')}Déposer</a>
       </div>
-      <p class="muted">Textes et photos partagés depuis ton iPhone (menu Partager),
+      <p class="intro-p">Textes et photos partagés depuis ton iPhone (menu Partager),
       la page Déposer ou le logiciel. Le logiciel PC les récupère automatiquement.</p>
-      <form class="filters" method="get" action="/clips">
-        <select name="folder"><option value="">Tous les dossiers</option>${options(folderSet, filterFolder)}</select>
-        <select name="tag"><option value="">Tous les tags</option>${options(tagSet, filterTag)}</select>
-        <button class="btn" type="submit">Filtrer</button>
-        <a class="btn" href="/clips">Réinitialiser</a>
-      </form>
-      ${clips.length === 0 ? '<div class="gallery-empty">Aucun clip pour l’instant.<br>Dépose-en un, ou partage depuis ton iPhone (Raccourci « Envoyer à MultiOutils »).</div>' : `<div class="clips-grid">${rows}</div>`}
-      <script src="/public/clips.js"></script>`,
+      ${filtersBlock({ id: 'filtres-clips', action: '/clips', champs, resetHref: '/clips', actifs })}
+      ${clips.length === 0 ? empty : `<div class="grille-clips">${rows}</div>`}`,
       { nav: true, active: 'clips' }
     )
   );
@@ -427,25 +448,25 @@ webRouter.get('/clips/deposer', gateway, (_req, res) => {
   res.send(
     layout(
       'Déposer',
-      `<p><a href="/clips">← Clips</a></p>
-      <h1>Déposer un clip</h1>
-      <div class="deposit-grid">
-        <form method="post" action="/clips/deposer" class="card deposit-card">
-          <h2>Texte</h2>
-          <textarea name="text" rows="6" placeholder="Colle ton texte ici…" required></textarea>
-          <button class="btn btn-primary" type="submit">Envoyer</button>
+      `<a class="btn sm gh retour" href="/clips">${ic('chevl', 's18')}Clips</a>
+      <div class="page-h"><h1 class="page-t">Déposer un clip</h1></div>
+      <div class="grille-depot">
+        <form method="post" action="/clips/deposer" class="carte depot form" data-occupe>
+          <h2 class="sec-t">${ic('type', 's18 acc')}Texte</h2>
+          <textarea class="input" name="text" rows="6" placeholder="Colle ton texte ici…" aria-label="Texte" required></textarea>
+          <button class="btn pri" type="submit">${ic('upload', 's18')}Envoyer</button>
         </form>
-        <form method="post" action="/clips/deposer" enctype="multipart/form-data" class="card deposit-card">
-          <h2>Photo ou fichier</h2>
-          <p class="muted">Images, PDF, documents… n'importe quel type.</p>
-          <input type="file" name="file" required>
-          <button class="btn btn-primary" type="submit">Envoyer</button>
-          <p class="muted deposit-max">Taille maximale : ${getMaxUploadMb()} Mo.</p>
+        <form method="post" action="/clips/deposer" enctype="multipart/form-data" class="carte depot form" data-occupe>
+          <h2 class="sec-t">${ic('download', 's18 acc')}Photo ou fichier</h2>
+          <p class="muted petit">Images, PDF, documents… n'importe quel type.</p>
+          <input class="input fichier" type="file" name="file" aria-label="Fichier" required>
+          <button class="btn pri" type="submit">${ic('upload', 's18')}Envoyer</button>
+          <p class="muted petit">Taille maximale : ${getMaxUploadMb()} Mo.</p>
         </form>
       </div>
-      <p class="muted">Astuce : depuis l'iPhone, le Raccourci « Envoyer à MultiOutils »
-      fait la même chose directement depuis le menu Partager (voir le guide dans la doc).</p>`,
-      { nav: true, active: 'clips' }
+      <p class="intro-p astuce">${ic('info', 's16')}<span>Astuce : depuis l'iPhone, le Raccourci « Envoyer à MultiOutils »
+      fait la même chose directement depuis le menu Partager (voir le guide dans la doc).</span></p>`,
+      { nav: true, active: 'deposer' }
     )
   );
 });
@@ -453,15 +474,17 @@ webRouter.get('/clips/deposer', gateway, (_req, res) => {
 webRouter.post('/clips/deposer', gateway, clipUpload.single('file'), (req, res) => {
   if (req.file) {
     if (rejectIfTooLarge(req.file)) {
-      res
-        .status(413)
-        .send(
-          layout(
-            'Erreur',
-            `<p class="error">Fichier trop volumineux (limite : ${getMaxUploadMb()} Mo).</p><p><a href="/clips/deposer">← Réessayer</a></p>`,
-            { nav: true, active: 'clips' }
-          )
-        );
+      res.status(413).send(
+        layout(
+          'Fichier trop volumineux',
+          errorBlock({
+            titre: 'Fichier trop volumineux',
+            texte: `La limite est de ${getMaxUploadMb()} Mo. Elle se règle dans Réglages → Taille maximale d'envoi.`,
+            retour: { href: '/clips/deposer', label: 'Réessayer' }
+          }),
+          { nav: true, active: 'deposer' }
+        )
+      );
       return;
     }
     // Types connus décodables en miniature côté app → 'image' ; sinon 'file'.

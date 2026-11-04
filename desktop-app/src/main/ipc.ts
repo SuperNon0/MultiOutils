@@ -2,7 +2,7 @@ import { app, clipboard, dialog, ipcMain, screen } from 'electron';
 import fs from 'node:fs';
 import type { AppSettings, DisplayInfo, ShortcutStatus } from '../common/types';
 import type { MainHostContext } from './module-registry';
-import { getMainWindow, setCloseToTray } from './windows';
+import { applyAppearance, getMainWindow, setCloseToTray } from './windows';
 
 /**
  * Applique un patch de réglages + tous ses effets de bord (démarrage auto,
@@ -35,6 +35,9 @@ export function applySettings(
   }
   if (patch.closeToTray != null) {
     setCloseToTray(next.closeToTray);
+  }
+  if (patch.appearance) {
+    applyAppearance(next.appearance);
   }
   if (patch.delayedSeconds != null || patch.shortcuts) {
     ctx.events.emit('tray-refresh'); // libellés / accélérateurs affichés

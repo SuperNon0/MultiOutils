@@ -28,7 +28,7 @@ export function PropertiesPanel({ tool, selected, style, onChange }: Props): Rea
 
   return (
     <aside className="editor-props">
-      <h3>{t('editor.props.title')}</h3>
+      <div className="lbl-mono">{t('editor.props.title')}</div>
 
       {showStroke && (
         <ColorField
@@ -61,9 +61,10 @@ export function PropertiesPanel({ tool, selected, style, onChange }: Props): Rea
 
       {showFill && (
         <>
-          <label className="check-row">
+          <label className="prop-sw">
             <input
               type="checkbox"
+              className="sw"
               checked={style.fillOn}
               onChange={(e) => onChange({ fillOn: e.target.checked })}
             />
@@ -94,7 +95,7 @@ export function PropertiesPanel({ tool, selected, style, onChange }: Props): Rea
           <div className="prop-block">
             <div className="prop-label">{t('editor.props.font')}</div>
             <select
-              className="select prop-wide"
+              className="select sm prop-wide"
               value={style.fontFamily}
               onChange={(e) => onChange({ fontFamily: e.target.value })}
             >
@@ -115,30 +116,32 @@ export function PropertiesPanel({ tool, selected, style, onChange }: Props): Rea
           <div className="prop-block prop-inline">
             <button
               type="button"
-              className={`btn text-style-btn${style.bold ? ' btn-primary' : ''}`}
+              className={`btn sm ico text-style-btn${style.bold ? ' pri' : ''}`}
               onClick={() => onChange({ bold: !style.bold })}
             >
               B
             </button>
             <button
               type="button"
-              className={`btn text-style-btn italic${style.italic ? ' btn-primary' : ''}`}
+              className={`btn sm ico text-style-btn italic${style.italic ? ' pri' : ''}`}
               onClick={() => onChange({ italic: !style.italic })}
             >
               I
             </button>
           </div>
-          <label className="check-row">
+          <label className="prop-sw">
             <input
               type="checkbox"
+              className="sw"
               checked={style.textStrokeOn}
               onChange={(e) => onChange({ textStrokeOn: e.target.checked })}
             />
             <span>{t('editor.props.textStroke')}</span>
           </label>
-          <label className="check-row">
+          <label className="prop-sw">
             <input
               type="checkbox"
+              className="sw"
               checked={style.textBackgroundOn}
               onChange={(e) => onChange({ textBackgroundOn: e.target.checked })}
             />
@@ -152,7 +155,7 @@ export function PropertiesPanel({ tool, selected, style, onChange }: Props): Rea
           <div className="prop-block">
             <div className="prop-label">{t('editor.props.blurMode')}</div>
             <select
-              className="select prop-wide"
+              className="select sm prop-wide"
               value={style.blurMode}
               onChange={(e) =>
                 onChange({ blurMode: e.target.value as StyleState['blurMode'] })
@@ -173,7 +176,7 @@ export function PropertiesPanel({ tool, selected, style, onChange }: Props): Rea
       )}
 
       {selected && (
-        <p className="muted prop-hint">{t('editor.props.editingSelection')}</p>
+        <p className="muted petit prop-hint">{t('editor.props.editingSelection')}</p>
       )}
     </aside>
   );

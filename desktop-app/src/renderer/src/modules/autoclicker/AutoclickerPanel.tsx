@@ -40,9 +40,9 @@ function MouseGraphic({
   onPick(b: AutoclickButton): void;
 }): ReactNode {
   const fill = (b: AutoclickButton): string =>
-    value === b ? 'var(--accent)' : 'var(--surface)';
+    value === b ? 'var(--accent)' : 'var(--card)';
   const text = (b: AutoclickButton): string =>
-    value === b ? '#0e0f11' : 'var(--muted)';
+    value === b ? 'var(--ink)' : 'var(--muted)';
   return (
     <div className={`ac-mouse${running ? ' running' : ''}`}>
       <svg viewBox="0 0 200 300" width="280" height="420" role="group">
@@ -50,7 +50,7 @@ function MouseGraphic({
         <path
           d="M100 10 C152 10 186 52 186 112 L186 196 C186 258 152 290 100 290 C48 290 14 258 14 196 L14 112 C14 52 48 10 100 10 Z"
           fill="none"
-          stroke="var(--border)"
+          stroke="var(--line2)"
           strokeWidth="4"
         />
         {/* bouton gauche */}
@@ -76,7 +76,7 @@ function MouseGraphic({
           height="70"
           rx="12"
           fill={fill('middle')}
-          stroke="var(--border)"
+          stroke="var(--line2)"
           strokeWidth="2"
           onClick={() => onPick('middle')}
         />
@@ -103,12 +103,13 @@ function Segmented<T extends string>({
   onChange(v: T): void;
 }): ReactNode {
   return (
-    <div className="ac-seg">
+    <div className="seg ac-seg">
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
-          className={`ac-seg-btn${value === o.value ? ' active' : ''}`}
+          aria-pressed={value === o.value}
+          className={value === o.value ? 'on' : ''}
           onClick={() => onChange(o.value)}
         >
           {o.label}
@@ -188,10 +189,15 @@ export function AutoclickerPanel(): ReactNode {
 
   return (
     <div className="panel ac-panel">
-      <header className="panel-header">
-        <h2>{t('autoclick.title')}</h2>
-        {!state.available && <div className="ac-warn">{t('autoclick.unavailable')}</div>}
-      </header>
+      <div className="page-h">
+        <h1 className="page-t">{t('autoclick.title')}</h1>
+      </div>
+      {!state.available && (
+        <div className="bandeau-c ac-warn">
+          <Icon name="alert" />
+          <span>{t('autoclick.unavailable')}</span>
+        </div>
+      )}
 
       <div className="ac-layout">
         {/* ── Colonne profils ─────────────────────────────────────────── */}
@@ -200,14 +206,14 @@ export function AutoclickerPanel(): ReactNode {
             <span className="ac-profiles-title">{t('autoclick.profiles')}</span>
             <button
               type="button"
-              className="btn btn-icon"
+              className="btn sm ico"
               title={t('autoclick.newProfile')}
               aria-label={t('autoclick.newProfile')}
               onClick={() =>
                 void window.api.autoclicker.createProfile().then((r) => setStore(r.store))
               }
             >
-              <Icon name="plus" size={16} />
+              <Icon name="plus" size={18} />
             </button>
           </div>
           <div className="ac-profile-list">
@@ -217,7 +223,7 @@ export function AutoclickerPanel(): ReactNode {
                 <button
                   key={p.id}
                   type="button"
-                  className={`ac-profile-card card${p.id === selected?.id ? ' active' : ''}`}
+                  className={`ac-profile-card${p.id === selected?.id ? ' active' : ''}`}
                   onClick={() => void window.api.autoclicker.setSelected(p.id).then(setStore)}
                 >
                   <span className={`ac-dot${isRunning ? ' on' : ''}`} />
@@ -237,7 +243,7 @@ export function AutoclickerPanel(): ReactNode {
           <section className="ac-editor">
             <div className="ac-editor-top">
               <input
-                className="input ac-name"
+                className="input ac-name ttl"
                 value={selected.name}
                 aria-label={t('autoclick.name')}
                 onChange={(e) => patchSelected({ name: e.target.value })}
@@ -245,7 +251,7 @@ export function AutoclickerPanel(): ReactNode {
               <div className="ac-editor-actions">
                 <button
                   type="button"
-                  className="btn btn-icon"
+                  className="btn sm ico"
                   title={t('autoclick.duplicate')}
                   aria-label={t('autoclick.duplicate')}
                   onClick={() =>
@@ -254,11 +260,11 @@ export function AutoclickerPanel(): ReactNode {
                       .then((r) => setStore(r.store))
                   }
                 >
-                  <Icon name="copy" size={15} />
+                  <Icon name="copy" size={18} />
                 </button>
                 <button
                   type="button"
-                  className="btn btn-icon ac-del"
+                  className="btn dn sm ico ac-del"
                   title={t('autoclick.delete')}
                   aria-label={t('autoclick.delete')}
                   disabled={store.profiles.length <= 1}
@@ -266,7 +272,7 @@ export function AutoclickerPanel(): ReactNode {
                     void window.api.autoclicker.deleteProfile(selected.id).then(setStore)
                   }
                 >
-                  <Icon name="trash" size={15} />
+                  <Icon name="trash" size={18} />
                 </button>
               </div>
             </div>
@@ -284,13 +290,13 @@ export function AutoclickerPanel(): ReactNode {
                 </div>
                 <button
                   type="button"
-                  className={`btn ${running ? 'ac-stop' : 'btn-primary'} ac-toggle`}
+                  className={`btn ${running ? 'dn plein' : 'pri'} ac-toggle`}
                   disabled={!state.available}
                   onClick={() => void window.api.autoclicker.toggle(selected.id)}
                 >
                   <Icon name={running ? 'close' : 'cursor'} />
                   {running ? t('autoclick.stop') : t('autoclick.start')}
-                  {store.shortcut && <span className="ac-kbd">{store.shortcut}</span>}
+                  {store.shortcut && <span className="kbd ac-kbd">{store.shortcut}</span>}
                 </button>
                 {running && (
                   <div className="ac-live">
@@ -377,7 +383,7 @@ export function AutoclickerPanel(): ReactNode {
                   <div className="ac-repeat">
                     <button
                       type="button"
-                      className={`btn ac-shortcut${capturing ? ' ac-capturing' : ''}`}
+                      className={`btn sm ac-shortcut${capturing ? ' ac-capturing' : ''}`}
                       onClick={() => setCapturing((c) => !c)}
                     >
                       {capturing
@@ -387,17 +393,17 @@ export function AutoclickerPanel(): ReactNode {
                     {store.shortcut && !capturing && (
                       <button
                         type="button"
-                        className="btn btn-icon"
+                        className="btn gh sm ico"
                         title={t('autoclick.clearShortcut')}
                         onClick={() => void window.api.autoclicker.setShortcut('').then(setStore)}
                       >
-                        <Icon name="close" size={14} />
+                        <Icon name="close" size={18} />
                       </button>
                     )}
                   </div>
                 </div>
 
-                <div className="capture-hint muted">{t('autoclick.streamdeckHint')}</div>
+                <p className="muted petit ac-hint">{t('autoclick.streamdeckHint')}</p>
               </div>
             </div>
           </section>

@@ -3,6 +3,9 @@ import type { AppSettings, Language } from '../../../common/types';
 import { useI18n } from '../i18n';
 import { displayAccelerator } from '../lib/format';
 import { Icon } from './Icon';
+import { RegLigne, RegSec, RegSwitch } from './reglages';
+import { AppearanceSection } from './SettingsView';
+import { Brand } from './Sidebar';
 
 interface Props {
   settings: AppSettings;
@@ -10,8 +13,14 @@ interface Props {
 }
 
 const STEPS = ['language', 'folder', 'shortcuts', 'autostart'] as const;
+const STEP_ICONS: Record<(typeof STEPS)[number], string> = {
+  language: 'palette',
+  folder: 'folder',
+  shortcuts: 'keyboard',
+  autostart: 'zap'
+};
 
-/** Assistant de première utilisation (docs/02 §2.3). */
+/** Assistant de première utilisation (docs/02 §2.3), en carte « encre ». */
 export function FirstRunWizard({ settings, onDone }: Props): ReactNode {
   const { t, lang } = useI18n();
   const [step, setStep] = useState(0);
@@ -38,134 +47,122 @@ export function FirstRunWizard({ settings, onDone }: Props): ReactNode {
   const current = STEPS[step];
 
   return (
-    <div className="wizard-veil">
-      <div className="wizard card">
-        <h1>
-          {t('wizard.title').replace('MultiOutils', '')}
-          Multi<span className="accent">Outils</span>
-        </h1>
-        <p className="muted">{t('wizard.subtitle')}</p>
+    <div className="login-page assistant">
+      <div className="login-card onboarding-card">
+        <div className="login-logo">
+          <Brand />
+        </div>
+        <span className="badge">
+          {step + 1} / {STEPS.length}
+        </span>
+        <h1 className="h-acces">{t('wizard.title')}</h1>
+        <p className="onb-intro">{t('wizard.subtitle')}</p>
 
-        <div className="wizard-dots" aria-hidden="true">
-          {STEPS.map((s, i) => (
-            <span key={s} className={`dot${i === step ? ' active' : ''}${i < step ? ' done' : ''}`} />
-          ))}
+        <div className="pg acc" aria-hidden="true">
+          <i style={{ width: `${((step + 1) / STEPS.length) * 100}%` }} />
         </div>
 
-        <div className="wizard-step">
-          <h3>{t(`wizard.step.${current}`)}</h3>
+        <div className="onb-steps" key={current}>
+          <h2 className="sub-title">
+            <Icon name={STEP_ICONS[current]} size={22} className="acc" />
+            {t(`wizard.step.${current}`)}
+          </h2>
 
           {current === 'language' && (
-            <div>
-              <div className="setting-row">
-                <span>{t('settings.general.language')}</span>
-                <select
-                  className="select"
-                  value={settings.language}
-                  onChange={(e) =>
-                    void onDone({ language: e.target.value as Language })
-                  }
-                >
-                  <option value="fr">Français</option>
-                  <option value="en">English</option>
-                </select>
-              </div>
-              <div className="setting-row">
-                <span>
-                  {t('settings.general.theme')}
-                  <div className="check-note">{t('settings.general.themeNote')}</div>
-                </span>
-                <select className="select" value="dark" disabled>
-                  <option value="dark">{t('settings.general.theme.dark')}</option>
-                </select>
-              </div>
-            </div>
+            <>
+              <RegSec>
+                <RegLigne titre={t('settings.general.language')}>
+                  <select
+                    className="select reg-select"
+                    value={settings.language}
+                    onChange={(e) => void onDone({ language: e.target.value as Language })}
+                  >
+                    <option value="fr">Français</option>
+                    <option value="en">English</option>
+                  </select>
+                </RegLigne>
+              </RegSec>
+              <AppearanceSection settings={settings} update={onDone} />
+            </>
           )}
 
           {current === 'folder' && (
-            <div>
-              <p className="section-note">{t('wizard.folder.help')}</p>
-              <div className="field-row">
-                <code className="storage-path" title={storageDir}>
-                  {storageDir}
-                </code>
-                <button type="button" className="btn" onClick={() => void chooseFolder()}>
+            <>
+              <p className="soft">{t('wizard.folder.help')}</p>
+              <div className="copie">
+                <code title={storageDir}>{storageDir}</code>
+                <button type="button" className="btn sm" onClick={() => void chooseFolder()}>
+                  <Icon name="folder" />
                   {t('settings.storage.change')}
                 </button>
               </div>
-            </div>
+            </>
           )}
 
           {current === 'shortcuts' && (
-            <div>
-              <p className="section-note">{t('wizard.shortcuts.help')}</p>
-              {(
-                ['fullscreen', 'region', 'window', 'delayed'] as const
-              ).map((id) => (
-                <div key={id} className="setting-row">
-                  <span>{t(`settings.shortcuts.${id}`)}</span>
-                  <span className="kbd">
-                    {displayAccelerator(settings.shortcuts[id], lang)}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <>
+              <p className="soft">{t('wizard.shortcuts.help')}</p>
+              <RegSec>
+                {(['fullscreen', 'region', 'window', 'delayed'] as const).map((id) => (
+                  <RegLigne key={id} titre={t(`settings.shortcuts.${id}`)}>
+                    <span className="kbd">{displayAccelerator(settings.shortcuts[id], lang)}</span>
+                  </RegLigne>
+                ))}
+              </RegSec>
+            </>
           )}
 
           {current === 'autostart' && (
-            <div>
-              <p className="section-note">{t('wizard.autostart.help')}</p>
-              <label className="check-row">
-                <input
-                  type="checkbox"
+            <>
+              <p className="soft">{t('wizard.autostart.help')}</p>
+              <RegSec>
+                <RegSwitch
+                  titre={t('settings.general.autostart')}
                   checked={autostart}
-                  onChange={(e) => setAutostart(e.target.checked)}
+                  onChange={setAutostart}
                 />
-                <span>{t('settings.general.autostart')}</span>
-              </label>
-              <label className="check-row check-row-indent">
-                <input
-                  type="checkbox"
+                <RegSwitch
+                  titre={t('settings.general.startMinimized')}
                   checked={startMinimized}
                   disabled={!autostart}
-                  onChange={(e) => setStartMinimized(e.target.checked)}
+                  onChange={setStartMinimized}
                 />
-                <span>{t('settings.general.startMinimized')}</span>
-              </label>
-              <p className="muted wizard-tray-note">
-                <Icon name="check" /> {t('wizard.trayNote')}
+              </RegSec>
+              <p className="statut ok">
+                <Icon name="check" size={16} /> {t('wizard.trayNote')}
               </p>
-            </div>
+            </>
           )}
         </div>
 
-        <div className="wizard-footer">
-          <button
-            type="button"
-            className="btn"
-            disabled={step === 0}
-            onClick={() => setStep((s) => Math.max(0, s - 1))}
-          >
-            {t('wizard.back')}
-          </button>
-          {step < STEPS.length - 1 ? (
+        <div className="conf">
+          <div className="bts">
             <button
               type="button"
-              className="btn btn-primary"
-              onClick={() => setStep((s) => s + 1)}
+              className="btn"
+              disabled={step === 0}
+              onClick={() => setStep((s) => Math.max(0, s - 1))}
             >
-              {t('wizard.next')}
+              <Icon name="chevl" />
+              {t('wizard.back')}
             </button>
-          ) : (
-            <button
-              type="button"
-              className="btn btn-primary"
-              disabled={finishing}
-              onClick={() => void finish()}
-            >
-              {t('wizard.done')}
-            </button>
-          )}
+            {step < STEPS.length - 1 ? (
+              <button type="button" className="btn pri" onClick={() => setStep((s) => s + 1)}>
+                {t('wizard.next')}
+                <Icon name="chev" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={`btn pri${finishing ? ' occupe' : ''}`}
+                disabled={finishing}
+                onClick={() => void finish()}
+              >
+                <Icon name="check" />
+                {t('wizard.done')}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

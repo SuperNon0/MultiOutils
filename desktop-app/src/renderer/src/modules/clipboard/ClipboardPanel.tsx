@@ -7,7 +7,9 @@ import {
 } from 'react';
 import type { Folder, Tag } from '@multioutils/shared';
 import type { ClipItem, ClipsSettings } from '../../../../common/types';
+import { Feuille } from '../../host/Feuille';
 import { Icon } from '../../host/Icon';
+import { RegLigne, RegSec, RegSwitch } from '../../host/reglages';
 import { useI18n, type TFunc } from '../../i18n';
 import { ClipsSidebar, type ClipSource } from './ClipsSidebar';
 
@@ -67,46 +69,26 @@ function flattenFolders(folders: Folder[]): Array<{ id: string; label: string }>
 function ClipTextModal({ item, onClose }: { item: ClipItem; onClose: () => void }): ReactNode {
   const { t } = useI18n();
 
-  useEffect(() => {
-    const onKey = (event: globalThis.KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   return (
-    <div className="modal-veil" onClick={onClose}>
-      <div className="modal clip-text-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="preview-head">
-          <div>
-            <div className="shot-name">{t('clips.fullTextTitle')}</div>
-            <div className="muted">{timeLabel(item.createdAt)}</div>
-          </div>
-          <div className="preview-actions">
-            <button
-              type="button"
-              className="btn"
-              onClick={() => void window.api.clips.copy(item.id)}
-            >
-              <Icon name="copy" />
-              {t('clips.copyAll')}
-            </button>
-            <button
-              type="button"
-              className="btn btn-icon"
-              aria-label={t('common.close')}
-              onClick={onClose}
-            >
-              <Icon name="close" />
-            </button>
-          </div>
-        </div>
-        <div className="clip-text-modal-body">
-          <textarea className="clip-text-full" readOnly value={item.content ?? ''} />
-        </div>
-      </div>
-    </div>
+    <Feuille
+      large
+      className="clip-text-modal"
+      onClose={onClose}
+      titre={
+        <span className="apercu-t">
+          <span className="apercu-nom">{t('clips.fullTextTitle')}</span>
+          <span className="apercu-sous">{timeLabel(item.createdAt)}</span>
+        </span>
+      }
+      actions={
+        <button type="button" className="btn sm" onClick={() => void window.api.clips.copy(item.id)}>
+          <Icon name="copy" size={16} />
+          {t('clips.copyAll')}
+        </button>
+      }
+    >
+      <textarea className="input clip-text-full" readOnly value={item.content ?? ''} />
+    </Feuille>
   );
 }
 
@@ -202,14 +184,15 @@ export function ClipboardPanel(): ReactNode {
 
   return (
     <div className="panel">
-      <header className="panel-header">
-        <h2>{t('clips.title')}</h2>
-        <div className="capture-bar">
+      <div className="page-h">
+        <h1 className="page-t">{t('clips.title')}</h1>
+        <div className="ligne capture-bar">
           <button
             type="button"
-            className={enabled ? 'btn' : 'btn btn-primary'}
+            className={enabled ? 'btn' : 'btn pri'}
             onClick={() => void toggleEnabled()}
           >
+            <Icon name={enabled ? 'minus' : 'play'} />
             {enabled ? t('clips.pause') : t('clips.resume')}
           </button>
           <button
@@ -218,7 +201,7 @@ export function ClipboardPanel(): ReactNode {
             onClick={() => void window.api.clips.syncNow().then(() => refresh())}
             title={t('clips.syncTooltip')}
           >
-            <Icon name="restore" />
+            <Icon name="sync" />
             {t('clips.sync')}
           </button>
           <button
@@ -242,8 +225,8 @@ export function ClipboardPanel(): ReactNode {
             </button>
           )}
         </div>
-        <div className="capture-hint muted">{t('clips.help')}</div>
-      </header>
+      </div>
+      <p className="intro-p">{t('clips.help')}</p>
 
       <section className="gallery gallery-with-sidebar">
         <ClipsSidebar
@@ -270,37 +253,41 @@ export function ClipboardPanel(): ReactNode {
           onDrop={(e) => void handleDrop(e)}
         >
           <div className="gallery-toolbar">
-            <input
-              className="input gallery-search"
-              type="search"
-              placeholder={t('clips.search')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <span className="muted gallery-count">
+            <label className="champ gallery-search">
+              <Icon name="search" />
+              <input
+                type="search"
+                placeholder={t('clips.search')}
+                aria-label={t('clips.search')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </label>
+            <span className="gallery-count mono">
               {t('clips.count', { n: visible.length })}
             </span>
             <div className="gallery-toolbar-right">
               <button
                 type="button"
-                className="btn"
+                className="btn sm gh"
                 onClick={() => void window.api.clips.clearUnpinned()}
                 title={t('clips.clearTooltip')}
               >
-                <Icon name="trash" size={13} />
+                <Icon name="trash" size={16} />
                 {t('clips.clear')}
               </button>
             </div>
           </div>
 
           {visible.length === 0 ? (
-            <div className="gallery-empty muted">
-              {items.length === 0 ? t('clips.empty') : t('clips.noMatch')}
+            <div className="vide gallery-empty">
+              <Icon name={items.length === 0 ? 'clipboard' : 'search'} />
+              <span>{items.length === 0 ? t('clips.empty') : t('clips.noMatch')}</span>
             </div>
           ) : (
-            <div className="clips-list">
+            <div className="clips-list anim-in">
               {visible.map((item) => (
-                <div key={item.id} className={`clip-row card${item.pinned ? ' pinned' : ''}`}>
+                <div key={item.id} className={`clip-row carte${item.pinned ? ' pinned' : ''}`}>
                   <div className="clip-body">
                     <button
                       type="button"
@@ -330,18 +317,18 @@ export function ClipboardPanel(): ReactNode {
                       <span className="clip-meta muted">
                         {item.source === 'remote' && (
                           <span className="clip-badge" title={t('clips.fromPhone')}>
-                            <Icon name="phone" size={12} />
+                            <Icon name="phone" size={14} />
                           </span>
                         )}
                         {item.remoteId && item.source === 'local' && (
                           <span className="clip-badge clip-badge-sent" title={t('clips.sentTooltip')}>
-                            <Icon name="send" size={11} /> {t('clips.sentBadge')}
+                            <Icon name="send" size={14} /> {t('clips.sentBadge')}
                           </span>
                         )}
                         {timeLabel(item.createdAt)}
                         {folderName(item.folderId) && (
                           <span className="clip-folder">
-                            <Icon name="folder" size={11} /> {folderName(item.folderId)}
+                            <Icon name="folder" size={14} /> {folderName(item.folderId)}
                           </span>
                         )}
                         {item.tagIds.length > 0 && (
@@ -366,7 +353,7 @@ export function ClipboardPanel(): ReactNode {
                     {editingId === item.id && (
                       <div className="clip-organize">
                         <select
-                          className="select"
+                          className="select sm"
                           value={item.folderId ?? ''}
                           aria-label={t('clips.folder')}
                           onChange={(e) =>
@@ -382,7 +369,7 @@ export function ClipboardPanel(): ReactNode {
                             </option>
                           ))}
                         </select>
-                        <div className="clip-tag-picker">
+                        <div className="chips clip-tag-picker">
                           {tags.length === 0 ? (
                             <span className="muted">{t('clips.noTagsYet')}</span>
                           ) : (
@@ -390,7 +377,7 @@ export function ClipboardPanel(): ReactNode {
                               <button
                                 key={tag.id}
                                 type="button"
-                                className={`clip-tag-choice${item.tagIds.includes(tag.id) ? ' on' : ''}`}
+                                className={`chip${item.tagIds.includes(tag.id) ? ' on' : ''}`}
                                 onClick={() => void toggleTag(item, tag.id)}
                               >
                                 {tag.name}
@@ -406,7 +393,7 @@ export function ClipboardPanel(): ReactNode {
                     {item.kind === 'text' && (
                       <button
                         type="button"
-                        className="btn btn-icon"
+                        className="ib"
                         title={t('clips.viewFull')}
                         onClick={() => setViewingItem(item)}
                       >
@@ -416,7 +403,7 @@ export function ClipboardPanel(): ReactNode {
                     {item.kind === 'file' && (
                       <button
                         type="button"
-                        className="btn btn-icon"
+                        className="ib"
                         title={t('clips.reveal')}
                         onClick={() => void window.api.clips.reveal(item.id)}
                       >
@@ -425,7 +412,7 @@ export function ClipboardPanel(): ReactNode {
                     )}
                     <button
                       type="button"
-                      className={`btn btn-icon${editingId === item.id ? ' active' : ''}`}
+                      className={`ib${editingId === item.id ? ' on' : ''}`}
                       title={t('clips.organize')}
                       onClick={() => setEditingId(editingId === item.id ? null : item.id)}
                     >
@@ -433,7 +420,7 @@ export function ClipboardPanel(): ReactNode {
                     </button>
                     <button
                       type="button"
-                      className={`btn btn-icon${item.pinned ? ' active' : ''}`}
+                      className={`ib${item.pinned ? ' on' : ''}`}
                       title={item.pinned ? t('clips.unpin') : t('clips.pin')}
                       onClick={() => void window.api.clips.pin(item.id, !item.pinned)}
                     >
@@ -441,7 +428,7 @@ export function ClipboardPanel(): ReactNode {
                     </button>
                     <button
                       type="button"
-                      className="btn btn-icon"
+                      className="ib"
                       title={t('clips.send')}
                       onClick={() => void window.api.clips.send(item.id)}
                     >
@@ -449,7 +436,7 @@ export function ClipboardPanel(): ReactNode {
                     </button>
                     <button
                       type="button"
-                      className="btn btn-icon"
+                      className="ib"
                       title={t('clips.delete')}
                       onClick={() => void window.api.clips.remove(item.id)}
                     >
@@ -487,37 +474,32 @@ export function ClipboardSettings(): ReactNode {
 
   return (
     <>
-      <div className="setting-row">
-        <span>{t('clips.settings.enabled')}</span>
-        <input
-          type="checkbox"
+      <RegSec>
+        <RegSwitch
+          titre={t('clips.settings.enabled')}
           checked={settings.enabled}
-          onChange={(e) => void update({ enabled: e.target.checked })}
+          onChange={(v) => void update({ enabled: v })}
         />
-      </div>
-      <div className="setting-row">
-        <span>{t('clips.settings.retention')}</span>
-        <select
-          className="select"
-          value={settings.retentionHours}
-          onChange={(e) => void update({ retentionHours: Number(e.target.value) })}
-        >
-          {RETENTION_CHOICES.map((hours) => (
-            <option key={hours} value={hours}>
-              {retentionLabel(hours, t)}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div className="setting-row">
-        <span>{t('clips.settings.sync')}</span>
-        <input
-          type="checkbox"
+        <RegLigne titre={t('clips.settings.retention')}>
+          <select
+            className="select reg-select"
+            value={settings.retentionHours}
+            onChange={(e) => void update({ retentionHours: Number(e.target.value) })}
+          >
+            {RETENTION_CHOICES.map((hours) => (
+              <option key={hours} value={hours}>
+                {retentionLabel(hours, t)}
+              </option>
+            ))}
+          </select>
+        </RegLigne>
+        <RegSwitch
+          titre={t('clips.settings.sync')}
           checked={settings.sync}
-          onChange={(e) => void update({ sync: e.target.checked })}
+          onChange={(v) => void update({ sync: v })}
         />
-      </div>
-      <div className="setting-hint muted">{t('clips.settings.hint')}</div>
+      </RegSec>
+      <p className="muted petit reg-note">{t('clips.settings.hint')}</p>
     </>
   );
 }

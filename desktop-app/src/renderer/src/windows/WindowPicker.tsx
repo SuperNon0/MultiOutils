@@ -22,23 +22,33 @@ export function WindowPicker(): ReactNode {
 
   return (
     <div className="picker-root">
-      <header className="picker-head">
-        <h2>{t('picker.title')}</h2>
-        <button type="button" className="btn" onClick={() => window.api.picker.cancel()}>
-          <Icon name="close" size={13} />
+      <header className="page-h picker-head">
+        <h1 className="page-t">{t('picker.title')}</h1>
+        <span className="kbd">{t('palette.esc')}</span>
+        <button type="button" className="btn sm" onClick={() => window.api.picker.cancel()}>
+          <Icon name="close" size={16} />
           {t('picker.cancel')}
         </button>
       </header>
 
-      {items && items.length === 0 ? (
-        <div className="gallery-empty muted">{t('picker.empty')}</div>
-      ) : (
+      {items === null ? (
         <div className="picker-grid">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="sk picker-sk" />
+          ))}
+        </div>
+      ) : items.length === 0 ? (
+        <div className="vide">
+          <Icon name="window" />
+          <span>{t('picker.empty')}</span>
+        </div>
+      ) : (
+        <div className="picker-grid anim-in">
           {(items ?? []).map((item) => (
             <button
               key={item.id}
               type="button"
-              className="picker-item card"
+              className="picker-item"
               onClick={() => window.api.picker.pick(item.id)}
             >
               <div className="picker-thumb">

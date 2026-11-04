@@ -29,6 +29,18 @@ export class LocalService {
     this.commands.set(id, run);
   }
 
+  /** Utilisé par le lanceur pour déclencher un outil sans passer par HTTP. */
+  has(id: string): boolean {
+    return this.commands.has(id);
+  }
+
+  async run(id: string): Promise<boolean> {
+    const command = this.commands.get(id);
+    if (!command) return false;
+    await command();
+    return true;
+  }
+
   /**
    * Route HTTP enrichie (GET/POST) pour les besoins du plugin Stream Deck au-delà
    * des simples commandes : par ex. lister les profils d'autoclic (le panneau de

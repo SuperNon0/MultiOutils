@@ -8,7 +8,7 @@ import argon2 from 'argon2';
 import type { NextFunction, Request, Response } from 'express';
 import { cfAccessEmail, normalizeTeam, type CfConfig } from './cloudflareAccess';
 import { getSetting, setSetting } from './db';
-import { socleLayout } from './html';
+import { accessCard, socleLayout } from './html';
 
 declare module 'express-session' {
   interface SessionData {
@@ -102,17 +102,14 @@ function forbidden(res: Response): void {
   res.status(403).send(
     socleLayout(
       'Accès refusé',
-      `<div class="login-card">
-        <div class="login-logo">
-          <img class="logo-mark" src="/public/logo.svg" alt="" width="44" height="44">
-          <span class="logo"><span class="g">multi</span><span class="i">outils</span></span>
-        </div>
-        <h2>Accès refusé</h2>
-        <p class="access-text">L'entrée se fait uniquement via <b>Cloudflare</b>
-        (le secours local est désactivé sur ce site). Aucun badge valide n'a été
-        présenté pour cette requête.</p>
-      </div>`,
-      { bodyClass: 'login-page' }
+      accessCard({
+        icone: 'lock',
+        ton: 'err',
+        titre: 'Accès refusé',
+        texte:
+          "L'entrée se fait uniquement via <b>Cloudflare</b> (le secours local est désactivé sur ce site). Aucun badge valide n'a été présenté pour cette requête.",
+        note: 'Ouvre le site par son adresse Cloudflare pour te connecter.'
+      })
     )
   );
 }

@@ -9,7 +9,6 @@ import {
   type MouseEvent as ReactMouseEvent,
   type ReactNode
 } from 'react';
-import { createPortal } from 'react-dom';
 import type { Capture, Folder, Tag } from '@multioutils/shared';
 import type {
   CaptureListItem,
@@ -17,6 +16,8 @@ import type {
   LibraryView,
   SortKey
 } from '../../../../common/types';
+import { ui, type MenuItem } from '../../encre/ui';
+import { Feuille } from '../../host/Feuille';
 import { useHost } from '../../host/context';
 import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
@@ -85,7 +86,6 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
-  const [tagMenuOpen, setTagMenuOpen] = useState(false);
   const [fullscreenShortcut, setFullscreenShortcut] = useState('PrintScreen');
   const [remoteReady, setRemoteReady] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -322,15 +322,54 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   };
 
   const destroyMany = async (ids: string[]): Promise<void> => {
-    if (window.confirm(t('gallery.confirmDestroy'))) {
-      await window.api.library.update({ action: 'destroy', ids });
-    }
+    const ok = await ui.confirmer(t('gallery.confirmDestroy'), {
+      titre: t('gallery.destroy'),
+      ok: t('gallery.destroy'),
+      danger: true
+    });
+    if (ok) await window.api.library.update({ action: 'destroy', ids });
   };
 
   const emptyTrash = async (): Promise<void> => {
-    if (window.confirm(t('gallery.confirmEmptyTrash'))) {
-      await window.api.library.update({ action: 'emptyTrash' });
+    const ok = await ui.confirmer(t('gallery.confirmEmptyTrash'), {
+      titre: t('gallery.emptyTrash'),
+      ok: t('gallery.emptyTrash'),
+      danger: true
+    });
+    if (ok) await window.api.library.update({ action: 'emptyTrash' });
+  };
+
+  // Mettre à la corbeille, avec « Annuler » pendant 5 s (restauration).
+  const trashMany = async (ids: string[]): Promise<void> => {
+    await window.api.library.update({ action: 'trash', ids });
+    ui.toast(t('ui.trashed', { n: ids.length }), {
+      annuler: () => window.api.library.update({ action: 'restore', ids })
+    });
+  };
+
+  const openTagMenu = (anchor: HTMLElement): void => {
+    if (tags.length === 0) {
+      ui.toast(t('library.tag.none'));
+      return;
     }
+    ui.menu(
+      anchor,
+      tags.map((tag) => {
+        const count = selected.filter((c) => c.tags.some((x) => x.id === tag.id)).length;
+        const all = count === selected.length && count > 0;
+        return {
+          icone: all ? 'check' : count > 0 ? 'minus' : 'tag',
+          texte: tag.name,
+          action: () =>
+            void window.api.library.update({
+              action: all ? 'removeTag' : 'addTag',
+              ids: selectedIds,
+              tagId: tag.id
+            })
+        };
+      }),
+      { titre: t('library.tags') }
+    );
   };
 
   const onGridKeyDown = (event: ReactKeyboardEvent): void => {
@@ -338,7 +377,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
     if (event.key === 'Delete') {
       event.preventDefault();
       if (view === 'library') {
-        void window.api.library.update({ action: 'trash', ids: selectedIds });
+        void trashMany(selectedIds);
       } else {
         void destroyMany(selectedIds);
       }
@@ -384,15 +423,18 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
 
       <div className="gallery-main">
         <div className="gallery-toolbar">
-          <input
-            className="input gallery-search"
-            type="search"
-            placeholder={t('library.searchPlaceholder')}
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-          />
+          <label className="champ gallery-search">
+            <Icon name="search" />
+            <input
+              type="search"
+              placeholder={t('library.searchPlaceholder')}
+              aria-label={t('library.searchPlaceholder')}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+            />
+          </label>
           <select
-            className="select"
+            className="select sm"
             value={effectivePeriod}
             aria-label={t('library.dateFilter')}
             onChange={(e) => {
@@ -412,7 +454,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
             <option value="month">{t('library.month')}</option>
           </select>
           <select
-            className="select"
+            className="select sm"
             value={sort}
             aria-label={t('gallery.sort.date')}
             onChange={(e) => setSort(e.target.value as SortKey)}
@@ -422,43 +464,41 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
             <option value="size">{t('gallery.sort.size')}</option>
           </select>
 
-          <span className="muted gallery-count">
-            {t('gallery.count', { n: items.length })}
-          </span>
+          <span className="gallery-count mono">{t('gallery.count', { n: items.length })}</span>
 
           {items.length > 0 && (
-            <button
-              type="button"
-              className={`btn${allSelected ? ' btn-primary' : ''}`}
-              onClick={toggleAll}
-            >
-              <Icon name="check" size={13} />
+            <button type="button" className={`btn sm${allSelected ? ' pri' : ' gh'}`} onClick={toggleAll}>
+              <Icon name="checks" size={16} />
               {allSelected ? t('library.deselectAll') : t('library.selectAll')}
             </button>
           )}
 
           <div className="gallery-toolbar-right">
-            <button
-              type="button"
-              className={`btn btn-icon${viewMode === 'grid' ? ' view-active' : ''}`}
-              title={t('library.view.grid')}
-              aria-label={t('library.view.grid')}
-              onClick={() => setViewMode('grid')}
-            >
-              <Icon name="grid" size={14} />
-            </button>
-            <button
-              type="button"
-              className={`btn btn-icon${viewMode === 'list' ? ' view-active' : ''}`}
-              title={t('library.view.list')}
-              aria-label={t('library.view.list')}
-              onClick={() => setViewMode('list')}
-            >
-              <Icon name="list" size={14} />
-            </button>
+            <div className="seg ico" role="group" aria-label={t('library.view.grid')}>
+              <button
+                type="button"
+                className={viewMode === 'grid' ? 'on' : ''}
+                title={t('library.view.grid')}
+                aria-label={t('library.view.grid')}
+                aria-pressed={viewMode === 'grid'}
+                onClick={() => setViewMode('grid')}
+              >
+                <Icon name="grid" size={18} />
+              </button>
+              <button
+                type="button"
+                className={viewMode === 'list' ? 'on' : ''}
+                title={t('library.view.list')}
+                aria-label={t('library.view.list')}
+                aria-pressed={viewMode === 'list'}
+                onClick={() => setViewMode('list')}
+              >
+                <Icon name="list" size={18} />
+              </button>
+            </div>
             {viewMode === 'grid' && (
               <select
-                className="select"
+                className="select sm"
                 value={String(perRow)}
                 aria-label={t('library.perRow')}
                 title={t('library.perRow')}
@@ -474,14 +514,15 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
             )}
             <button
               type="button"
-              className={`btn${view === 'trash' ? ' btn-primary' : ''}`}
+              className={`chip${view === 'trash' ? ' on' : ''}`}
+              aria-pressed={view === 'trash'}
               onClick={() => setView(view === 'trash' ? 'library' : 'trash')}
             >
-              <Icon name="trash" size={13} />
+              <Icon name="trash" size={16} />
               {t('gallery.view.trash')}
             </button>
             {view === 'trash' && items.length > 0 && (
-              <button type="button" className="btn btn-danger" onClick={() => void emptyTrash()}>
+              <button type="button" className="btn dn sm" onClick={() => void emptyTrash()}>
                 {t('gallery.emptyTrash')}
               </button>
             )}
@@ -489,15 +530,13 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
         </div>
 
         {selectedIds.length > 0 && (
-          <div className="selection-bar card">
-            <span className="accent">
-              {t('library.selected', { n: selectedIds.length })}
-            </span>
+          <div className="barre-act sel" role="toolbar" aria-label={t('library.selected', { n: selectedIds.length })}>
+            <span className="compte">{t('library.selected', { n: selectedIds.length })}</span>
 
             {view === 'library' ? (
               <>
                 <select
-                  className="select"
+                  className="select sm"
                   value=""
                   aria-label={t('library.moveTo')}
                   onChange={(e) => {
@@ -518,59 +557,18 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
                     </option>
                   ))}
                 </select>
-
-                <div className="tag-menu-wrap">
-                  <button
-                    type="button"
-                    className="btn"
-                    aria-expanded={tagMenuOpen}
-                    onClick={() => setTagMenuOpen((open) => !open)}
-                  >
-                    <Icon name="tag" size={13} />
-                    {t('library.tags')}
-                    <Icon name="chevronDown" size={11} />
-                  </button>
-                  {tagMenuOpen && (
-                    <div className="tag-menu card">
-                      {tags.length === 0 && (
-                        <div className="muted lib-empty">{t('library.tag.none')}</div>
-                      )}
-                      {tags.map((tag) => {
-                        const count = selected.filter((c) =>
-                          c.tags.some((x) => x.id === tag.id)
-                        ).length;
-                        const all = count === selected.length && count > 0;
-                        return (
-                          <label key={tag.id} className="tag-menu-item">
-                            <input
-                              type="checkbox"
-                              checked={all}
-                              ref={(el) => {
-                                if (el) el.indeterminate = count > 0 && !all;
-                              }}
-                              onChange={() =>
-                                void window.api.library.update({
-                                  action: all ? 'removeTag' : 'addTag',
-                                  ids: selectedIds,
-                                  tagId: tag.id
-                                })
-                              }
-                            />
-                            <span
-                              className="lib-dot"
-                              style={{ background: tag.color ?? 'var(--muted)' }}
-                            />
-                            {tag.name}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-
                 <button
                   type="button"
-                  className="btn"
+                  className="btn sm"
+                  aria-haspopup="menu"
+                  onClick={(e) => openTagMenu(e.currentTarget)}
+                >
+                  <Icon name="tag" size={16} />
+                  <span className="lib">{t('library.tags')}</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn sm"
                   onClick={() =>
                     void window.api.library.update({
                       action: 'favorite',
@@ -579,59 +577,54 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
                     })
                   }
                 >
-                  <Icon name={allFavorites ? 'starFilled' : 'star'} size={13} />
-                  {t('library.favorite')}
+                  <Icon name={allFavorites ? 'starFilled' : 'star'} size={16} />
+                  <span className="lib">{t('library.favorite')}</span>
                 </button>
                 <button
                   type="button"
-                  className="btn"
+                  className="btn sm"
                   onClick={() =>
                     void window.api.library.update({ action: 'export', ids: selectedIds })
                   }
                 >
-                  <Icon name="export" size={13} />
-                  {t('library.export')}
+                  <Icon name="export" size={16} />
+                  <span className="lib">{t('library.export')}</span>
                 </button>
                 {remoteReady && (
                   <button
                     type="button"
-                    className="btn"
+                    className="btn sm"
                     onClick={() =>
                       void window.api.library.update({ action: 'send', ids: selectedIds })
                     }
                   >
-                    <Icon name="send" size={13} />
-                    {t('library.send')}
+                    <Icon name="send" size={16} />
+                    <span className="lib">{t('library.send')}</span>
                   </button>
                 )}
-                <button
-                  type="button"
-                  className="btn btn-danger"
-                  onClick={() =>
-                    void window.api.library.update({ action: 'trash', ids: selectedIds })
-                  }
-                >
-                  <Icon name="trash" size={13} />
-                  {t('gallery.delete')}
+                <button type="button" className="btn dn sm" onClick={() => void trashMany(selectedIds)}>
+                  <Icon name="trash" size={16} />
+                  <span className="lib">{t('gallery.delete')}</span>
                 </button>
               </>
             ) : (
               <>
                 <button
                   type="button"
-                  className="btn"
+                  className="btn sm"
                   onClick={() =>
                     void window.api.library.update({ action: 'restore', ids: selectedIds })
                   }
                 >
-                  <Icon name="restore" size={13} />
+                  <Icon name="restore" size={16} />
                   {t('gallery.restore')}
                 </button>
                 <button
                   type="button"
-                  className="btn btn-danger"
+                  className="btn dn sm"
                   onClick={() => void destroyMany(selectedIds)}
                 >
+                  <Icon name="trash" size={16} />
                   {t('gallery.destroy')}
                 </button>
               </>
@@ -639,29 +632,41 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
 
             <button
               type="button"
-              className="btn btn-icon selection-clear"
+              className="btn gh sm ico"
+              title={t('common.cancel')}
               aria-label={t('common.cancel')}
               onClick={() => setSelectedIds([])}
             >
-              <Icon name="close" size={13} />
+              <Icon name="close" size={18} />
             </button>
           </div>
         )}
 
         {items.length === 0 ? (
-          <div className="gallery-empty muted">
-            {view === 'trash'
-              ? t('gallery.trashEmptyState')
-              : search || activeTagIds.length > 0 || source.kind !== 'all' || effectivePeriod
-                ? t('library.noResults')
-                : t('gallery.empty', {
-                    shortcut: displayAccelerator(fullscreenShortcut, lang)
-                  })}
+          <div className="vide gallery-empty">
+            <Icon
+              name={
+                view === 'trash'
+                  ? 'trash'
+                  : search || activeTagIds.length > 0 || source.kind !== 'all' || effectivePeriod
+                    ? 'search'
+                    : 'camera'
+              }
+            />
+            <span>
+              {view === 'trash'
+                ? t('gallery.trashEmptyState')
+                : search || activeTagIds.length > 0 || source.kind !== 'all' || effectivePeriod
+                  ? t('library.noResults')
+                  : t('gallery.empty', {
+                      shortcut: displayAccelerator(fullscreenShortcut, lang)
+                    })}
+            </span>
           </div>
         ) : (
           <div
             ref={gridRef}
-            className={viewMode === 'grid' ? 'gallery-grid' : 'gallery-list'}
+            className={viewMode === 'grid' ? 'gallery-grid anim-in' : 'gallery-list liste-r'}
             style={
               viewMode === 'grid'
                 ? ({
@@ -705,6 +710,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
                   onEdit={() => onEdit(capture)}
                   onRename={() => startRename(capture)}
                   onDestroy={() => void destroyMany([capture.id])}
+                  onTrash={() => void trashMany([capture.id])}
                   copied={copiedId === capture.id}
                 />
               ) : (
@@ -726,26 +732,24 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
           <div className="gallery-pager">
             <button
               type="button"
-              className="btn"
+              className="btn sm"
               disabled={safePage <= 0}
               onClick={() => setPage((p) => Math.max(0, p - 1))}
             >
-              <Icon name="back" size={14} />
+              <Icon name="back" size={16} />
               {t('gallery.prev')}
             </button>
-            <span className="gallery-pager-label muted">
+            <span className="gallery-pager-label mono muted">
               {t('gallery.pageOf', { page: safePage + 1, total: totalPages })}
             </span>
             <button
               type="button"
-              className="btn"
+              className="btn sm"
               disabled={safePage >= totalPages - 1}
               onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
             >
               {t('gallery.next')}
-              <span style={{ display: 'inline-flex', transform: 'scaleX(-1)' }}>
-                <Icon name="back" size={14} />
-              </span>
+              <Icon name="next" size={16} />
             </button>
           </div>
         )}
@@ -786,7 +790,8 @@ function GridCard({
   onDragStart,
   onEdit,
   onRename,
-  onDestroy
+  onDestroy,
+  onTrash
 }: {
   capture: CaptureListItem;
   view: LibraryView;
@@ -805,6 +810,7 @@ function GridCard({
   onEdit(): void;
   onRename(): void;
   onDestroy(): void;
+  onTrash(): void;
 }): ReactNode {
   const { t, lang } = useI18n();
   return (
@@ -812,7 +818,7 @@ function GridCard({
       id={`shot-${capture.id}`}
       role="option"
       aria-selected={selected}
-      className={`shot-card card${selected ? ' selected' : ''}${copied ? ' copied' : ''}`}
+      className={`shot-card${selected ? ' selected' : ''}${copied ? ' copied' : ''}`}
       draggable
       onDragStart={onDragStart}
       onClick={onClick}
@@ -837,7 +843,7 @@ function GridCard({
             onToggleSelect();
           }}
         >
-          {selected && <Icon name="check" size={14} />}
+          <Icon name="check" size={16} />
         </button>
         <button
           type="button"
@@ -853,7 +859,7 @@ function GridCard({
             });
           }}
         >
-          <Icon name={capture.favorite ? 'starFilled' : 'star'} size={14} />
+          <Icon name={capture.favorite ? 'starFilled' : 'star'} size={16} />
         </button>
         <CardMenu
           capture={capture}
@@ -862,13 +868,19 @@ function GridCard({
           onEdit={onEdit}
           onRename={onRename}
           onDestroy={onDestroy}
+          onTrash={onTrash}
         />
-        {copied && <span className="shot-copied">{t('gallery.copied')}</span>}
+        {copied && (
+          <span className="shot-copied">
+            <Icon name="check" size={16} />
+            {t('gallery.copied')}
+          </span>
+        )}
       </div>
       <div className="shot-meta">
         {renaming ? (
           <input
-            className="input shot-rename"
+            className="input sm shot-rename"
             value={renameValue}
             autoFocus
             onChange={(e) => onRenameChange(e.target.value)}
@@ -884,7 +896,7 @@ function GridCard({
             {capture.filename}
           </div>
         )}
-        <div className="shot-sub muted">
+        <div className="shot-sub">
           {formatDate(capture.createdAt, lang)}
           {capture.width && capture.height ? ` · ${capture.width}×${capture.height}` : ''}
           {` · ${formatBytes(capture.sizeBytes)}`}
@@ -932,7 +944,7 @@ function ListRow({
       id={`shot-${capture.id}`}
       role="option"
       aria-selected={selected}
-      className={`list-row${selected ? ' selected' : ''}`}
+      className={`list-row li${selected ? ' on' : ''}`}
       draggable
       onDragStart={onDragStart}
       onClick={onClick}
@@ -946,9 +958,7 @@ function ListRow({
         draggable={false}
       />
       {capture.favorite && (
-        <span className="accent">
-          <Icon name="starFilled" size={12} />
-        </span>
+        <Icon name="starFilled" size={16} className="acc" />
       )}
       <span className="list-name" title={capture.filename}>
         {capture.filename}
@@ -958,7 +968,7 @@ function ListRow({
           <span
             key={tag.id}
             className="shot-tag-chip"
-            style={{ borderColor: tag.color ?? 'var(--border)' }}
+            style={{ borderColor: tag.color ?? 'var(--line2)' }}
           >
             {tag.name}
           </span>
@@ -973,16 +983,17 @@ function ListRow({
   );
 }
 
-/** Menu « ⋯ » d'une vignette : regroupe toutes les actions pour désencombrer
- * la carte (copier, éditer, renommer, enregistrer, emplacement, envoi, suppr.).
- * Rendu en portail (position: fixed) pour ne pas être rogné par la carte. */
+/** Menu « ⋯ » d'une vignette (menu flottant « encre ») : regroupe toutes les
+ * actions pour désencombrer la carte (copier, éditer, renommer, enregistrer,
+ * emplacement, envoi, suppression). */
 function CardMenu({
   capture,
   view,
   remoteReady,
   onEdit,
   onRename,
-  onDestroy
+  onDestroy,
+  onTrash
 }: {
   capture: CaptureListItem;
   view: LibraryView;
@@ -990,103 +1001,48 @@ function CardMenu({
   onEdit(): void;
   onRename(): void;
   onDestroy(): void;
+  onTrash(): void;
 }): ReactNode {
   const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const btnRef = useRef<HTMLButtonElement>(null);
 
-  const openMenu = (event: ReactMouseEvent): void => {
-    event.stopPropagation();
-    const r = btnRef.current?.getBoundingClientRect();
-    if (!r) return;
-    const width = 210;
-    setPos({
-      top: Math.round(r.bottom + 4),
-      left: Math.round(Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8)))
-    });
-    setOpen(true);
+  const open = (anchor: HTMLElement): void => {
+    const items: Array<MenuItem | null> =
+      view === 'library'
+        ? [
+            { icone: 'copy', texte: t('gallery.copy'), action: () => void window.api.library.update({ action: 'copy', id: capture.id }) },
+            { icone: 'edit', texte: t('quickbar.edit'), action: onEdit },
+            { icone: 'type', texte: t('gallery.rename'), action: onRename },
+            null,
+            { icone: 'download', texte: t('gallery.saveAs'), action: () => void window.api.library.update({ action: 'saveAs', id: capture.id }) },
+            { icone: 'folderopen', texte: t('gallery.reveal'), action: () => void window.api.library.update({ action: 'reveal', id: capture.id }) },
+            ...(remoteReady
+              ? [{ icone: 'send', texte: t('library.send'), action: () => void window.api.library.update({ action: 'send', ids: [capture.id] }) }]
+              : []),
+            null,
+            { icone: 'trash', texte: t('gallery.delete'), danger: true, touche: t('ui.key.delete'), action: onTrash }
+          ]
+        : [
+            { icone: 'undo', texte: t('gallery.restore'), action: () => void window.api.library.update({ action: 'restore', ids: [capture.id] }) },
+            { icone: 'trash', texte: t('gallery.destroy'), danger: true, action: onDestroy }
+          ];
+    ui.menu(anchor, items, { titre: capture.filename });
   };
 
-  useEffect(() => {
-    if (!open) return;
-    const close = (): void => setOpen(false);
-    const onKey = (event: globalThis.KeyboardEvent): void => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    window.addEventListener('click', close);
-    window.addEventListener('scroll', close, true);
-    window.addEventListener('resize', close);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('click', close);
-      window.removeEventListener('scroll', close, true);
-      window.removeEventListener('resize', close);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
-  type MenuItem = { icon: string; label: string; run(): void; danger?: boolean };
-  const items: MenuItem[] =
-    view === 'library'
-      ? [
-          { icon: 'copy', label: t('gallery.copy'), run: () => void window.api.library.update({ action: 'copy', id: capture.id }) },
-          { icon: 'edit', label: t('quickbar.edit'), run: onEdit },
-          { icon: 'textTool', label: t('gallery.rename'), run: onRename },
-          { icon: 'save', label: t('gallery.saveAs'), run: () => void window.api.library.update({ action: 'saveAs', id: capture.id }) },
-          { icon: 'reveal', label: t('gallery.reveal'), run: () => void window.api.library.update({ action: 'reveal', id: capture.id }) },
-          ...(remoteReady
-            ? [{ icon: 'send', label: t('library.send'), run: () => void window.api.library.update({ action: 'send', ids: [capture.id] }) }]
-            : []),
-          { icon: 'trash', label: t('gallery.delete'), danger: true, run: () => void window.api.library.update({ action: 'trash', ids: [capture.id] }) }
-        ]
-      : [
-          { icon: 'restore', label: t('gallery.restore'), run: () => void window.api.library.update({ action: 'restore', ids: [capture.id] }) },
-          { icon: 'trash', label: t('gallery.destroy'), danger: true, run: onDestroy }
-        ];
-
   return (
-    <>
-      <button
-        ref={btnRef}
-        type="button"
-        className="btn btn-icon shot-menu-btn"
-        title={t('gallery.more')}
-        aria-label={t('gallery.more')}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={openMenu}
-      >
-        <Icon name="more" size={16} />
-      </button>
-      {open &&
-        pos &&
-        createPortal(
-          <div
-            className="card-menu card"
-            role="menu"
-            style={{ position: 'fixed', top: pos.top, left: pos.left }}
-            onClick={(event) => event.stopPropagation()}
-          >
-            {items.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                role="menuitem"
-                className={`card-menu-item${item.danger ? ' danger' : ''}`}
-                onClick={() => {
-                  setOpen(false);
-                  item.run();
-                }}
-              >
-                <Icon name={item.icon} size={14} />
-                {item.label}
-              </button>
-            ))}
-          </div>,
-          document.body
-        )}
-    </>
+    <button
+      type="button"
+      className="ib verre shot-menu-btn"
+      title={t('gallery.more')}
+      aria-label={t('gallery.more')}
+      aria-haspopup="menu"
+      onClick={(event) => {
+        event.stopPropagation();
+        open(event.currentTarget);
+      }}
+      onDoubleClick={(event) => event.stopPropagation()}
+    >
+      <Icon name="more" size={18} />
+    </button>
   );
 }
 
@@ -1101,60 +1057,51 @@ function PreviewModal({
 }): ReactNode {
   const { t, lang } = useI18n();
 
-  useEffect(() => {
-    const onKey = (event: globalThis.KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
   return (
-    <div className="modal-veil" onClick={onClose}>
-      <div className="modal preview-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="preview-head">
-          <div>
-            <div className="shot-name">{capture.filename}</div>
-            <div className="muted">
-              {formatDate(capture.createdAt, lang)}
-              {capture.width && capture.height
-                ? ` · ${capture.width}×${capture.height}`
-                : ''}
-              {` · ${formatBytes(capture.sizeBytes)}`}
-            </div>
-          </div>
-          <div className="preview-actions">
-            {onEdit && (
-              <button type="button" className="btn btn-primary" onClick={onEdit}>
-                <Icon name="edit" />
-                {t('quickbar.edit')}
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn"
-              onClick={() => void window.api.library.update({ action: 'copy', id: capture.id })}
-            >
-              <Icon name="copy" />
-              {t('gallery.copy')}
+    <Feuille
+      large
+      className="apercu"
+      onClose={onClose}
+      titre={
+        <span className="apercu-t">
+          <span className="apercu-nom">{capture.filename}</span>
+          <span className="apercu-sous">
+            {formatDate(capture.createdAt, lang)}
+            {capture.width && capture.height ? ` · ${capture.width}×${capture.height}` : ''}
+            {` · ${formatBytes(capture.sizeBytes)}`}
+          </span>
+        </span>
+      }
+      actions={
+        <span className="ligne apercu-actions">
+          {onEdit && (
+            <button type="button" className="btn pri sm" onClick={onEdit}>
+              <Icon name="edit" size={16} />
+              {t('quickbar.edit')}
             </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => void window.api.library.update({ action: 'saveAs', id: capture.id })}
-            >
-              <Icon name="save" />
-              {t('gallery.saveAs')}
-            </button>
-            <button type="button" className="btn btn-icon" aria-label={t('common.close')} onClick={onClose}>
-              <Icon name="close" />
-            </button>
-          </div>
-        </div>
-        <div className="preview-body">
-          <img src={`mo-media://capture/${capture.id}`} alt={capture.filename} />
-        </div>
+          )}
+          <button
+            type="button"
+            className="btn sm"
+            onClick={() => void window.api.library.update({ action: 'copy', id: capture.id })}
+          >
+            <Icon name="copy" size={16} />
+            {t('gallery.copy')}
+          </button>
+          <button
+            type="button"
+            className="btn sm"
+            onClick={() => void window.api.library.update({ action: 'saveAs', id: capture.id })}
+          >
+            <Icon name="save" size={16} />
+            {t('gallery.saveAs')}
+          </button>
+        </span>
+      }
+    >
+      <div className="apercu-corps">
+        <img src={`mo-media://capture/${capture.id}`} alt={capture.filename} />
       </div>
-    </div>
+    </Feuille>
   );
 }

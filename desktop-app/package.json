@@ -1,7 +1,7 @@
 {
   "name": "@multioutils/desktop-app",
   "productName": "MultiOutils",
-  "version": "0.5.4",
+  "version": "0.6.0",
   "private": true,
   "description": "MultiOutils — boîte à outils modulaire pour Windows (capture d'écran)",
   "author": "SuperNon0",
@@ -11,6 +11,7 @@
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run",
     "dist": "electron-vite build && electron-builder --win --publish never",
     "release": "electron-vite build && electron-builder --win --publish always"
   },
@@ -35,6 +36,7 @@
     "react-dom": "^18.3.1",
     "react-konva": "^18.2.16",
     "typescript": "^5.5.4",
-    "vite": "^5.4.19"
+    "vite": "^5.4.19",
+    "vitest": "^2.1.9"
   }
 }
