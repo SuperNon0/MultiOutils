@@ -6,13 +6,15 @@ import {
   type AiConfig,
   type AiProviderId,
   type AiSimpleResult,
-  type AiTranslateResult
+  type AiTranslateResult,
+  type AppSettings
 } from '../../../common/types';
 import type { MainHostContext, MainToolModule } from '../../module-registry';
 import { CaptureRepo } from '../../storage/captures';
 import { canSendAsIs, candidateSizes, MAX_IMAGE_BYTES } from './image';
 import { AiKeyStore, type KeyValue } from './keys';
-import { AiError, cleanTargetLang, resolveModel, type TranslateImage } from './provider';
+import { AiError, cleanTargetLang, pickModel, resolveModel, type TranslateImage } from './provider';
+import { pickGeminiModel } from './gemini';
 import { createProviders } from './providers';
 
 /**
@@ -84,6 +86,38 @@ export function createAiMainModule(): MainToolModule {
         }
       });
 
+      /** Modèle de remplacement quand le modèle demandé n'existe plus. */
+      const findReplacement = async (
+        provider: AiProviderId,
+        apiKey: string,
+        current: string
+      ): Promise<string | null> => {
+        const p = providers[provider];
+        if (p.info.fixedModels || !p.listModels) return null;
+        try {
+          const available = await p.listModels(apiKey);
+          const pick =
+            provider === 'gemini'
+              ? pickGeminiModel(available)
+              : pickModel(available, /^gpt-[\d.]+$/, /^gpt-[\d.]+(-mini)?$/);
+          return pick && pick !== current ? pick : null;
+        } catch {
+          return null;
+        }
+      };
+
+      ipcMain.handle('ai:listModels', async (_e, provider: unknown): Promise<string[]> => {
+        if (!isProvider(provider)) return [];
+        const apiKey = keys.get(provider);
+        const p = providers[provider];
+        if (!apiKey || !p.listModels) return [];
+        try {
+          return await p.listModels(apiKey);
+        } catch {
+          return [];
+        }
+      });
+
       ipcMain.handle(
         'ai:translate',
         async (_e, captureId: unknown, targetLang?: unknown): Promise<AiTranslateResult> => {
@@ -96,15 +130,28 @@ export function createAiMainModule(): MainToolModule {
           if (!capture || !fs.existsSync(capture.path)) return { ok: false, error: 'notFound' };
           try {
             const image = prepareImage(capture.path);
-            const result = await p.translate({
+            const request = {
               image,
               apiKey,
               model: resolveModel(p.info, settings.aiModels[provider]),
               targetLang: cleanTargetLang(
                 typeof targetLang === 'string' ? targetLang : settings.aiTargetLang
               )
-            });
-            return { ok: true, ...result };
+            };
+            try {
+              return { ok: true, ...(await p.translate(request)) };
+            } catch (err) {
+              // Modèle retiré ou inconnu (champ libre) : on prend le plus récent
+              // proposé par le fournisseur, on réessaie une fois et on le garde.
+              const replacement =
+                err instanceof AiError && err.code === 'notFound'
+                  ? await findReplacement(provider, apiKey, request.model)
+                  : null;
+              if (!replacement) throw err;
+              const result = await p.translate({ ...request, model: replacement });
+              ctx.settings.set({ aiModels: { [provider]: replacement } as AppSettings['aiModels'] });
+              return { ok: true, ...result };
+            }
           } catch (err) {
             return fail(err);
           }

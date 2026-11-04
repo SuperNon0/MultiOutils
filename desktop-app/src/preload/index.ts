@@ -80,6 +80,7 @@ const api: PreloadApi = {
     getConfig: () => ipcRenderer.invoke('ai:getConfig'),
     setKey: (provider, key) => ipcRenderer.invoke('ai:setKey', provider, key),
     testKey: (provider) => ipcRenderer.invoke('ai:testKey', provider),
+    listModels: (provider) => ipcRenderer.invoke('ai:listModels', provider),
     translate: (captureId, targetLang) => ipcRenderer.invoke('ai:translate', captureId, targetLang)
   },
   autoclicker: {

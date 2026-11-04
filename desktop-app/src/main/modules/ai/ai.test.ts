@@ -65,7 +65,7 @@ describe('logique commune', () => {
     expect(resolveModel(ANTHROPIC_INFO, undefined)).toBe('claude-opus-5-5');
     expect(resolveModel(OPENAI_INFO, '  gpt-5-mini ')).toBe('gpt-5-mini');
     expect(resolveModel(OPENAI_INFO, '')).toBe('gpt-4.1');
-    expect(resolveModel(GEMINI_INFO, 'bad model/../x')).toBe('gemini-2.5-flash');
+    expect(resolveModel(GEMINI_INFO, 'bad model/../x')).toBe('gemini-3.8-flash');
   });
 
   it('nettoie la langue cible', () => {
@@ -283,5 +283,24 @@ describe('Gemini', () => {
     const f = fakeFetch(200, { models: [] });
     await createGeminiProvider(f).testKey('k', 'gemini-2.5-flash');
     expect(f.calls[0][0]).toBe('https://generativelanguage.googleapis.com/v1beta/models');
+  });
+});
+
+describe('modèle de remplacement (modèle retiré)', () => {
+  it('Gemini : prend le flash le plus récent qui sait faire generateContent', async () => {
+    const { parseGeminiModels, pickGeminiModel } = await import('./gemini');
+    const ids = parseGeminiModels({
+      models: [
+        { name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent'] },
+        { name: 'models/gemini-3.8-flash', supportedGenerationMethods: ['generateContent'] },
+        { name: 'models/gemini-3.10-flash', supportedGenerationMethods: ['generateContent'] },
+        { name: 'models/gemini-4-pro', supportedGenerationMethods: ['generateContent'] },
+        { name: 'models/text-embedding-004', supportedGenerationMethods: ['embedContent'] }
+      ]
+    });
+    expect(ids).toEqual(['gemini-2.5-flash', 'gemini-3.8-flash', 'gemini-3.10-flash', 'gemini-4-pro']);
+    expect(pickGeminiModel(ids)).toBe('gemini-3.10-flash');
+    expect(pickGeminiModel(['gemini-4-pro'])).toBe('gemini-4-pro');
+    expect(pickGeminiModel([])).toBeNull();
   });
 });

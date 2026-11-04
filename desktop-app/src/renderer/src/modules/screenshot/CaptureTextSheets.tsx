@@ -376,6 +376,7 @@ function TranslateSheet({ captureId }: { captureId: string }): ReactNode {
                   <Icon name="info" size={16} /> {t('ai.noText')}
                 </p>
               )}
+              <div className="texte-cote">
               <TexteCopiable
                 id="ai-origine"
                 label={
@@ -392,6 +393,7 @@ function TranslateSheet({ captureId }: { captureId: string }): ReactNode {
                 value={translated}
                 onChange={setTranslated}
               />
+              </div>
               <p className="muted petit">
                 {t('ai.answeredBy', { model: result.model })}
               </p>

@@ -28,6 +28,35 @@ export interface TranslateProvider {
   translate(req: TranslateRequest): Promise<AiTranslation>;
   /** Petit appel qui vérifie la clé (ne coûte rien ou presque). */
   testKey(apiKey: string, model: string): Promise<void>;
+  /** Modèles réellement proposés par le fournisseur pour cette clé (liste vive). */
+  listModels?(apiKey: string): Promise<string[]>;
+}
+
+/** Numéro de version d'un nom de modèle (« gemini-3.8-flash » → [3, 8]). */
+function versionOf(id: string): number[] {
+  const m = id.match(/(\d+(?:\.\d+)*)/);
+  return m ? m[1].split('.').map(Number) : [];
+}
+
+function compareVersions(a: number[], b: number[]): number {
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    const d = (a[i] ?? 0) - (b[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}
+
+/**
+ * Choisit un modèle de remplacement dans la liste vive : le plus récent dont le
+ * nom correspond au motif préféré (p. ex. « gemini-X-flash »), sinon le plus
+ * récent de la famille. null si rien ne convient.
+ */
+export function pickModel(available: string[], preferred: RegExp, family: RegExp): string | null {
+  const best = (ids: string[]): string | null =>
+    ids.length === 0
+      ? null
+      : [...ids].sort((a, b) => compareVersions(versionOf(b), versionOf(a)))[0];
+  return best(available.filter((id) => preferred.test(id))) ?? best(available.filter((id) => family.test(id)));
 }
 
 /** Erreur typée remontée au renderer (message traduit côté interface). */

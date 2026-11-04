@@ -101,6 +101,8 @@ export interface PreloadApi {
     setKey(provider: import('./types').AiProviderId, key: string): Promise<import('./types').AiSimpleResult>;
     /** Petit appel avec la clé enregistrée du fournisseur. */
     testKey(provider: import('./types').AiProviderId): Promise<import('./types').AiSimpleResult>;
+    /** Modèles proposés par le fournisseur pour la clé enregistrée ([] si inconnu). */
+    listModels(provider: import('./types').AiProviderId): Promise<string[]>;
     /** Fournisseur et modèle des Réglages ; targetLang absent = langue des Réglages. */
     translate(captureId: string, targetLang?: string): Promise<import('./types').AiTranslateResult>;
   };

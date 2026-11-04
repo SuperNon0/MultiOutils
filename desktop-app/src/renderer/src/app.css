@@ -1097,7 +1097,18 @@ input[type='radio'] {
 
 /* ------------------------------- Extraire le texte / Traduire (IA) */
 .feuille.large.texte-feuille {
-  width: min(760px, calc(100vw - 48px));
+  width: min(1180px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+}
+/* Traduction : texte d'origine et traduction côte à côte quand il y a la place. */
+.texte-cote {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 14px;
+}
+.texte-feuille .copie-texte .texte-zone {
+  min-height: 220px;
+  max-height: 60vh;
 }
 /* la feuille reçoit le focus à l'ouverture : pas d'anneau sur le cadre entier */
 .feuille.texte-feuille:focus {
