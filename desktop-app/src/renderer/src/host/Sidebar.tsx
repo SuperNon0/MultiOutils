@@ -11,12 +11,29 @@ interface Props {
   onSelect(id: string): void;
 }
 
+/**
+ * Symbole de l'appli (le même que resources/icon.svg) : quatre tuiles, trois
+ * au trait et une pleine. Dessiné en currentColor sur le fond de la marque.
+ */
+export function Symbole(): ReactNode {
+  return (
+    <svg className="marque-sym" viewBox="0 0 24 24" aria-hidden="true">
+      <g fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinejoin="round">
+        <rect x="4.15" y="4.15" width="6.2" height="6.2" rx="1.5" />
+        <rect x="4.15" y="13.65" width="6.2" height="6.2" rx="1.5" />
+        <rect x="13.65" y="13.65" width="6.2" height="6.2" rx="1.5" />
+      </g>
+      <rect x="12.7" y="3.2" width="8.1" height="8.1" rx="2.3" fill="currentColor" />
+    </svg>
+  );
+}
+
 /** Nom de l'appli : marque + « Multi*Outils* » (wm du kit). */
 export function Brand(): ReactNode {
   return (
     <span className="brand">
       <span className="marque" aria-hidden="true">
-        M
+        <Symbole />
       </span>
       <span className="wm">
         Multi<b>Outils</b>

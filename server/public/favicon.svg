@@ -1,4 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MultiOutils">
-  <rect width="64" height="64" rx="18" fill="#a99bff"/>
-  <text x="32" y="44" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-style="italic" font-size="46" fill="#120d2e">m</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="MultiOutils">
+  <!-- Même symbole que l'icône de l'appli (desktop-app/resources/icon.svg). -->
+  <rect x="8" y="8" width="496" height="496" rx="116" fill="#0b0f17"/>
+  <rect x="8" y="8" width="496" height="496" rx="116" fill="none" stroke="#2b3549" stroke-width="8"/>
+  <g fill="none" stroke="#e7ebf3" stroke-width="34" stroke-linejoin="round">
+    <rect x="113" y="113" width="106" height="106" rx="26"/>
+    <rect x="113" y="293" width="106" height="106" rx="26"/>
+    <rect x="293" y="293" width="106" height="106" rx="26"/>
+  </g>
+  <rect x="276" y="96" width="140" height="140" rx="43" fill="#a99bff"/>
 </svg>
