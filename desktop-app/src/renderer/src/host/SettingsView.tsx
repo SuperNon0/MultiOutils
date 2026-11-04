@@ -25,6 +25,7 @@ import { eventToAccelerator } from '../lib/shortcuts';
 import { Brand } from './Sidebar';
 import { Icon } from './Icon';
 import { RegLigne, RegSec, RegSwitch } from './reglages';
+import { TraductionSection } from './TraductionReglages';
 import type { ToolModule } from './types';
 
 interface Props {
@@ -106,6 +107,14 @@ export function settingsSections(modules: ToolModule[]): SectionDef[] {
         icon: m.icon,
         keywords: [m.name]
       })),
+    {
+      id: 'ai',
+      group: 'reglages.group.tools',
+      title: 'ai.section',
+      sub: 'reglages.sub.ai',
+      icon: 'sparkle',
+      keywords: ['ai.provider', 'ai.model', 'ai.target', 'ai.keywords']
+    },
     {
       id: 'server',
       group: 'reglages.group.advanced',
@@ -271,6 +280,7 @@ export function SettingsView({ settings, version, section, modules, update }: Pr
             {current.id === 'shortcuts' && <ShortcutsSection onSaved={flash} />}
             {current.id === 'storage' && <StorageSection settings={settings} update={update} />}
             {current.id === 'server' && <ServerSection onSaved={flash} />}
+            {current.id === 'ai' && <TraductionSection settings={settings} update={update} />}
             {current.id === 'updates' && <UpdatesSection version={version} />}
             {current.id === 'about' && (
               <div className="reg-sec apropos">

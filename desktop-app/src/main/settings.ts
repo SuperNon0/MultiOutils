@@ -8,6 +8,13 @@ import {
   type AppSettings
 } from '../common/types';
 
+/** Modèle par défaut de chaque fournisseur de traduction IA. */
+export const DEFAULT_AI_MODELS: AppSettings['aiModels'] = {
+  anthropic: 'claude-opus-5-5',
+  openai: 'gpt-4.1',
+  gemini: 'gemini-2.5-flash'
+};
+
 /** Valide une apparence lue en base (valeurs inconnues → défaut). */
 export function normalizeAppearance(value: unknown): AppSettings['appearance'] {
   const v = (value && typeof value === 'object' ? value : {}) as Record<string, unknown>;
@@ -41,7 +48,11 @@ export function buildDefaults(defaultStorageDir: string): AppSettings {
     counter: 1,
     trashRetentionDays: 30,
     firstRunDone: false,
-    shortcuts: { ...DEFAULT_SHORTCUTS }
+    shortcuts: { ...DEFAULT_SHORTCUTS },
+    ocrLang: 'fra',
+    aiProvider: 'anthropic',
+    aiModels: { ...DEFAULT_AI_MODELS },
+    aiTargetLang: 'Français'
   };
 }
 
@@ -71,7 +82,8 @@ export class SettingsStore {
     const merged: AppSettings = {
       ...this.defaults,
       appearance: { ...this.defaults.appearance },
-      shortcuts: { ...this.defaults.shortcuts }
+      shortcuts: { ...this.defaults.shortcuts },
+      aiModels: { ...this.defaults.aiModels }
     };
     const rows = this.getStmt.all() as Array<{ key: string; value: string }>;
     // Migration : l'ancien réglage `theme` ('dark' | 'light') devient
@@ -92,6 +104,8 @@ export class SettingsStore {
         const value = JSON.parse(row.value);
         if (row.key === 'shortcuts' && value && typeof value === 'object') {
           merged.shortcuts = { ...merged.shortcuts, ...value };
+        } else if (row.key === 'aiModels' && value && typeof value === 'object') {
+          merged.aiModels = { ...merged.aiModels, ...value };
         } else if (row.key === 'appearance') {
           merged.appearance = normalizeAppearance(value);
         } else if (row.key === 'theme') {
@@ -110,7 +124,8 @@ export class SettingsStore {
     return {
       ...this.cache,
       appearance: { ...this.cache.appearance },
-      shortcuts: { ...this.cache.shortcuts }
+      shortcuts: { ...this.cache.shortcuts },
+      aiModels: { ...this.cache.aiModels }
     };
   }
 
@@ -121,7 +136,8 @@ export class SettingsStore {
       appearance: patch.appearance
         ? normalizeAppearance({ ...this.cache.appearance, ...patch.appearance })
         : this.cache.appearance,
-      shortcuts: { ...this.cache.shortcuts, ...(patch.shortcuts ?? {}) }
+      shortcuts: { ...this.cache.shortcuts, ...(patch.shortcuts ?? {}) },
+      aiModels: { ...this.cache.aiModels, ...(patch.aiModels ?? {}) }
     };
     const write = this.db.transaction(() => {
       for (const key of Object.keys(patch) as Array<keyof AppSettings>) {

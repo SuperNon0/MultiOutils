@@ -6,7 +6,7 @@ import {
   useState,
   type ReactNode
 } from 'react';
-import type { AppSettings } from '../../../common/types';
+import type { AppSettings, NavAction } from '../../../common/types';
 import { EncreLayer, ui, type PaletteItem } from '../encre/ui';
 import { I18nProvider, translate } from '../i18n';
 import { modules } from '../registry';
@@ -32,7 +32,7 @@ export function App(): ReactNode {
   const [active, setActive] = useState<string>(modules[0]?.id ?? 'settings');
   const [settingsSection, setSettingsSection] = useState<{ id: string; n: number } | undefined>();
   const [navCaptureId, setNavCaptureId] = useState<string | null>(null);
-  const [navAction, setNavAction] = useState<'select' | 'edit'>('select');
+  const [navAction, setNavAction] = useState<NavAction>('select');
   const [plusOpen, setPlusOpen] = useState(false);
   const settingsRef = useRef<AppSettings | null>(null);
   const activatedRef = useRef(false);
@@ -52,6 +52,13 @@ export function App(): ReactNode {
     const unsubNav = window.api.host.onNavigate((nav) => {
       if (nav.view === 'settings') {
         openSettings(nav.section);
+      } else if (nav.toolId === 'ocr') {
+        // Ancien onglet « Extraire le texte (OCR) » (lanceur, raccourcis) :
+        // l'OCR vit désormais dans la bibliothèque des captures → on ouvre la
+        // feuille « Extraire le texte » sur la dernière capture.
+        setActive('screenshot');
+        setNavCaptureId(nav.captureId ?? 'latest');
+        setNavAction('ocr');
       } else {
         setActive(nav.toolId);
         if (nav.captureId) {
@@ -123,11 +130,12 @@ export function App(): ReactNode {
     () => ({
       notify,
       openTool: setActive,
+      openSettings,
       navCaptureId,
       navAction,
       consumeNavCapture: () => setNavCaptureId(null)
     }),
-    [notify, navCaptureId, navAction]
+    [notify, openSettings, navCaptureId, navAction]
   );
 
   if (!settings) return null;

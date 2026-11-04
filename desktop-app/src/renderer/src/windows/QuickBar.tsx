@@ -5,7 +5,7 @@ import { useI18n } from '../i18n';
 
 /**
  * Barre d'actions rapides post-capture (docs/00 §1.1) :
- * Éditer · Copier · Enregistrer sous… · Envoyer au serveur · Supprimer.
+ * Éditer · Copier · Enregistrer sous… · Envoyer au serveur · Traduire (IA) · Supprimer.
  */
 export function QuickBar({ captureId }: { captureId: string }): ReactNode {
   const { t } = useI18n();
@@ -50,6 +50,15 @@ export function QuickBar({ captureId }: { captureId: string }): ReactNode {
       >
         <Icon name="send" size={20} />
         <span>{t('quickbar.send')}</span>
+      </button>
+      <button
+        type="button"
+        className="quickbar-btn"
+        title={t('text.ai.action')}
+        onClick={() => act('translate')}
+      >
+        <Icon name="sparkle" size={20} />
+        <span>{t('quickbar.translate')}</span>
       </button>
       <button
         type="button"

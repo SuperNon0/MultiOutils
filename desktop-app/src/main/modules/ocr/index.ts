@@ -1,5 +1,6 @@
 import { app, ipcMain } from 'electron';
 import path from 'node:path';
+import { OCR_LANGS, type OcrLang } from '../../../common/types';
 import type { MainHostContext, MainToolModule } from '../../module-registry';
 import { CaptureRepo } from '../../storage/captures';
 
@@ -8,10 +9,11 @@ export type OcrResult =
   | { ok: false; error: string };
 
 /**
- * Module « OCR » (docs/00 §9.1) : extrait le texte d'une capture via
+ * Moteur OCR (docs/00 §9.1) : extrait le texte d'une capture via
  * Tesseract (tesseract.js). Le modèle de langue est téléchargé à la première
  * utilisation puis mis en cache localement (usage hors-ligne ensuite) —
- * compromis documenté dans docs/06.
+ * compromis documenté dans docs/06. Plus d'onglet dédié : l'interface est
+ * l'action « Extraire le texte » du menu ⋯ d'une capture (bibliothèque).
  */
 export function createOcrMainModule(): MainToolModule {
   return {
@@ -22,7 +24,11 @@ export function createOcrMainModule(): MainToolModule {
 
       ipcMain.handle(
         'ocr:extract',
-        async (_event, captureId: string, lang: 'fra' | 'eng'): Promise<OcrResult> => {
+        async (_event, captureId: string, requested?: OcrLang): Promise<OcrResult> => {
+          // langue demandée par la feuille, sinon le réglage (Réglages → Capture d'écran)
+          const lang: OcrLang = OCR_LANGS.includes(requested as OcrLang)
+            ? (requested as OcrLang)
+            : ctx.settings.get().ocrLang;
           const capture = repo.get(captureId);
           if (!capture) return { ok: false, error: 'capture introuvable' };
           try {

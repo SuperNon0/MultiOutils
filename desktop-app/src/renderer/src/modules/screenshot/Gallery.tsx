@@ -22,6 +22,7 @@ import { useHost } from '../../host/context';
 import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
 import { displayAccelerator, formatBytes, formatDate } from '../../lib/format';
+import { captureText } from './CaptureTextSheets';
 import { LibrarySidebar, type LibSource } from './library/LibrarySidebar';
 
 type DatePeriod = '' | 'today' | 'week' | 'month';
@@ -198,6 +199,8 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
   // Navigation depuis une notification / la barre rapide.
   useEffect(() => {
     if (!host.navCaptureId) return;
+    // feuilles de texte : gérées par ScreenshotPanel
+    if (host.navAction === 'ocr' || host.navAction === 'translate') return;
     setView('library');
     scrollTargetRef.current = host.navCaptureId;
     if (host.navAction === 'edit') {
@@ -345,6 +348,64 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
     ui.toast(t('ui.trashed', { n: ids.length }), {
       annuler: () => window.api.library.update({ action: 'restore', ids })
     });
+  };
+
+  /** Menu « ⋯ » d'une capture : le même au bouton ⋯ et au clic droit
+   * (vignette, ligne de liste, aperçu), positionné sur le bouton ou la souris. */
+  const openCaptureMenu = (
+    capture: CaptureListItem,
+    anchor: HTMLElement | { x: number; y: number }
+  ): void => {
+    const items: Array<MenuItem | null> =
+      view === 'library'
+        ? [
+            { icone: 'copy', texte: t('gallery.copy'), action: () => void window.api.library.update({ action: 'copy', id: capture.id }) },
+            { icone: 'edit', texte: t('quickbar.edit'), action: () => {
+              setPreviewId(null);
+              onEdit(capture);
+            } },
+            { icone: 'type', texte: t('gallery.rename'), action: () => {
+              setPreviewId(null);
+              if (viewMode === 'grid') {
+                startRename(capture);
+                return;
+              }
+              // vue liste : pas de champ en place → petite question du kit
+              void ui
+                .demander(t('gallery.rename'), { valeur: capture.filename, ok: t('common.save') })
+                .then((name) => {
+                  if (name && name !== capture.filename) {
+                    void window.api.library.update({ action: 'rename', id: capture.id, name });
+                  }
+                });
+            } },
+            null,
+            { icone: 'textscan', texte: t('text.ocr.action'), action: () => captureText.open('ocr', capture.id) },
+            { icone: 'sparkle', texte: t('text.ai.action'), action: () => captureText.open('translate', capture.id) },
+            null,
+            { icone: 'download', texte: t('gallery.saveAs'), action: () => void window.api.library.update({ action: 'saveAs', id: capture.id }) },
+            { icone: 'folderopen', texte: t('gallery.reveal'), action: () => void window.api.library.update({ action: 'reveal', id: capture.id }) },
+            ...(remoteReady
+              ? [{ icone: 'send', texte: t('library.send'), action: () => void window.api.library.update({ action: 'send', ids: [capture.id] }) }]
+              : []),
+            null,
+            { icone: 'trash', texte: t('gallery.delete'), danger: true, touche: t('ui.key.delete'), action: () => {
+              setPreviewId(null);
+              void trashMany([capture.id]);
+            } }
+          ]
+        : [
+            { icone: 'undo', texte: t('gallery.restore'), action: () => void window.api.library.update({ action: 'restore', ids: [capture.id] }) },
+            { icone: 'trash', texte: t('gallery.destroy'), danger: true, action: () => void destroyMany([capture.id]) }
+          ];
+    ui.menu(anchor, items, { titre: capture.filename });
+  };
+
+  /** Clic droit : le menu ⋯ à la souris, jamais le menu natif. */
+  const contextMenuFor = (capture: CaptureListItem) => (event: ReactMouseEvent): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    openCaptureMenu(capture, { x: event.clientX, y: event.clientY });
   };
 
   const openTagMenu = (anchor: HTMLElement): void => {
@@ -695,8 +756,6 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
                 <GridCard
                   key={capture.id}
                   capture={capture}
-                  view={view}
-                  remoteReady={remoteReady}
                   selected={selectedIds.includes(capture.id)}
                   onToggleSelect={() => toggleOne(capture.id)}
                   renaming={renamingId === capture.id}
@@ -707,10 +766,8 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
                   onClick={(e) => clickCard(e, capture)}
                   onDoubleClick={() => dblClickCard(capture)}
                   onDragStart={(e) => dragStart(e, capture)}
-                  onEdit={() => onEdit(capture)}
-                  onRename={() => startRename(capture)}
-                  onDestroy={() => void destroyMany([capture.id])}
-                  onTrash={() => void trashMany([capture.id])}
+                  onMenu={(anchor) => openCaptureMenu(capture, anchor)}
+                  onContextMenu={contextMenuFor(capture)}
                   copied={copiedId === capture.id}
                 />
               ) : (
@@ -722,6 +779,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
                   onClick={(e) => clickCard(e, capture)}
                   onDoubleClick={() => dblClickCard(capture)}
                   onDragStart={(e) => dragStart(e, capture)}
+                  onContextMenu={contextMenuFor(capture)}
                 />
               )
             )}
@@ -759,6 +817,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
         <PreviewModal
           capture={preview}
           onClose={() => setPreviewId(null)}
+          onContextMenu={contextMenuFor(preview)}
           onEdit={
             view === 'library'
               ? () => {
@@ -775,8 +834,6 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
 
 function GridCard({
   capture,
-  view,
-  remoteReady,
   selected,
   onToggleSelect,
   copied,
@@ -788,14 +845,10 @@ function GridCard({
   onClick,
   onDoubleClick,
   onDragStart,
-  onEdit,
-  onRename,
-  onDestroy,
-  onTrash
+  onMenu,
+  onContextMenu
 }: {
   capture: CaptureListItem;
-  view: LibraryView;
-  remoteReady: boolean;
   selected: boolean;
   onToggleSelect(): void;
   copied: boolean;
@@ -807,10 +860,8 @@ function GridCard({
   onClick(event: ReactMouseEvent): void;
   onDoubleClick(): void;
   onDragStart(event: ReactDragEvent): void;
-  onEdit(): void;
-  onRename(): void;
-  onDestroy(): void;
-  onTrash(): void;
+  onMenu(anchor: HTMLElement): void;
+  onContextMenu(event: ReactMouseEvent): void;
 }): ReactNode {
   const { t, lang } = useI18n();
   return (
@@ -823,6 +874,7 @@ function GridCard({
       onDragStart={onDragStart}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      onContextMenu={onContextMenu}
     >
       <div className="shot-thumb">
         <img
@@ -861,15 +913,7 @@ function GridCard({
         >
           <Icon name={capture.favorite ? 'starFilled' : 'star'} size={16} />
         </button>
-        <CardMenu
-          capture={capture}
-          view={view}
-          remoteReady={remoteReady}
-          onEdit={onEdit}
-          onRename={onRename}
-          onDestroy={onDestroy}
-          onTrash={onTrash}
-        />
+        <CardMenu onMenu={onMenu} />
         {copied && (
           <span className="shot-copied">
             <Icon name="check" size={16} />
@@ -930,7 +974,8 @@ function ListRow({
   selected,
   onClick,
   onDoubleClick,
-  onDragStart
+  onDragStart,
+  onContextMenu
 }: {
   capture: CaptureListItem;
   lang: 'fr' | 'en';
@@ -938,6 +983,7 @@ function ListRow({
   onClick(event: ReactMouseEvent): void;
   onDoubleClick(): void;
   onDragStart(event: ReactDragEvent): void;
+  onContextMenu(event: ReactMouseEvent): void;
 }): ReactNode {
   return (
     <div
@@ -949,6 +995,7 @@ function ListRow({
       onDragStart={onDragStart}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
+      onContextMenu={onContextMenu}
     >
       <img
         className="list-thumb"
@@ -983,51 +1030,10 @@ function ListRow({
   );
 }
 
-/** Menu « ⋯ » d'une vignette (menu flottant « encre ») : regroupe toutes les
- * actions pour désencombrer la carte (copier, éditer, renommer, enregistrer,
- * emplacement, envoi, suppression). */
-function CardMenu({
-  capture,
-  view,
-  remoteReady,
-  onEdit,
-  onRename,
-  onDestroy,
-  onTrash
-}: {
-  capture: CaptureListItem;
-  view: LibraryView;
-  remoteReady: boolean;
-  onEdit(): void;
-  onRename(): void;
-  onDestroy(): void;
-  onTrash(): void;
-}): ReactNode {
+/** Bouton « ⋯ » d'une vignette : ouvre le menu de la capture (le même qu'au
+ * clic droit, construit par Gallery.openCaptureMenu). */
+function CardMenu({ onMenu }: { onMenu(anchor: HTMLElement): void }): ReactNode {
   const { t } = useI18n();
-
-  const open = (anchor: HTMLElement): void => {
-    const items: Array<MenuItem | null> =
-      view === 'library'
-        ? [
-            { icone: 'copy', texte: t('gallery.copy'), action: () => void window.api.library.update({ action: 'copy', id: capture.id }) },
-            { icone: 'edit', texte: t('quickbar.edit'), action: onEdit },
-            { icone: 'type', texte: t('gallery.rename'), action: onRename },
-            null,
-            { icone: 'download', texte: t('gallery.saveAs'), action: () => void window.api.library.update({ action: 'saveAs', id: capture.id }) },
-            { icone: 'folderopen', texte: t('gallery.reveal'), action: () => void window.api.library.update({ action: 'reveal', id: capture.id }) },
-            ...(remoteReady
-              ? [{ icone: 'send', texte: t('library.send'), action: () => void window.api.library.update({ action: 'send', ids: [capture.id] }) }]
-              : []),
-            null,
-            { icone: 'trash', texte: t('gallery.delete'), danger: true, touche: t('ui.key.delete'), action: onTrash }
-          ]
-        : [
-            { icone: 'undo', texte: t('gallery.restore'), action: () => void window.api.library.update({ action: 'restore', ids: [capture.id] }) },
-            { icone: 'trash', texte: t('gallery.destroy'), danger: true, action: onDestroy }
-          ];
-    ui.menu(anchor, items, { titre: capture.filename });
-  };
-
   return (
     <button
       type="button"
@@ -1037,7 +1043,7 @@ function CardMenu({
       aria-haspopup="menu"
       onClick={(event) => {
         event.stopPropagation();
-        open(event.currentTarget);
+        onMenu(event.currentTarget);
       }}
       onDoubleClick={(event) => event.stopPropagation()}
     >
@@ -1049,11 +1055,13 @@ function CardMenu({
 function PreviewModal({
   capture,
   onClose,
-  onEdit
+  onEdit,
+  onContextMenu
 }: {
   capture: Capture;
   onClose(): void;
   onEdit?: () => void;
+  onContextMenu(event: ReactMouseEvent): void;
 }): ReactNode {
   const { t, lang } = useI18n();
 
@@ -1099,7 +1107,7 @@ function PreviewModal({
         </span>
       }
     >
-      <div className="apercu-corps">
+      <div className="apercu-corps" onContextMenu={onContextMenu}>
         <img src={`mo-media://capture/${capture.id}`} alt={capture.filename} />
       </div>
     </Feuille>
