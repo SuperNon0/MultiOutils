@@ -441,3 +441,28 @@ updater doit être mis à jour une fois à la main (`git pull` + `npm install
 --include=dev` + `npm run build` + `systemctl restart`) pour faire tourner ce
 nouvel updater. Après quoi le bouton « Mettre à jour le site » est
 définitivement robuste.
+
+## Module « Lanceur » (recréation de Flow Launcher)
+
+Détails complets : [`07-lanceur.md`](07-lanceur.md).
+
+- **Seulement la base de Flow** : fenêtre, moteur, classement et plugins
+  intégrés recodés en TypeScript ; système de plugins tiers, magasin et
+  plugins Python/Node/JSON-RPC laissés de côté. Licence MIT de Flow dans
+  `THIRD_PARTY_NOTICES.md`.
+- **Fenêtre pré-créée** (cachée, `backgroundThrottling: false`) pour une
+  ouverture instantanée ; route `#/launcher` chargée paresseusement pour que
+  le CSS « encre » du lanceur ne touche pas la fenêtre principale.
+- **Logique pure à part** (`modules/launcher/core/`, sans Electron) et tests
+  vitest **dans desktop-app** (ajout de `vitest` en devDependency + script
+  `test`) plutôt que dans `packages/shared` : ce code ne sert qu'au lanceur,
+  pas au serveur, et dépend des types de `src/common/`.
+- **Outils de l'app** : `MainHostContext` gagne `hasLocalCommand` /
+  `runLocalCommand` (adossés au `LocalService` du Stream Deck) — le lanceur
+  déclenche les outils sans référencer leurs modules.
+- **Réglages** dans la table `settings` (clé `launcher.settings`, nettoyée à
+  chaque lecture) ; raccourci propre au module (comme l'autoclic), hors de
+  `AppSettings.shortcuts`.
+- **Mots-clés alphanumériques** actifs seulement suivis d'un espace (Flow les
+  active dès qu'ils sont tapés seuls) ; symboles (`>`) acceptés collés.
+

@@ -1,0 +1,198 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Lanceur — surcharges du design « encre » (encre.css reste inchangé).
+   La fenêtre est transparente : seule la palette en verre est visible.
+   Toutes les couleurs passent par les jetons d'encre.css.
+   ───────────────────────────────────────────────────────────────────────── */
+
+html.mo-launcher,
+html.mo-launcher body,
+html.mo-launcher #root {
+  background: transparent !important;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+html.mo-launcher body {
+  margin: 0;
+  font-family: var(--f-body);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text);
+  user-select: none;
+}
+
+.lz-sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* marge transparente autour de la palette : place pour l'ombre */
+.lz-shell {
+  padding: 14px 20px 30px;
+}
+
+/* La palette de recherche d'encre, posée dans la fenêtre (pas en position fixe). */
+.palette.lz {
+  position: relative;
+  inset: auto;
+  top: auto;
+  left: auto;
+  right: auto;
+  transform: none;
+  width: 100%;
+  max-height: none;
+  padding: 12px;
+  border-radius: 24px;
+  border: 1px solid var(--line2);
+  /* verre : l'arrière-plan du bureau n'est pas flouté par Chromium, donc on
+     garde un verre presque opaque pour la lisibilité */
+  background: color-mix(in srgb, var(--pop) 93%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+  box-shadow: var(--shadow);
+  animation: lz-in 0.16s var(--ease);
+}
+@keyframes lz-in {
+  from { opacity: 0; transform: translateY(-6px) scale(0.99); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .palette.lz { animation: none; }
+  .lz-spin { animation: none !important; }
+}
+
+.lz-champ.champ {
+  height: 54px;
+  border-radius: 16px;
+  padding: 0 10px 0 16px;
+  gap: 12px;
+  background: var(--card);
+  color: var(--soft);
+}
+.lz-champ input {
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+}
+.lz-champ .kbd { cursor: pointer; }
+.lz-kw {
+  border-color: var(--acc-line) !important;
+  background: var(--acc-dim);
+  color: var(--accent) !important;
+}
+.lz-spin { animation: tourne 0.9s linear infinite; color: var(--accent); }
+@keyframes tourne { to { transform: rotate(360deg); } }
+
+.lz-list.res-p {
+  max-height: 460px;
+  overflow-y: auto;
+  margin-top: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line2) transparent;
+}
+.lz-list .pal-g { margin-top: 8px; }
+
+.lz .pal-it {
+  min-height: 54px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  cursor: default;
+  transition: background-color 0.12s;
+}
+.lz .pal-it:hover { background: color-mix(in srgb, var(--card) 60%, transparent); }
+.lz .pal-it.on {
+  background: var(--acc-dim);
+  border-color: var(--acc-line);
+}
+.lz .pal-it.on .ico {
+  color: var(--accent);
+  border-color: var(--acc-line);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+.lz .pal-it .ico { width: 36px; height: 36px; border-radius: 10px; }
+.lz .pal-it .ico.lz-img { background: transparent; border-color: transparent; }
+.lz .pal-it .ico img { width: 28px; height: 28px; object-fit: contain; }
+.lz .pal-it .tx b { font-size: 14.5px; }
+.lz .pal-it .tx span { font-size: 12px; }
+.lz .pal-it.lz-danger .tx b,
+.lz .pal-it.lz-danger .ico { color: var(--danger); }
+
+/* le surlignage reste dans la ligne (encre met les span de .tx en bloc) */
+.lz .pal-it .tx mark { display: inline; font-size: inherit; color: var(--accent); }
+mark.lz-hl {
+  background: transparent;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.lz-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  flex: none;
+}
+.lz-go .kbd { color: var(--accent); border-color: var(--acc-line); }
+.lz-src { opacity: 0.85; }
+.lz-alt { opacity: 0.7; }
+
+.lz-back {
+  width: 22px;
+  height: 22px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 6px;
+  color: var(--soft);
+}
+.lz-back:hover { color: var(--text); background: var(--card); }
+
+.lz-vide {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 14px 6px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.lz-confirm {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  background: var(--danger-dim);
+  color: var(--danger);
+}
+.lz-confirm p { flex: 1; color: var(--text); font-size: 14px; font-weight: 500; }
+.lz-confirm .bts { display: flex; gap: 8px; }
+.lz-confirm .btn .kbd { color: inherit; border-color: currentColor; opacity: 0.8; }
+
+.lz-err {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px 0;
+}
+
+/* pied d'aide toujours visible (la fenêtre est sur ordinateur) */
+.lz .pal-pied.lz-pied {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 16px;
+  padding: 10px 8px 2px;
+}
+.lz-pied .kbd { margin-right: 4px; }
+
+/* neutralise les styles de l'ancien thème global (theme.css) dans cette fenêtre */
+.lz .btn { font-family: var(--f-body); font-size: 13px; }
+.lz .kbd { background: transparent; border-bottom-width: 1px; }
+
+/* résultat de calcul : grand chiffre en titre */
+.lz .pal-it.lz-calc .tx b { font-family: var(--f-title); font-weight: 400; font-size: 24px; line-height: 1.15; }
