@@ -6,6 +6,7 @@ import {
   type ReactNode
 } from 'react';
 import type { Capture } from '@multioutils/shared';
+import { ui } from '../../../encre/ui';
 import { useHost } from '../../../host/context';
 import { Icon } from '../../../host/Icon';
 import { useI18n } from '../../../i18n';
@@ -250,8 +251,15 @@ export function EditorView({
     if (dataUrl) void window.api.editor.copy(dataUrl);
   };
 
-  const close = (): void => {
-    if (dirty && !window.confirm(t('editor.confirmClose'))) return;
+  const close = async (): Promise<void> => {
+    if (dirty) {
+      const ok = await ui.confirmer(t('editor.confirmClose'), {
+        titre: t('editor.back'),
+        ok: t('editor.back'),
+        danger: true
+      });
+      if (!ok) return;
+    }
     onClose();
   };
 
@@ -369,47 +377,47 @@ export function EditorView({
   return (
     <div className="editor-root">
       <header className="editor-top">
-        <button type="button" className="btn" onClick={close}>
-          <Icon name="back" size={14} />
+        <button type="button" className="btn gh sm" onClick={() => void close()}>
+          <Icon name="back" size={16} />
           {t('editor.back')}
         </button>
-        <div className="editor-title" title={capture.filename}>
+        <div className="editor-title ttl" title={capture.filename}>
           {capture.filename}
-          {dirty ? ' •' : ''}
+          {dirty && <span className="editor-dirty" aria-hidden="true" />}
         </div>
         <div className="editor-top-actions">
           <button
             type="button"
-            className="btn btn-icon"
+            className="btn sm ico"
             disabled={!history.canUndo}
             title={t('editor.undo')}
             aria-label={t('editor.undo')}
             onClick={history.undo}
           >
-            <Icon name="undo" size={15} />
+            <Icon name="undo" size={18} />
           </button>
           <button
             type="button"
-            className="btn btn-icon"
+            className="btn sm ico"
             disabled={!history.canRedo}
             title={t('editor.redo')}
             aria-label={t('editor.redo')}
             onClick={history.redo}
           >
-            <Icon name="redo" size={15} />
+            <Icon name="redo" size={18} />
           </button>
           <span className="editor-zoom">
             <button
               type="button"
-              className="btn btn-icon"
+              className="btn sm ico"
               aria-label="-"
               onClick={() => setZoom((z) => Math.max(0.05, z / 1.2))}
             >
-              <Icon name="zoomOut" size={14} />
+              <Icon name="zoomOut" size={18} />
             </button>
             <button
               type="button"
-              className="btn zoom-value"
+              className="btn sm zoom-value mono"
               title={t('editor.zoomFit')}
               onClick={() => setZoom(Math.max(0.05, fitZoom()))}
             >
@@ -417,23 +425,23 @@ export function EditorView({
             </button>
             <button
               type="button"
-              className="btn btn-icon"
+              className="btn sm ico"
               aria-label="+"
               onClick={() => setZoom((z) => Math.min(8, z * 1.2))}
             >
-              <Icon name="zoomIn" size={14} />
+              <Icon name="zoomIn" size={18} />
             </button>
           </span>
-          <button type="button" className="btn" onClick={copyFlat}>
-            <Icon name="copy" size={14} />
+          <button type="button" className="btn sm" onClick={copyFlat}>
+            <Icon name="copy" size={18} />
             {t('gallery.copy')}
           </button>
-          <button type="button" className="btn" onClick={() => setExportOpen(true)}>
-            <Icon name="export" size={14} />
+          <button type="button" className="btn sm" onClick={() => setExportOpen(true)}>
+            <Icon name="export" size={18} />
             {t('editor.export.title')}
           </button>
-          <button type="button" className="btn btn-primary" onClick={() => void save()}>
-            <Icon name="check" size={14} />
+          <button type="button" className="btn pri sm" onClick={() => void save()}>
+            <Icon name="check" size={18} />
             {t('common.save')}
           </button>
         </div>
@@ -461,27 +469,31 @@ export function EditorView({
             />
           ) : loadError ? (
             <div className="editor-loading editor-load-error">
-              <p className="shortcut-conflict">{t('editor.loadError')}</p>
+              <Icon name="alert" size={34} className="dan" />
+              <p className="dan">{t('editor.loadError')}</p>
               <button
                 type="button"
-                className="btn"
+                className="btn sm"
                 onClick={() => setReloadKey((k) => k + 1)}
               >
                 {t('editor.retry')}
               </button>
             </div>
           ) : (
-            <div className="muted editor-loading">{t('common.loading')}</div>
+            <div className="editor-loading">
+              <div className="sk editor-sk" />
+              <span className="muted">{t('common.loading')}</span>
+            </div>
           )}
 
           {tool === 'crop' && (
-            <div className="crop-bar card">
-              <button type="button" className="btn btn-primary" onClick={applyCrop}>
+            <div className="crop-bar">
+              <button type="button" className="btn pri sm" onClick={applyCrop}>
                 {t('editor.crop.apply')}
               </button>
               <button
                 type="button"
-                className="btn"
+                className="btn sm"
                 onClick={() => {
                   history.commit({ ...doc, crop: null });
                   setTool('select');
@@ -489,7 +501,7 @@ export function EditorView({
               >
                 {t('editor.crop.reset')}
               </button>
-              <button type="button" className="btn" onClick={() => setTool('select')}>
+              <button type="button" className="btn gh sm" onClick={() => setTool('select')}>
                 {t('common.cancel')}
               </button>
             </div>

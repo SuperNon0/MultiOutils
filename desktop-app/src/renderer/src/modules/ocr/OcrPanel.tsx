@@ -54,11 +54,11 @@ export function OcrPanel(): ReactNode {
 
   return (
     <div className="panel">
-      <header className="panel-header">
-        <h2>{t('ocr.title')}</h2>
-        <div className="capture-bar">
+      <div className="page-h">
+        <h1 className="page-t">{t('ocr.title')}</h1>
+        <div className="ligne capture-bar">
           <select
-            className="select"
+            className="select sm"
             value={ocrLang}
             aria-label={t('ocr.lang')}
             onChange={(e) => setOcrLang(e.target.value as 'fra' | 'eng')}
@@ -68,7 +68,7 @@ export function OcrPanel(): ReactNode {
           </select>
           <button
             type="button"
-            className="btn btn-primary"
+            className={`btn pri${working ? ' occupe' : ''}`}
             disabled={!selectedId || working}
             onClick={() => void extract()}
           >
@@ -76,21 +76,26 @@ export function OcrPanel(): ReactNode {
             {working ? t('ocr.working') : t('ocr.extract')}
           </button>
         </div>
-        <div className="capture-hint muted">{t('ocr.firstUse')}</div>
-      </header>
+      </div>
+      <p className="intro-p">{t('ocr.firstUse')}</p>
 
       <div className="ocr-layout">
         <section className="ocr-pick">
-          <h3 className="cp-history-title">{t('ocr.pickCapture')}</h3>
+          <div className="sec-h">
+            <h2 className="sec-t">{t('ocr.pickCapture')}</h2>
+          </div>
           {captures.length === 0 ? (
-            <div className="gallery-empty muted">{t('ocr.noCaptures')}</div>
+            <div className="vide">
+              <Icon name="camera" />
+              <span>{t('ocr.noCaptures')}</span>
+            </div>
           ) : (
-            <div className="ocr-grid">
+            <div className="ocr-grid anim-in">
               {captures.map((capture) => (
                 <button
                   key={capture.id}
                   type="button"
-                  className={`ocr-item card${selectedId === capture.id ? ' selected' : ''}`}
+                  className={`ocr-item${selectedId === capture.id ? ' selected' : ''}`}
                   onClick={() => setSelectedId(capture.id)}
                   title={capture.filename}
                 >
@@ -102,25 +107,33 @@ export function OcrPanel(): ReactNode {
         </section>
 
         <section className="ocr-result">
-          <h3 className="cp-history-title">
-            {t('ocr.result')}
-            {selected && <span className="muted"> — {selected.filename} · {formatDate(selected.createdAt, lang)}</span>}
-          </h3>
-          {error && <p className="shortcut-conflict">{error}</p>}
+          <div className="sec-h">
+            <h2 className="sec-t">{t('ocr.result')}</h2>
+            {selected && (
+              <span className="muted petit ocr-src">
+                {selected.filename} · {formatDate(selected.createdAt, lang)}
+              </span>
+            )}
+          </div>
+          {error && (
+            <p className="statut err">
+              <Icon name="alert" size={16} /> {error}
+            </p>
+          )}
           <textarea
             className="input ocr-text"
             readOnly
             value={text ?? ''}
             placeholder={working ? t('ocr.working') : ''}
           />
-          <div className="field-row">
+          <div className="ligne">
             <button
               type="button"
               className="btn"
               disabled={!text}
               onClick={() => void copy()}
             >
-              <Icon name="copy" size={13} />
+              <Icon name="copy" />
               {t('ocr.copy')}
             </button>
           </div>

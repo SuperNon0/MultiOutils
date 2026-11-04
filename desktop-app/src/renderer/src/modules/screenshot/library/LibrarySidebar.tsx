@@ -4,6 +4,7 @@ import {
   type ReactNode
 } from 'react';
 import type { Folder, Tag } from '@multioutils/shared';
+import { ui } from '../../../encre/ui';
 import { Icon } from '../../../host/Icon';
 import { useI18n } from '../../../i18n';
 import { PALETTE } from '../editor/model';
@@ -78,7 +79,12 @@ export function LibrarySidebar({
   };
 
   const deleteFolder = async (folder: Folder): Promise<void> => {
-    if (window.confirm(t('library.folder.confirmDelete', { name: folder.name }))) {
+    const ok = await ui.confirmer(t('library.folder.confirmDelete', { name: folder.name }), {
+      titre: folder.name,
+      ok: t('gallery.delete'),
+      danger: true
+    });
+    if (ok) {
       await window.api.folders.remove(folder.id);
       if (source.kind === 'folder' && source.folderId === folder.id) {
         onSource({ kind: 'all' });
@@ -88,7 +94,12 @@ export function LibrarySidebar({
   };
 
   const deleteTag = async (tag: Tag): Promise<void> => {
-    if (window.confirm(t('library.tag.confirmDelete', { name: tag.name }))) {
+    const ok = await ui.confirmer(t('library.tag.confirmDelete', { name: tag.name }), {
+      titre: tag.name,
+      ok: t('gallery.delete'),
+      danger: true
+    });
+    if (ok) {
       await window.api.tags.remove(tag.id);
       onChanged();
     }
@@ -137,19 +148,19 @@ export function LibrarySidebar({
         ))}
         <button
           type="button"
-          className="btn btn-icon"
+          className="btn gh xs ico"
           aria-label={t('common.save')}
           onClick={() => void submitEditing()}
         >
-          <Icon name="check" size={12} />
+          <Icon name="check" size={16} />
         </button>
         <button
           type="button"
-          className="btn btn-icon"
+          className="btn gh xs ico"
           aria-label={t('common.cancel')}
           onClick={() => setEditing(null)}
         >
-          <Icon name="close" size={12} />
+          <Icon name="close" size={16} />
         </button>
       </div>
     </div>
@@ -176,7 +187,7 @@ export function LibrarySidebar({
             >
               <span
                 className="lib-dot"
-                style={{ background: folder.color ?? 'var(--muted)' }}
+                style={{ background: folder.color ?? 'var(--line2)' }}
               />
               <span className="lib-name" title={folder.name}>
                 {folder.name}
@@ -264,7 +275,7 @@ export function LibrarySidebar({
               className="lib-item-main"
               onClick={() => onSource(item.source)}
             >
-              <Icon name={item.icon} size={13} />
+              <Icon name={item.icon} size={18} />
               <span className="lib-name">{item.label}</span>
             </button>
           </div>
@@ -288,7 +299,7 @@ export function LibrarySidebar({
           editing.parentId === null &&
           editorRow(editing)}
         {folders.length === 0 && !editing && (
-          <div className="muted lib-empty">{t('library.folder.none')}</div>
+          <div className="lib-empty">{t('library.folder.none')}</div>
         )}
       </div>
 
@@ -318,7 +329,7 @@ export function LibrarySidebar({
               >
                 <span
                   className="lib-dot"
-                  style={{ background: tag.color ?? 'var(--muted)' }}
+                  style={{ background: tag.color ?? 'var(--line2)' }}
                 />
                 <span className="lib-name" title={tag.name}>
                   {tag.name}
@@ -349,7 +360,7 @@ export function LibrarySidebar({
         )}
         {editing?.type === 'tag' && editing.id === null && editorRow(editing)}
         {tags.length === 0 && !editing && (
-          <div className="muted lib-empty">{t('library.tag.none')}</div>
+          <div className="lib-empty">{t('library.tag.none')}</div>
         )}
       </div>
     </aside>
@@ -376,7 +387,7 @@ function MiniBtn({
         onClick();
       }}
     >
-      <Icon name={icon} size={12} />
+      <Icon name={icon} size={16} />
     </button>
   );
 }

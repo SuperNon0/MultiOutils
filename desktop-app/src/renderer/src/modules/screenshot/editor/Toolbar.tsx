@@ -40,7 +40,7 @@ export function Toolbar({
           aria-pressed={tool === entry.id}
           onClick={() => onChange(entry.id)}
         >
-          <Icon name={entry.icon} size={17} />
+          <Icon name={entry.icon} size={20} />
         </button>
       ))}
     </div>

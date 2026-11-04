@@ -25,20 +25,20 @@ export function QuickBar({ captureId }: { captureId: string }): ReactNode {
 
   return (
     <div
-      className="quickbar"
+      className="quickbar verre-barre"
       onMouseEnter={() => window.api.quickbar.hover(true)}
       onMouseLeave={() => window.api.quickbar.hover(false)}
     >
       <button type="button" className="quickbar-btn" onClick={() => act('edit')}>
-        <Icon name="edit" />
+        <Icon name="edit" size={20} />
         <span>{t('quickbar.edit')}</span>
       </button>
       <button type="button" className="quickbar-btn" onClick={() => act('copy')}>
-        <Icon name="copy" />
+        <Icon name="copy" size={20} />
         <span>{t('quickbar.copy')}</span>
       </button>
       <button type="button" className="quickbar-btn" onClick={() => act('saveAs')}>
-        <Icon name="save" />
+        <Icon name="save" size={20} />
         <span>{t('quickbar.saveAs')}</span>
       </button>
       <button
@@ -48,15 +48,15 @@ export function QuickBar({ captureId }: { captureId: string }): ReactNode {
         title={remoteReady ? t('quickbar.send') : t('quickbar.sendNotConfigured')}
         onClick={() => act('send')}
       >
-        <Icon name="send" />
+        <Icon name="send" size={20} />
         <span>{t('quickbar.send')}</span>
       </button>
       <button
         type="button"
-        className="quickbar-btn quickbar-danger"
+        className="quickbar-btn dn"
         onClick={() => act('delete')}
       >
-        <Icon name="trash" />
+        <Icon name="trash" size={20} />
         <span>{t('quickbar.delete')}</span>
       </button>
     </div>
