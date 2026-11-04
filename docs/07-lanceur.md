@@ -72,11 +72,18 @@ src/renderer/src/windows/Launcher.tsx  route #/launcher (chargée paresseusement
   `MainHostContext.runLocalCommand` / `hasLocalCommand` (ajoutés pour lui), ou
   `showMainWindow({ view: 'tool', toolId })`. Il attend ~220 ms avant une
   capture pour que sa fenêtre ait disparu.
-- **Design** : kit « encre » (`renderer/src/encre/`, copie verbatim) — palette
-  de recherche en verre (`palette`, `pal-g`, `pal-it`), coins 24 px, accent sur
-  le résultat sélectionné, icônes du sprite. Accent et thème lus dans
-  `AppSettings.appearance` (lecture tolérante, défaut lavande / auto) et posés
-  en `data-accent` / `data-theme` sur `<html>`.
+- **Design** : kit « encre » de l'hôte (`renderer/src/encre/`, chargé
+  globalement par `main.tsx`) — palette de recherche en verre (`palette`,
+  `pal-g`, `pal-it`), coins 24 px, accent sur le résultat sélectionné, icônes
+  du sprite. Accent et thème : hook `useAppearance()` (`encre/appearance`,
+  d'après `AppSettings.appearance`). La fenêtre pose
+  `body[data-fenetre='launcher']` dès le premier rendu ; `app.css` y rend
+  `html`, `body` et `#root` transparents, sans marge ni défilement.
+- **Panneau et réglages** : briques de l'hôte (`RegSec`, `RegLigne`,
+  `RegSwitch`, `ui.confirmer`, `ui.toast`) ; `launcher-panel.css` ne contient
+  que de la mise en page. Les réglages apparaissent dans Réglages → Lanceur ;
+  le raccourci est aussi listé dans Réglages → Raccourcis (`launcher`) et
+  synchronisé dans les deux sens avec `AppSettings.shortcuts.launcher`.
 - **Multi-plateforme** : tout le code Windows est derrière
   `process.platform === 'win32'` ; sous Linux/mac le lanceur démarre avec
   calculatrice, web, URL, shell (`/bin/sh`), processus (`ps`), favoris et

@@ -290,6 +290,17 @@ export function SettingsView({ settings, version, section, modules, update }: Pr
                     github.com/SuperNon0/MultiOutils
                   </a>
                 </p>
+                <p className="muted petit">
+                  {t('settings.about.flow')}{' '}
+                  <a
+                    className="lien"
+                    href="https://github.com/Flow-Launcher/Flow.Launcher"
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Flow Launcher (MIT)
+                  </a>
+                </p>
               </div>
             )}
           </section>
