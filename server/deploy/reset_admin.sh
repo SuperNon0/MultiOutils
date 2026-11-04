@@ -6,9 +6,11 @@
 # dans son store SQLite (table `settings`, clé `local_pw_hash`). Ce script
 # régénère ce hash puis redémarre le service.
 #
-# Usage (en root sur le serveur) :
-#   sudo bash deploy/reset_admin.sh                 # génère un mot de passe et l'affiche
-#   sudo bash deploy/reset_admin.sh 'MonNouveauMdp' # fixe un mot de passe précis
+# Usage (en root DANS le conteneur du serveur ; pas besoin de sudo) :
+#   bash /opt/multioutils/server/deploy/reset_admin.sh                 # génère un mot de passe et l'affiche
+#   bash /opt/multioutils/server/deploy/reset_admin.sh 'MonNouveauMdp' # fixe un mot de passe précis
+# Depuis l'hôte Proxmox (conteneur LXC n° <CTID>) :
+#   pct exec <CTID> -- bash /opt/multioutils/server/deploy/reset_admin.sh
 #
 # Réglages (variables d'environnement, si ton install diffère) :
 #   SERVER_DIR=/opt/multioutils/server   dossier du serveur (défaut)
@@ -22,9 +24,24 @@ SERVER_DIR="${SERVER_DIR:-/opt/multioutils/server}"
 SERVICE="${SERVICE:-multioutils}"
 ENV_FILE="${ENV_FILE:-${SERVER_DIR}/.env}"
 
+if [ ! -d "${SERVER_DIR}" ]; then
+  echo "✗ Dossier du serveur introuvable : ${SERVER_DIR}" >&2
+  if command -v pct >/dev/null 2>&1; then
+    echo "  Tu es sur l'hôte Proxmox : lance le script dans le conteneur, par exemple" >&2
+    echo "  pct exec <CTID> -- bash ${SERVER_DIR}/deploy/reset_admin.sh" >&2
+  else
+    echo "  Lance le script sur la machine du serveur, ou précise SERVER_DIR=…" >&2
+  fi
+  exit 1
+fi
+if ! command -v node >/dev/null 2>&1; then
+  echo "✗ Node.js introuvable : lance le script sur la machine du serveur." >&2
+  exit 1
+fi
+
 # Récupère DATA_DIR : argument d'env > .env du service > défaut (SERVER_DIR/data).
 if [ -z "${DATA_DIR:-}" ] && [ -f "${ENV_FILE}" ]; then
-  FROM_ENV="$(grep -E '^DATA_DIR=' "${ENV_FILE}" | tail -n1 | cut -d= -f2- || true)"
+  FROM_ENV="$(grep -E '^DATA_DIR=' "${ENV_FILE}" | tail -n1 | cut -d= -f2- | tr -d '\r"'"'"'' || true)"
   [ -n "${FROM_ENV}" ] && DATA_DIR="${FROM_ENV}"
 fi
 DATA_DIR="${DATA_DIR:-${SERVER_DIR}/data}"
@@ -47,8 +64,9 @@ fi
 ( cd "${SERVER_DIR}" && node scripts/reset_admin.mjs "${DATA_DIR}" "${NEW}" )
 
 # Recharge le service s'il existe.
+# (pas de `| grep -q` : avec pipefail, grep qui sort tôt fait échouer le test)
 if command -v systemctl >/dev/null 2>&1 \
-   && systemctl list-unit-files 2>/dev/null | grep -q "^${SERVICE}\.service"; then
+   && systemctl cat "${SERVICE}.service" >/dev/null 2>&1; then
   systemctl restart "${SERVICE}"
   echo "→ service ${SERVICE} redémarré."
 else

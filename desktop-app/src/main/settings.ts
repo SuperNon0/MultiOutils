@@ -12,7 +12,7 @@ import {
 export const DEFAULT_AI_MODELS: AppSettings['aiModels'] = {
   anthropic: 'claude-opus-5-5',
   openai: 'gpt-4.1',
-  gemini: 'gemini-2.5-flash'
+  gemini: 'gemini-3.8-flash'
 };
 
 /** Valide une apparence lue en base (valeurs inconnues → défaut). */
@@ -106,6 +106,10 @@ export class SettingsStore {
           merged.shortcuts = { ...merged.shortcuts, ...value };
         } else if (row.key === 'aiModels' && value && typeof value === 'object') {
           merged.aiModels = { ...merged.aiModels, ...value };
+          // Modèles Gemini 2.5 retirés par Google : on passe au défaut actuel.
+          if (/^gemini-2\.5-/.test(merged.aiModels.gemini ?? '')) {
+            merged.aiModels.gemini = DEFAULT_AI_MODELS.gemini;
+          }
         } else if (row.key === 'appearance') {
           merged.appearance = normalizeAppearance(value);
         } else if (row.key === 'theme') {

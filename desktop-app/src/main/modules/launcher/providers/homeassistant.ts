@@ -1,0 +1,183 @@
+/**
+ * Plugin « Home Assistant » : cherche une entité (lumière, prise, volet,
+ * scène…) et l'allume / l'éteint par l'API REST. Adresse dans les réglages
+ * du lanceur ; jeton d'accès chiffré (safeStorage), jamais renvoyé au renderer.
+ */
+import type { LauncherAction, LauncherOutcome } from '../../../../common/launcher';
+import type { Provider, ProviderItem, ProviderQuery } from '../core/engine';
+import {
+  haBaseUrl,
+  haService,
+  isControllable,
+  isOn,
+  isOneShot,
+  splitHaAction,
+  type HaAction,
+  type HaState
+} from '../core/homeassistant';
+import { bestMatch } from '../core/matcher';
+import type { LauncherEnv } from './env';
+
+const ICONS: Record<string, string> = {
+  light: 'sun',
+  switch: 'zap',
+  fan: 'refresh',
+  cover: 'window',
+  media_player: 'play',
+  climate: 'sun',
+  scene: 'sparkle',
+  script: 'play',
+  automation: 'wrench',
+  lock: 'lock',
+  vacuum: 'home'
+};
+
+export class HomeAssistantClient {
+  private cache: { at: number; states: HaState[] } | null = null;
+
+  constructor(
+    private url: () => string,
+    private token: () => string | null
+  ) {}
+
+  invalidate(): void {
+    this.cache = null;
+  }
+
+  private async call(path: string, init: RequestInit = {}): Promise<unknown> {
+    const base = haBaseUrl(this.url());
+    const token = this.token();
+    if (!base || !token) throw new Error('not-configured');
+    const res = await fetch(`${base}/api${path}`, {
+      ...init,
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      signal: AbortSignal.timeout(6000)
+    });
+    if (res.status === 401) throw new Error('unauthorized');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json().catch(() => null);
+  }
+
+  async states(): Promise<HaState[]> {
+    if (this.cache && Date.now() - this.cache.at < 15_000) return this.cache.states;
+    const body = await this.call('/states');
+    const states = Array.isArray(body) ? (body as HaState[]).filter((s) => s && typeof s.entity_id === 'string') : [];
+    this.cache = { at: Date.now(), states };
+    return states;
+  }
+
+  async run(entityId: string, action: HaAction, currentlyOn: boolean): Promise<void> {
+    const [domain, service] = haService(entityId, action, currentlyOn);
+    await this.call(`/services/${domain}/${service}`, {
+      method: 'POST',
+      body: JSON.stringify({ entity_id: entityId })
+    });
+    this.invalidate();
+  }
+
+  /** Vérifie l'adresse et le jeton ; renvoie le nombre d'entités pilotables. */
+  async test(): Promise<number> {
+    this.invalidate();
+    await this.call('/');
+    return (await this.states()).filter(isControllable).length;
+  }
+}
+
+export function createHomeAssistantProvider(env: LauncherEnv, client: HomeAssistantClient): Provider {
+  const exec = async (s: HaState, action: HaAction): Promise<LauncherOutcome> => {
+    try {
+      await client.run(s.entity_id, action, isOn(s));
+      return { kind: 'hide' };
+    } catch (err) {
+      return { kind: 'error', message: `Home Assistant : ${err instanceof Error ? err.message : String(err)}` };
+    }
+  };
+  const label = (s: HaState): string => s.attributes?.friendly_name || s.entity_id;
+  return {
+    id: 'homeassistant',
+    global: true,
+    async query({ parsed, byKeyword }: ProviderQuery): Promise<ProviderItem[]> {
+      let states: HaState[];
+      try {
+        states = (await client.states()).filter(isControllable);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        // erreur montrée seulement quand on interroge HA exprès (mot-clé)
+        return byKeyword
+          ? [
+              {
+                title: env.t(msg === 'not-configured' ? 'launcher.ha.notConfigured' : 'launcher.ha.unreachable'),
+                subtitle: msg === 'not-configured' ? env.t('launcher.ha.notConfiguredSub') : msg,
+                icon: { kind: 'sprite', name: 'alert' },
+                score: 100,
+                noRecord: true,
+                data: { error: true }
+              }
+            ]
+          : [];
+      }
+      const { text, action } = splitHaAction(parsed.search);
+      const out: ProviderItem[] = [];
+      for (const s of states) {
+        let score = 80;
+        let titleHl: number[] | undefined;
+        if (text) {
+          const m = bestMatch(text, [
+            { text: label(s), weight: 1 },
+            { text: s.entity_id, weight: 0.6 }
+          ]);
+          if (!m) continue;
+          score = m.score;
+          if (m.field === 0) titleHl = m.indices;
+        } else if (!byKeyword) {
+          continue;
+        }
+        const on = isOn(s);
+        const verb = isOneShot(s.entity_id)
+          ? env.t('launcher.ha.run')
+          : env.t(action === 'on' || (action === 'toggle' && !on) ? 'launcher.ha.turnOn' : 'launcher.ha.turnOff');
+        out.push({
+          title: label(s),
+          subtitle: `${isOneShot(s.entity_id) ? '' : `${env.t(on ? 'launcher.ha.isOn' : 'launcher.ha.isOff')} · `}${s.entity_id} — ${verb}`,
+          icon: { kind: 'sprite', name: ICONS[s.entity_id.split('.')[0]] ?? 'home' },
+          titleHl,
+          score,
+          priority: byKeyword ? 0 : -5,
+          recordKey: s.entity_id,
+          data: { state: s, action }
+        });
+      }
+      return out;
+    },
+    execute(item): Promise<LauncherOutcome> | LauncherOutcome {
+      const d = item.data as { state?: HaState; action?: HaAction; error?: boolean };
+      if (!d.state) {
+        env.showMainWindow({ view: 'settings', section: 'launcher' });
+        return { kind: 'hide' };
+      }
+      return exec(d.state, d.action ?? 'toggle');
+    },
+    actions(item): LauncherAction[] {
+      const d = item.data as { state?: HaState };
+      if (!d.state) return [];
+      if (isOneShot(d.state.entity_id)) {
+        return [{ id: 'on', title: env.t('launcher.ha.run'), icon: 'play', hint: 'Entrée' }];
+      }
+      return [
+        { id: 'toggle', title: env.t('launcher.ha.toggle'), icon: 'refresh', hint: 'Entrée' },
+        { id: 'on', title: env.t('launcher.ha.turnOn'), icon: 'sun' },
+        { id: 'off', title: env.t('launcher.ha.turnOff'), icon: 'moon' },
+        { id: 'copy', title: env.t('launcher.ha.copyId'), icon: 'copy' }
+      ];
+    },
+    runAction(item, actionId): Promise<LauncherOutcome> | LauncherOutcome {
+      const d = item.data as { state?: HaState };
+      if (!d.state) return { kind: 'hide' };
+      if (actionId === 'copy') {
+        env.copyText(d.state.entity_id);
+        return { kind: 'hide' };
+      }
+      return exec(d.state, actionId === 'on' ? 'on' : actionId === 'off' ? 'off' : 'toggle');
+    }
+  };
+}

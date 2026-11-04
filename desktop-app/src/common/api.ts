@@ -101,6 +101,12 @@ export interface PreloadApi {
     setKey(provider: import('./types').AiProviderId, key: string): Promise<import('./types').AiSimpleResult>;
     /** Petit appel avec la clé enregistrée du fournisseur. */
     testKey(provider: import('./types').AiProviderId): Promise<import('./types').AiSimpleResult>;
+    /** Modèles proposés par le fournisseur pour la clé enregistrée ([] si inconnu). */
+    listModels(provider: import('./types').AiProviderId): Promise<string[]>;
+    /** Traduction déjà enregistrée pour cette capture (null s'il n'y en a pas). */
+    getSaved(captureId: string): Promise<import('./types').AiSavedTranslation | null>;
+    /** Enregistre les textes corrigés à la main dans la traduction de la capture. */
+    saveEdit(captureId: string, original: string, translated: string): Promise<void>;
     /** Fournisseur et modèle des Réglages ; targetLang absent = langue des Réglages. */
     translate(captureId: string, targetLang?: string): Promise<import('./types').AiTranslateResult>;
   };
@@ -237,6 +243,14 @@ export interface PreloadApi {
     reindex(): Promise<import('./launcher').LauncherStats>;
     clearHistory(): Promise<void>;
     clearUsage(): Promise<void>;
+    /** Home Assistant : jeton chiffré côté main (jamais relu par le renderer). */
+    haStatus(): Promise<{ hasToken: boolean }>;
+    haSetToken(token: string): Promise<{ hasToken: boolean }>;
+    haTest(): Promise<{ ok: true; count: number } | { ok: false; error: string }>;
+    /** Spotify : connexion OAuth par le navigateur, jeton chiffré côté main. */
+    spotifyStatus(): Promise<{ connected: boolean; user?: string }>;
+    spotifyConnect(): Promise<{ ok: true; user: string } | { ok: false; error: string }>;
+    spotifyDisconnect(): Promise<{ connected: boolean }>;
     onResults(cb: (msg: import('./launcher').LauncherResultsMsg) => void): Unsubscribe;
     onShown(cb: () => void): Unsubscribe;
     onHidden(cb: () => void): Unsubscribe;

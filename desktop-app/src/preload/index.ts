@@ -80,6 +80,10 @@ const api: PreloadApi = {
     getConfig: () => ipcRenderer.invoke('ai:getConfig'),
     setKey: (provider, key) => ipcRenderer.invoke('ai:setKey', provider, key),
     testKey: (provider) => ipcRenderer.invoke('ai:testKey', provider),
+    listModels: (provider) => ipcRenderer.invoke('ai:listModels', provider),
+    getSaved: (captureId) => ipcRenderer.invoke('ai:getSaved', captureId),
+    saveEdit: (captureId, original, translated) =>
+      ipcRenderer.invoke('ai:saveEdit', captureId, original, translated),
     translate: (captureId, targetLang) => ipcRenderer.invoke('ai:translate', captureId, targetLang)
   },
   autoclicker: {
@@ -182,6 +186,12 @@ const api: PreloadApi = {
     reindex: () => ipcRenderer.invoke('launcher:reindex'),
     clearHistory: () => ipcRenderer.invoke('launcher:clearHistory'),
     clearUsage: () => ipcRenderer.invoke('launcher:clearUsage'),
+    haStatus: () => ipcRenderer.invoke('launcher:haStatus'),
+    haSetToken: (token) => ipcRenderer.invoke('launcher:haSetToken', token),
+    haTest: () => ipcRenderer.invoke('launcher:haTest'),
+    spotifyStatus: () => ipcRenderer.invoke('launcher:spotifyStatus'),
+    spotifyConnect: () => ipcRenderer.invoke('launcher:spotifyConnect'),
+    spotifyDisconnect: () => ipcRenderer.invoke('launcher:spotifyDisconnect'),
     onResults: (cb) => subscribe('launcher:results', cb),
     onShown: (cb) => subscribe<void>('launcher:shown', cb),
     onHidden: (cb) => subscribe<void>('launcher:hidden', cb),
