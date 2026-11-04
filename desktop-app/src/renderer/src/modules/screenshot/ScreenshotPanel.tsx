@@ -2,9 +2,11 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { Capture, CaptureType } from '@multioutils/shared';
 import type { AppSettings, DisplayInfo } from '../../../../common/types';
 import { ui } from '../../encre/ui';
+import { useHost } from '../../host/context';
 import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
 import { displayAccelerator } from '../../lib/format';
+import { CaptureTextLayer, captureText } from './CaptureTextSheets';
 import { EditorView } from './editor/EditorView';
 import { Gallery } from './Gallery';
 
@@ -15,6 +17,16 @@ export function ScreenshotPanel(): ReactNode {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [displays, setDisplays] = useState<DisplayInfo[]>([]);
   const [editing, setEditing] = useState<Capture | null>(null);
+  const host = useHost();
+
+  // « Extraire le texte » / « Traduire (IA) » demandés de l'extérieur (barre
+  // rapide post-capture, lanceur) : la feuille s'ouvre par-dessus le panneau.
+  useEffect(() => {
+    if (!host.navCaptureId) return;
+    if (host.navAction !== 'ocr' && host.navAction !== 'translate') return;
+    captureText.open(host.navAction, host.navCaptureId);
+    host.consumeNavCapture();
+  }, [host, host.navCaptureId, host.navAction]);
 
   useEffect(() => {
     void window.api.settings.get().then(setSettings);
@@ -27,7 +39,12 @@ export function ScreenshotPanel(): ReactNode {
   };
 
   if (editing) {
-    return <EditorView capture={editing} onClose={() => setEditing(null)} />;
+    return (
+      <>
+        <EditorView capture={editing} onClose={() => setEditing(null)} />
+        <CaptureTextLayer />
+      </>
+    );
   }
 
   const hint =
@@ -97,6 +114,7 @@ export function ScreenshotPanel(): ReactNode {
       )}
 
       <Gallery onEdit={setEditing} />
+      <CaptureTextLayer />
     </div>
   );
 }

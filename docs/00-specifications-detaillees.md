@@ -289,9 +289,31 @@ premier plan ou en arrière-plan.
 ## 9. Modules bonus
 
 ### 9.1 OCR (texte depuis une image) — Bonus
-- Depuis une capture : bouton **« Extraire le texte »** → OCR (moteur type Tesseract) →
-  le texte détecté est affiché et **copiable**, langue FR/EN.
+- Pas d'onglet dédié (depuis la v0.6.1) : dans la bibliothèque des captures, le menu
+  **« ⋯ »** d'une capture (ou un **clic droit** sur la vignette, la ligne de liste ou
+  l'aperçu — même menu, à la souris) propose **« Extraire le texte »** → OCR local
+  (Tesseract) → le texte s'affiche dans une feuille, **modifiable** et **copiable**.
+- Langue de l'OCR (français, anglais, les deux) : dans la feuille, et par défaut dans
+  **Réglages → Capture → Extraire le texte**.
+- Le lanceur (entrée « OCR — extraire le texte ») ouvre cette feuille sur la
+  **dernière capture**.
 - ✅ Réussi quand : un texte lisible dans une capture est extrait correctement et copié.
+
+### 9.1 bis Traduction IA d'une capture
+- Menu **« ⋯ » / clic droit** d'une capture → **« Traduire (IA) »**, et bouton
+  **« Traduire »** de la barre rapide post-capture : l'image est envoyée à l'IA
+  choisie, qui renvoie le **texte d'origine détecté** (avec sa langue) et sa
+  **traduction** ; chacun a son bouton Copier. Roue pendant l'attente, erreurs claires
+  (pas de clé, clé refusée, réseau, limite atteinte, refus de l'IA).
+- **Réglages → Traduction IA** : fournisseur (**Claude** d'Anthropic, **OpenAI**,
+  **Google Gemini**), modèle (Claude : `claude-opus-5-5` par défaut — le plus précis,
+  `claude-sonnet-5-5` — plus rapide, `claude-haiku-5-5` — le moins cher ; OpenAI et
+  Gemini : nom libre avec suggestions), langue cible (Français par défaut, liste
+  courante ou nom libre), **une clé API par fournisseur** (champ masqué, « Tester la
+  clé », lien « Créer une clé »). Bulle « ? » : l'image part chez le fournisseur et
+  c'est payant à l'usage.
+- La clé est **chiffrée** (safeStorage, DPAPI) dans la table `settings` et ne quitte
+  jamais le process main ; sans chiffrement disponible, elle n'est pas enregistrée.
 
 ### 9.2 Color picker / pipette — Bonus
 - Outil **pipette plein écran** : loupe zoomée autour du curseur, affiche la couleur du

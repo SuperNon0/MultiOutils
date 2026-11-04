@@ -12,6 +12,7 @@ import { createAutoclickerMainModule } from './modules/autoclicker';
 import { createClipboardMainModule } from './modules/clipboard';
 import { createColorPickerMainModule } from './modules/color-picker';
 import { createLauncherMainModule } from './modules/launcher';
+import { createAiMainModule } from './modules/ai';
 import { createOcrMainModule } from './modules/ocr';
 import { createScreenshotMainModule } from './modules/screenshot';
 import { SettingsStore } from './settings';
@@ -109,6 +110,7 @@ async function bootstrap(): Promise<void> {
   registry.register(createScreenshotMainModule());
   registry.register(createColorPickerMainModule());
   registry.register(createOcrMainModule());
+  registry.register(createAiMainModule());
   registry.register(createClipboardMainModule());
   registry.register(createAutoclickerMainModule());
   registry.register(createLauncherMainModule());

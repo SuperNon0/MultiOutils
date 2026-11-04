@@ -181,6 +181,16 @@ export function createScreenshotMainModule(): MainToolModule {
               quickbar.closeNow();
               await remote.sendMany([captureId]);
               break;
+            case 'translate':
+              // la feuille « Traduire (IA) » s'ouvre dans la fenêtre principale
+              quickbar.closeNow();
+              ctx.showMainWindow({
+                view: 'tool',
+                toolId: 'screenshot',
+                captureId,
+                action: 'translate'
+              });
+              break;
           }
         }
       );

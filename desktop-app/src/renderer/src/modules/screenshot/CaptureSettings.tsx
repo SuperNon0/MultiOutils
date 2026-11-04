@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import type { AppSettings } from '../../../../common/types';
+import { OCR_LANGS, type AppSettings, type OcrLang } from '../../../../common/types';
 import { RegLigne, RegSec, RegSwitch } from '../../host/reglages';
 import { useI18n } from '../../i18n';
 
@@ -87,6 +87,23 @@ export function CaptureSettings(): ReactNode {
             {[3, 5, 10, 15, 30].map((s) => (
               <option key={s} value={s}>
                 {s} s
+              </option>
+            ))}
+          </select>
+        </RegLigne>
+      </RegSec>
+
+      <RegSec titre={t('text.ocr.title')}>
+        <RegLigne titre={t('ocr.lang')} sous={t('ocr.lang.sub')}>
+          <select
+            className="select reg-select"
+            value={settings.ocrLang}
+            aria-label={t('ocr.lang')}
+            onChange={(e) => update({ ocrLang: e.target.value as OcrLang })}
+          >
+            {OCR_LANGS.map((l) => (
+              <option key={l} value={l}>
+                {t(`ocr.lang.${l}`)}
               </option>
             ))}
           </select>

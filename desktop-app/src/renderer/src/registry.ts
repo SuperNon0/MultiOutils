@@ -8,13 +8,11 @@ import { autoclickerModule } from './modules/autoclicker';
 import { clipboardModule } from './modules/clipboard';
 import { colorPickerModule } from './modules/color-picker';
 import { launcherModule } from './modules/launcher';
-import { ocrModule } from './modules/ocr';
 import { screenshotModule } from './modules/screenshot';
 
 export const modules: ToolModule[] = [
   screenshotModule,
   colorPickerModule,
-  ocrModule,
   clipboardModule,
   autoclickerModule,
   launcherModule

@@ -74,8 +74,13 @@ const api: PreloadApi = {
     onHistoryChanged: (cb) => subscribe('colorpicker:historyChanged', cb)
   },
   ocr: {
-    extract: (captureId: string, lang: 'fra' | 'eng') =>
-      ipcRenderer.invoke('ocr:extract', captureId, lang)
+    extract: (captureId, lang) => ipcRenderer.invoke('ocr:extract', captureId, lang)
+  },
+  ai: {
+    getConfig: () => ipcRenderer.invoke('ai:getConfig'),
+    setKey: (provider, key) => ipcRenderer.invoke('ai:setKey', provider, key),
+    testKey: (provider) => ipcRenderer.invoke('ai:testKey', provider),
+    translate: (captureId, targetLang) => ipcRenderer.invoke('ai:translate', captureId, targetLang)
   },
   autoclicker: {
     getStore: () => ipcRenderer.invoke('autoclick:getStore'),

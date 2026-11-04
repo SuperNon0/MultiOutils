@@ -88,10 +88,21 @@ export interface PreloadApi {
     onHistoryChanged(cb: () => void): Unsubscribe;
   };
   ocr: {
+    /** lang absent = langue des Réglages. */
     extract(
       captureId: string,
-      lang: 'fra' | 'eng'
+      lang?: import('./types').OcrLang
     ): Promise<{ ok: true; text: string } | { ok: false; error: string }>;
+  };
+  /** Traduction IA d'une capture (la clé API ne quitte jamais le process main). */
+  ai: {
+    getConfig(): Promise<import('./types').AiConfig>;
+    /** '' efface la clé ; refusé si le chiffrement du système est indisponible. */
+    setKey(provider: import('./types').AiProviderId, key: string): Promise<import('./types').AiSimpleResult>;
+    /** Petit appel avec la clé enregistrée du fournisseur. */
+    testKey(provider: import('./types').AiProviderId): Promise<import('./types').AiSimpleResult>;
+    /** Fournisseur et modèle des Réglages ; targetLang absent = langue des Réglages. */
+    translate(captureId: string, targetLang?: string): Promise<import('./types').AiTranslateResult>;
   };
   autoclicker: {
     getStore(): Promise<AutoclickStore>;
