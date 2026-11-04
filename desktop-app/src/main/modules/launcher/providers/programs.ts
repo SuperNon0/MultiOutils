@@ -233,7 +233,7 @@ export function createProgramsProvider(env: LauncherEnv, index: ProgramIndex): P
       const e = item.data as ProgramEntry;
       const list: LauncherAction[] = [{ id: 'open', title: env.t('launcher.action.open'), icon: 'play', hint: 'Entrée' }];
       if (e.kind !== 'uwp') {
-        list.push({ id: 'folder', title: env.t('launcher.action.openFolder'), icon: 'layers', hint: 'Ctrl Entrée' });
+        list.push({ id: 'folder', title: env.t('launcher.action.openFolder'), icon: 'folderopen', hint: 'Ctrl Entrée' });
         if (env.isWin) list.push({ id: 'admin', title: env.t('launcher.action.admin'), icon: 'shield', hint: 'Ctrl Maj Entrée' });
         list.push({ id: 'copy', title: env.t('launcher.action.copyPath'), icon: 'copy' });
       }

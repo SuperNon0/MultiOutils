@@ -159,7 +159,7 @@ export function createFilesProvider(env: LauncherEnv, searcher: FileSearcher): P
     return {
       title: name,
       subtitle: p,
-      icon: dir ? { kind: 'sprite', name: 'layers' } : { kind: 'file', path: p },
+      icon: dir ? { kind: 'sprite', name: 'folder' } : { kind: 'file', path: p },
       titleHl: titleHl ?? (search ? fuzzyMatch(search, name).indices : undefined),
       score,
       recordKey: p.toLowerCase(),
@@ -262,8 +262,8 @@ export function createFilesProvider(env: LauncherEnv, searcher: FileSearcher): P
     actions(it): LauncherAction[] {
       const d = it.data as FileData;
       const list: LauncherAction[] = [
-        { id: 'open', title: env.t('launcher.action.open'), icon: d.dir ? 'layers' : 'play', hint: 'Entrée' },
-        { id: 'folder', title: env.t('launcher.action.openFolder'), icon: 'layers', hint: 'Ctrl Entrée' },
+        { id: 'open', title: env.t('launcher.action.open'), icon: d.dir ? 'folderopen' : 'play', hint: 'Entrée' },
+        { id: 'folder', title: env.t('launcher.action.openFolder'), icon: 'folderopen', hint: 'Ctrl Entrée' },
         { id: 'copy', title: env.t('launcher.action.copyPath'), icon: 'copy' },
         { id: 'copyName', title: env.t('launcher.action.copyName'), icon: 'copy' }
       ];

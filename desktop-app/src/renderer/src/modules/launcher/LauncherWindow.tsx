@@ -14,11 +14,9 @@ import type {
   LauncherResult,
   LauncherState
 } from '../../../../common/launcher';
-import '../../encre/polices.css';
-import '../../encre/encre.css';
-import sprite from '../../encre/icones.svg?raw';
+import { useAppearance } from '../../encre/appearance';
 import { I18nProvider, useI18n } from '../../i18n';
-import { cycleIndex, resolveTheme, splitHighlight } from './highlight';
+import { cycleIndex, splitHighlight } from './highlight';
 import './launcher.css';
 
 const iconCache = new Map<string, string | null>();
@@ -47,7 +45,7 @@ function ResultIcon({ result }: { result: LauncherResult }): ReactNode {
     };
   }, [filePath]);
   if (src) return <span className="ico lz-img"><img src={src} alt="" draggable={false} /></span>;
-  const fallback = icon.kind === 'sprite' ? icon.name : result.providerId === 'files' ? 'list' : 'grid';
+  const fallback = icon.kind === 'sprite' ? icon.name : result.providerId === 'files' ? 'file' : 'grid';
   return (
     <span className="ico">
       <Ico name={fallback} className="s18" />
@@ -71,44 +69,25 @@ function Hl({ text, indices }: { text: string; indices?: number[] }): ReactNode 
   );
 }
 
-/** Applique accent + thème du design « encre » sur <html>. */
-function useAppearance(state: LauncherState | null): void {
-  useEffect(() => {
-    const html = document.documentElement;
-    html.classList.add('mo-launcher');
-    if (!state) return;
-    html.lang = state.lang;
-    html.dataset.accent = state.appearance.accent;
-    const media = window.matchMedia('(prefers-color-scheme: light)');
-    const apply = (): void => {
-      html.dataset.theme = resolveTheme(state.appearance.theme, media.matches);
-      if (state.appearance.theme === 'auto') html.dataset.encreAuto = '';
-      else delete html.dataset.encreAuto;
-    };
-    apply();
-    media.addEventListener('change', apply);
-    return () => media.removeEventListener('change', apply);
-  }, [state]);
-}
-
 export function LauncherWindow(): ReactNode {
   const [state, setState] = useState<LauncherState | null>(null);
-  useAppearance(state);
+  // accent + thème « encre » (Réglages → Apparence), comme les autres fenêtres
+  useAppearance();
 
   useEffect(() => {
     void window.api.launcher.getState().then(setState);
     return window.api.launcher.onState(setState);
   }, []);
 
+  useEffect(() => {
+    if (state) document.documentElement.lang = state.lang;
+  }, [state?.lang]);
+
+  if (!state) return null;
   return (
-    <>
-      <div className="lz-sprite" dangerouslySetInnerHTML={{ __html: sprite }} />
-      {state && (
-        <I18nProvider lang={state.lang}>
-          <Launcher state={state} />
-        </I18nProvider>
-      )}
-    </>
+    <I18nProvider lang={state.lang}>
+      <Launcher state={state} />
+    </I18nProvider>
   );
 }
 

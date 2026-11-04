@@ -1,6 +1,6 @@
 /**
  * Fonctions pures de l'interface du lanceur (testées) : surlignage des
- * correspondances, thème, navigation circulaire.
+ * correspondances, navigation circulaire, affichage des raccourcis.
  */
 export interface Segment {
   text: string;
@@ -26,13 +26,6 @@ export function splitHighlight(text: string, indices: number[] | undefined): Seg
   }
   if (cur) out.push({ text: cur, hl: curHl });
   return out;
-}
-
-/** Thème « encre » : sombre / clair / automatique → valeur de data-theme. */
-export function resolveTheme(theme: 'auto' | 'sombre' | 'clair', prefersLight: boolean): 'dark' | 'light' {
-  if (theme === 'sombre') return 'dark';
-  if (theme === 'clair') return 'light';
-  return prefersLight ? 'light' : 'dark';
 }
 
 /** Index suivant/précédent avec retour au début (navigation ↑↓ Tab). */

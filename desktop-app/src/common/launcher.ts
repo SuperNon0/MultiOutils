@@ -130,14 +130,8 @@ export interface LauncherSettings {
   excludes: string[];
 }
 
-export interface LauncherAppearance {
-  accent: 'lavande' | 'or' | 'ambre' | 'corail' | 'menthe';
-  theme: 'auto' | 'sombre' | 'clair';
-}
-
 export interface LauncherState {
   settings: LauncherSettings;
-  appearance: LauncherAppearance;
   lang: 'fr' | 'en';
   /** Dernière requête (pour la réouverture). */
   lastQuery: string;

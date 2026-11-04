@@ -186,12 +186,12 @@ export const SYSTEM_COMMANDS: SystemCommand[] = [
   { id: 'settings', fr: 'Paramètres Windows', en: 'Windows Settings', subFr: "Ouvrir l'application Paramètres", subEn: 'Open the Settings app', icon: 'gear', keywords: 'settings paramètres reglages', winOnly: true },
   { id: 'controlPanel', fr: 'Panneau de configuration', en: 'Control Panel', subFr: 'Ouvrir le Panneau de configuration', subEn: 'Open Control Panel', icon: 'wrench', keywords: 'control panel configuration', winOnly: true },
   { id: 'taskManager', fr: 'Gestionnaire des tâches', en: 'Task Manager', subFr: 'Ouvrir le Gestionnaire des tâches', subEn: 'Open Task Manager', icon: 'chart', keywords: 'task manager taskmgr processus taches', winOnly: true },
-  { id: 'explorer', fr: 'Explorateur de fichiers', en: 'File Explorer', subFr: "Ouvrir l'Explorateur", subEn: 'Open File Explorer', icon: 'layers', keywords: 'explorer explorateur fichiers files', winOnly: true },
+  { id: 'explorer', fr: 'Explorateur de fichiers', en: 'File Explorer', subFr: "Ouvrir l'Explorateur", subEn: 'Open File Explorer', icon: 'folderopen', keywords: 'explorer explorateur fichiers files', winOnly: true },
   { id: 'appOpen', fr: 'Ouvrir MultiOutils', en: 'Open MultiOutils', subFr: "Afficher la fenêtre principale", subEn: 'Show the main window', icon: 'home', keywords: 'multioutils app application fenêtre' },
-  { id: 'appSettings', fr: 'Paramètres de MultiOutils', en: 'MultiOutils settings', subFr: "Réglages de l'application", subEn: 'Application settings', icon: 'gear', keywords: 'multioutils settings paramètres reglages options' },
+  { id: 'appSettings', fr: 'Réglages de MultiOutils', en: 'MultiOutils settings', subFr: "Ouvrir les réglages de l'application", subEn: 'Application settings', icon: 'gear', keywords: 'multioutils settings paramètres reglages options' },
   { id: 'launcherSettings', fr: 'Réglages du lanceur', en: 'Launcher settings', subFr: 'Raccourci, fournisseurs, moteurs web…', subEn: 'Shortcut, providers, web engines…', icon: 'search', keywords: 'launcher lanceur settings réglages flow' },
   { id: 'launcherReindex', fr: 'Réindexer le lanceur', en: 'Reindex the launcher', subFr: 'Relire programmes et favoris', subEn: 'Reload programs and bookmarks', icon: 'refresh', keywords: 'reindex reload index rafraichir actualiser recharger' },
-  { id: 'appData', fr: 'Dossier des données de MultiOutils', en: 'MultiOutils data folder', subFr: 'Ouvrir le dossier des réglages et de la base', subEn: 'Open the settings and database folder', icon: 'layers', keywords: 'userdata data données appdata dossier folder' },
+  { id: 'appData', fr: 'Dossier des données de MultiOutils', en: 'MultiOutils data folder', subFr: 'Ouvrir le dossier des réglages et de la base', subEn: 'Open the settings and database folder', icon: 'folder', keywords: 'userdata data données appdata dossier folder' },
   { id: 'appQuit', fr: 'Quitter MultiOutils', en: 'Quit MultiOutils', subFr: "Fermer complètement l'application", subEn: 'Exit the application', icon: 'x', keywords: 'quit exit quitter fermer close multioutils', confirm: true }
 ];
 
@@ -212,16 +212,16 @@ export interface ToolEntry {
 }
 
 export const TOOL_ENTRIES: ToolEntry[] = [
-  { command: 'capture.region', fr: 'Capturer une zone', en: 'Capture a region', subFr: "Capture d'écran", subEn: 'Screenshot', icon: 'grid', keywords: 'screenshot capture zone region rectangle', delayMs: 220 },
-  { command: 'capture.fullscreen', fr: "Capturer l'écran entier", en: 'Capture full screen', subFr: "Capture d'écran", subEn: 'Screenshot', icon: 'tv', keywords: 'screenshot capture plein écran fullscreen', delayMs: 220 },
-  { command: 'capture.window', fr: 'Capturer une fenêtre', en: 'Capture a window', subFr: "Capture d'écran", subEn: 'Screenshot', icon: 'layers', keywords: 'screenshot capture fenêtre window', delayMs: 220 },
+  { command: 'capture.region', fr: 'Capturer une zone', en: 'Capture a region', subFr: "Capture d'écran", subEn: 'Screenshot', icon: 'region', keywords: 'screenshot capture zone region rectangle', delayMs: 220 },
+  { command: 'capture.fullscreen', fr: "Capturer l'écran entier", en: 'Capture full screen', subFr: "Capture d'écran", subEn: 'Screenshot', icon: 'fullscreen', keywords: 'screenshot capture plein écran fullscreen', delayMs: 220 },
+  { command: 'capture.window', fr: 'Capturer une fenêtre', en: 'Capture a window', subFr: "Capture d'écran", subEn: 'Screenshot', icon: 'window', keywords: 'screenshot capture fenêtre window', delayMs: 220 },
   { command: 'capture.delayed', fr: 'Capture différée', en: 'Delayed capture', subFr: "Capture d'écran", subEn: 'Screenshot', icon: 'hourglass', keywords: 'screenshot capture différée delayed timer minuteur' },
-  { command: 'library.open', fr: 'Bibliothèque des captures', en: 'Capture library', subFr: 'MultiOutils', subEn: 'MultiOutils', icon: 'lib', keywords: 'library bibliothèque galerie gallery captures' },
+  { command: 'library.open', fr: 'Bibliothèque des captures', en: 'Capture library', subFr: 'MultiOutils', subEn: 'MultiOutils', icon: 'image', keywords: 'library bibliothèque galerie gallery captures' },
   { command: 'clipboard.last', fr: 'Dernière capture → presse-papiers', en: 'Last capture → clipboard', subFr: "Capture d'écran", subEn: 'Screenshot', icon: 'copy', keywords: 'copier copy last dernière capture' },
-  { command: 'colorpicker.start', fr: 'Pipette de couleur', en: 'Color picker', subFr: 'Prendre une couleur à l’écran', subEn: 'Pick a color on screen', icon: 'palette', keywords: 'color picker pipette couleur colour eyedropper hex', delayMs: 220 },
-  { openTool: 'ocr', fr: 'OCR — extraire le texte', en: 'OCR — extract text', subFr: 'Texte d’une capture', subEn: 'Text from a capture', icon: 'type', keywords: 'ocr texte text reconnaissance extraction' },
-  { command: 'clips.open', fr: 'Presse-papiers', en: 'Clipboard', subFr: 'Historique des copies', subEn: 'Copy history', icon: 'copy', keywords: 'clipboard presse papiers clips historique history' },
+  { command: 'colorpicker.start', fr: 'Pipette de couleur', en: 'Color picker', subFr: 'Prendre une couleur à l’écran', subEn: 'Pick a color on screen', icon: 'eyedropper', keywords: 'color picker pipette couleur colour eyedropper hex', delayMs: 220 },
+  { openTool: 'ocr', fr: 'OCR — extraire le texte', en: 'OCR — extract text', subFr: 'Texte d’une capture', subEn: 'Text from a capture', icon: 'textscan', keywords: 'ocr texte text reconnaissance extraction' },
+  { command: 'clips.open', fr: 'Presse-papiers', en: 'Clipboard', subFr: 'Historique des copies', subEn: 'Copy history', icon: 'clipboard', keywords: 'clipboard presse papiers clips historique history' },
   { command: 'clips.copyLast', fr: 'Recopier le dernier clip', en: 'Copy last clip', subFr: 'Presse-papiers', subEn: 'Clipboard', icon: 'copy', keywords: 'clip dernier last copier copy' },
-  { command: 'autoclick.toggle', fr: 'Autoclic marche / arrêt', en: 'Toggle autoclicker', subFr: 'Profil sélectionné', subEn: 'Selected profile', icon: 'play', keywords: 'autoclick autoclic clic click auto' },
-  { openTool: 'autoclicker', fr: 'Autoclic — profils', en: 'Autoclicker — profiles', subFr: 'MultiOutils', subEn: 'MultiOutils', icon: 'play', keywords: 'autoclick autoclic profils profiles' }
+  { command: 'autoclick.toggle', fr: 'Autoclic marche / arrêt', en: 'Toggle autoclicker', subFr: 'Profil sélectionné', subEn: 'Selected profile', icon: 'mouse', keywords: 'autoclick autoclic clic click auto' },
+  { openTool: 'autoclicker', fr: 'Autoclic — profils', en: 'Autoclicker — profiles', subFr: 'MultiOutils', subEn: 'MultiOutils', icon: 'mouse', keywords: 'autoclick autoclic profils profiles' }
 ];

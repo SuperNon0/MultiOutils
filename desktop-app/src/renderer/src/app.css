@@ -1603,6 +1603,16 @@ body[data-fenetre='eyedropper'] {
   overflow: hidden;
   min-height: 0;
 }
+/* Lanceur (modules/launcher) : fenêtre transparente, seule la palette en verre se voit. */
+html:has(> body[data-fenetre='launcher']),
+body[data-fenetre='launcher'],
+body[data-fenetre='launcher'] #root {
+  background: transparent;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
 
 /* Barre rapide après une capture : verre flouté, comme la barre flottante du kit. */
 .quickbar {

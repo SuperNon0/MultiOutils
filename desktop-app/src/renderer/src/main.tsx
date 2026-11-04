@@ -16,7 +16,7 @@ import { QuickBar } from './windows/QuickBar';
 import { RegionOverlay } from './windows/RegionOverlay';
 import { WindowPicker } from './windows/WindowPicker';
 
-// Lanceur : chargé à part (son CSS « encre » ne touche pas la fenêtre principale).
+// Lanceur : chargé à part (son code et launcher.css ne pèsent pas sur la fenêtre principale).
 const Launcher = lazy(() => import('./windows/Launcher'));
 
 /**
@@ -26,6 +26,7 @@ const Launcher = lazy(() => import('./windows/Launcher'));
  */
 function Root(): ReactNode {
   if (window.location.hash.startsWith('#/launcher')) {
+    document.body.dataset.fenetre = 'launcher'; // fond transparent dès le premier rendu
     return (
       <Suspense fallback={null}>
         <Launcher />

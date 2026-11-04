@@ -4,29 +4,13 @@
    Toutes les couleurs passent par les jetons d'encre.css.
    ───────────────────────────────────────────────────────────────────────── */
 
-html.mo-launcher,
-html.mo-launcher body,
-html.mo-launcher #root {
-  background: transparent !important;
-  height: auto;
-  min-height: 0;
-  overflow: hidden;
-  scrollbar-gutter: auto;
-}
-html.mo-launcher body {
-  margin: 0;
+/* Fond transparent et absence de marges : voir app.css
+   (body[data-fenetre='launcher'], posé par main.tsx avant le premier rendu). */
+body[data-fenetre='launcher'] {
   font-family: var(--f-body);
   font-size: 15px;
   line-height: 1.5;
   color: var(--text);
-  user-select: none;
-}
-
-.lz-sprite {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
 }
 
 /* marge transparente autour de la palette : place pour l'ombre */
@@ -190,9 +174,8 @@ mark.lz-hl {
 }
 .lz-pied .kbd { margin-right: 4px; }
 
-/* neutralise les styles de l'ancien thème global (theme.css) dans cette fenêtre */
-.lz .btn { font-family: var(--f-body); font-size: 13px; }
-.lz .kbd { background: transparent; border-bottom-width: 1px; }
+/* boutons compacts dans la bande de confirmation */
+.lz .btn { font-size: 13px; }
 
 /* résultat de calcul : grand chiffre en titre */
 .lz .pal-it.lz-calc .tx b { font-family: var(--f-title); font-weight: 400; font-size: 24px; line-height: 1.15; }

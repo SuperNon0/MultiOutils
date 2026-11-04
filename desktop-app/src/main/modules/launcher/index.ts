@@ -12,7 +12,6 @@ import { app, clipboard, ipcMain, shell } from 'electron';
 import os from 'node:os';
 import path from 'node:path';
 import type {
-  LauncherAppearance,
   LauncherExecMode,
   LauncherOutcome,
   LauncherSettings,
@@ -48,17 +47,6 @@ const HISTORY_KEY = 'launcher.history';
 const SHELL_KEY = 'launcher.shellHistory';
 const SHORTCUT_ID = 'launcher';
 const REINDEX_MS = 30 * 60_000;
-
-/** Lecture tolérante de l'apparence (champ ajouté à AppSettings par le thème « encre »). */
-export function readAppearance(settings: unknown): LauncherAppearance {
-  const raw = (settings as { appearance?: Partial<LauncherAppearance> } | null)?.appearance;
-  const accents = ['lavande', 'or', 'ambre', 'corail', 'menthe'];
-  const themes = ['auto', 'sombre', 'clair'];
-  return {
-    accent: raw?.accent && accents.includes(raw.accent) ? raw.accent : 'lavande',
-    theme: raw?.theme && themes.includes(raw.theme) ? raw.theme : 'auto'
-  };
-}
 
 export function createLauncherMainModule(): MainToolModule {
   let ctx: MainHostContext;
@@ -166,13 +154,22 @@ export function createLauncherMainModule(): MainToolModule {
 
   const state = (): LauncherState => ({
     settings,
-    appearance: readAppearance(ctx.settings.get()),
     lang: env.lang(),
     lastQuery,
     shortcutOk
   });
 
+  /** Raccourci gardé aussi dans AppSettings.shortcuts (section Réglages → Raccourcis). */
+  const hostShortcut = (): string | undefined =>
+    (ctx.settings.get().shortcuts as Record<string, string | undefined>)[SHORTCUT_ID];
+  const syncHostShortcut = (): void => {
+    if (hostShortcut() === settings.shortcut) return;
+    const shortcuts = { ...ctx.settings.get().shortcuts, [SHORTCUT_ID]: settings.shortcut };
+    ctx.settings.set({ shortcuts: shortcuts as ReturnType<typeof ctx.settings.get>['shortcuts'] });
+  };
+
   const applyShortcut = (): boolean => {
+    syncHostShortcut();
     ctx.shortcuts.setAccelerator(SHORTCUT_ID, settings.shortcut);
     const statuses = ctx.shortcuts.applyAll();
     shortcutOk = statuses.find((s) => s.id === SHORTCUT_ID)?.ok ?? false;
@@ -268,7 +265,13 @@ export function createLauncherMainModule(): MainToolModule {
       // Pré-création : la première ouverture est aussi rapide que les suivantes.
       app.whenReady().then(() => setTimeout(() => launcher.create(), 1500));
 
-      ctx.events.on('settings-changed', () => launcher.send('launcher:state', state()));
+      syncHostShortcut();
+      ctx.events.on('settings-changed', () => {
+        // raccourci modifié depuis Réglages → Raccourcis : on l'adopte
+        const fromHost = hostShortcut();
+        if (fromHost !== undefined && fromHost !== settings.shortcut) updateSettings({ shortcut: fromHost });
+        launcher.send('launcher:state', state());
+      });
 
       ipcMain.handle('launcher:getState', () => state());
       ipcMain.handle('launcher:query', (_e, text: string, queryId: number) => {

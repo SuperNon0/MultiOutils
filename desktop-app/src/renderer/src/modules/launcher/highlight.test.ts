@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cycleIndex, formatAccelerator, resolveTheme, splitHighlight } from './highlight';
+import { cycleIndex, formatAccelerator, splitHighlight } from './highlight';
 
 describe('interface du lanceur', () => {
   it('découpe le surlignage', () => {
@@ -11,13 +11,6 @@ describe('interface du lanceur', () => {
     expect(splitHighlight('ab', [0, 1, 5])).toEqual([{ text: 'ab', hl: true }]);
     expect(splitHighlight('ab', undefined)).toEqual([{ text: 'ab', hl: false }]);
     expect(splitHighlight('', [0])).toEqual([]);
-  });
-
-  it('thème encre', () => {
-    expect(resolveTheme('sombre', true)).toBe('dark');
-    expect(resolveTheme('clair', false)).toBe('light');
-    expect(resolveTheme('auto', true)).toBe('light');
-    expect(resolveTheme('auto', false)).toBe('dark');
   });
 
   it('navigation circulaire', () => {
