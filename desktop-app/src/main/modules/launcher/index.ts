@@ -8,7 +8,7 @@
  * Ce module ne référence aucun autre module : les outils de l'app sont lancés
  * via les commandes locales enregistrées auprès de l'hôte.
  */
-import { app, clipboard, ipcMain, shell } from 'electron';
+import { app, clipboard, ipcMain, safeStorage, shell } from 'electron';
 import os from 'node:os';
 import path from 'node:path';
 import type {
@@ -22,6 +22,10 @@ import type { MainHostContext, MainToolModule } from '../../module-registry';
 import { LauncherEngine, type Provider } from './core/engine';
 import { pushHistory, UsageRecord } from './core/ranking';
 import { defaultLauncherSettings, mergeLauncherSettings, sanitizeLauncherSettings } from './core/settings';
+import { createAliasesProvider } from './providers/aliases';
+import { createHomeAssistantProvider, HomeAssistantClient } from './providers/homeassistant';
+import { createSpotifyProvider, SpotifyClient, type SpotifyTokens } from './providers/spotify';
+import { createSteamProvider, SteamLibrary } from './providers/steam';
 import { BookmarkIndex, createBookmarksProvider } from './providers/bookmarks';
 import type { LauncherEnv } from './providers/env';
 import { createFilesProvider, FileSearcher } from './providers/files';
@@ -45,6 +49,10 @@ const SETTINGS_KEY = 'launcher.settings';
 const USAGE_KEY = 'launcher.usage';
 const HISTORY_KEY = 'launcher.history';
 const SHELL_KEY = 'launcher.shellHistory';
+/** Jeton Spotify (JSON chiffré) — jamais envoyé au renderer. */
+const SPOTIFY_KEY = 'launcher.spotify.token';
+/** Jeton Home Assistant, chiffré (safeStorage) — jamais envoyé au renderer. */
+const HA_TOKEN_KEY = 'launcher.ha.token';
 const SHORTCUT_ID = 'launcher';
 const REINDEX_MS = 30 * 60_000;
 
@@ -97,6 +105,30 @@ export function createLauncherMainModule(): MainToolModule {
   let fileSearcher: FileSearcher;
   let engine: LauncherEngine;
   let providers: Record<string, Provider> = {};
+  const steamLibrary = new SteamLibrary(process.platform === 'win32');
+
+  const haToken = (): string | null => {
+    const stored = kvGet<string>(HA_TOKEN_KEY, '');
+    if (!stored.startsWith('enc:')) return null;
+    try {
+      return safeStorage.decryptString(Buffer.from(stored.slice(4), 'base64'));
+    } catch {
+      return null;
+    }
+  };
+  const haClient = new HomeAssistantClient(() => settings.homeAssistant.url, haToken);
+
+  /** Chiffre / déchiffre une valeur (safeStorage). */
+  const encrypt = (v: string): string => `enc:${safeStorage.encryptString(v).toString('base64')}`;
+  const decrypt = (stored: string): string | null => {
+    if (!stored.startsWith('enc:')) return null;
+    try {
+      return safeStorage.decryptString(Buffer.from(stored.slice(4), 'base64'));
+    } catch {
+      return null;
+    }
+  };
+  let spotifyClient: SpotifyClient;
 
   const env: LauncherEnv = {
     isWin: process.platform === 'win32',
@@ -121,7 +153,7 @@ export function createLauncherMainModule(): MainToolModule {
     reveal: (p) => shell.showItemInFolder(p),
     openExternal: async (url) => {
       // uniquement des schémas sûrs (pas de file:// ni de javascript:)
-      if (/^(https?|ftp|mailto|ms-settings):/i.test(url)) await shell.openExternal(url);
+      if (/^(https?|ftp|mailto|ms-settings|steam|spotify):/i.test(url)) await shell.openExternal(url);
     },
     userDataDir: '',
     history: () => history,
@@ -130,6 +162,8 @@ export function createLauncherMainModule(): MainToolModule {
 
   const reindex = (): void => {
     void programIndex.refresh().then(() => ctx.broadcast('launcher:stats', stats()));
+    void steamLibrary.refresh().catch(() => undefined);
+    haClient.invalidate();
     try {
       bookmarkIndex.load();
     } catch {
@@ -142,7 +176,8 @@ export function createLauncherMainModule(): MainToolModule {
     programs: programIndex.entries.length,
     bookmarks: bookmarkIndex.items.length,
     indexedAt: programIndex.indexedAt,
-    everything: !!fileSearcher.everything()
+    everything: !!fileSearcher.everything(),
+    steamGames: steamLibrary.games.length
   });
 
   const activeProviders = (): Array<{ provider: Provider; keyword: string }> => {
@@ -216,6 +251,25 @@ export function createLauncherMainModule(): MainToolModule {
         (h) => h && typeof h.cmd === 'string'
       );
 
+      spotifyClient = new SpotifyClient(
+        () => settings.spotify.clientId,
+        {
+          load: () => {
+            const raw = decrypt(kvGet<string>(SPOTIFY_KEY, ''));
+            try {
+              return raw ? (JSON.parse(raw) as SpotifyTokens) : null;
+            } catch {
+              return null;
+            }
+          },
+          save: (tk) => {
+            if (!tk) kvSet(SPOTIFY_KEY, '');
+            else if (safeStorage.isEncryptionAvailable()) kvSet(SPOTIFY_KEY, encrypt(JSON.stringify(tk)));
+          }
+        },
+        (url) => shell.openExternal(url)
+      );
+
       programIndex = new ProgramIndex(env, path.join(env.userDataDir, 'launcher-programs.json'));
       bookmarkIndex = new BookmarkIndex(path.join(os.tmpdir(), 'multioutils-launcher'));
       fileSearcher = new FileSearcher(env);
@@ -241,6 +295,10 @@ export function createLauncherMainModule(): MainToolModule {
         processes: createProcessProvider(env),
         bookmarks: createBookmarksProvider(env, bookmarkIndex),
         tools: createToolsProvider(env),
+        aliases: createAliasesProvider(env),
+        steam: createSteamProvider(env, steamLibrary),
+        homeassistant: createHomeAssistantProvider(env, haClient),
+        spotify: createSpotifyProvider(env, spotifyClient),
         history: createHistoryProvider(env, (q) => {
           history = history.filter((h) => h !== q);
           scheduleSave();
@@ -335,7 +393,7 @@ export function createLauncherMainModule(): MainToolModule {
       });
       ipcMain.handle('launcher:reindex', async () => {
         reindex();
-        await programIndex.refresh();
+        await Promise.all([programIndex.refresh(), steamLibrary.refresh().catch(() => undefined)]);
         return stats();
       });
       ipcMain.handle('launcher:clearHistory', () => {
@@ -346,6 +404,47 @@ export function createLauncherMainModule(): MainToolModule {
       ipcMain.handle('launcher:clearUsage', () => {
         usage.clear();
         scheduleSave();
+      });
+
+      // Home Assistant : jeton chiffré, test de connexion
+      ipcMain.handle('launcher:haStatus', () => ({ hasToken: haToken() !== null }));
+      ipcMain.handle('launcher:haSetToken', (_e, token: unknown) => {
+        const v = typeof token === 'string' ? token.trim() : '';
+        if (!v) kvSet(HA_TOKEN_KEY, '');
+        else {
+          if (!safeStorage.isEncryptionAvailable()) throw new Error('encryptionUnavailable');
+          kvSet(HA_TOKEN_KEY, `enc:${safeStorage.encryptString(v).toString('base64')}`);
+        }
+        haClient.invalidate();
+        return { hasToken: v !== '' };
+      });
+      ipcMain.handle('launcher:haTest', async (): Promise<{ ok: true; count: number } | { ok: false; error: string }> => {
+        try {
+          return { ok: true, count: await haClient.test() };
+        } catch (err) {
+          return { ok: false, error: err instanceof Error ? err.message : String(err) };
+        }
+      });
+
+      // Spotify : connexion OAuth (navigateur), état, déconnexion
+      ipcMain.handle('launcher:spotifyStatus', async () => {
+        if (!spotifyClient.connected) return { connected: false };
+        const user = await spotifyClient.me().catch(() => '');
+        return { connected: true, user };
+      });
+      ipcMain.handle('launcher:spotifyConnect', async (): Promise<{ ok: true; user: string } | { ok: false; error: string }> => {
+        if (!safeStorage.isEncryptionAvailable()) return { ok: false, error: 'encryptionUnavailable' };
+        try {
+          await spotifyClient.connect();
+          return { ok: true, user: await spotifyClient.me().catch(() => '') };
+        } catch (err) {
+          const e = err as { code?: string; message?: string };
+          return { ok: false, error: e.code && e.code !== 'api' ? e.code : (e.message ?? String(err)) };
+        }
+      });
+      ipcMain.handle('launcher:spotifyDisconnect', () => {
+        spotifyClient.disconnect();
+        return { connected: false };
       });
 
       ctx.registerLocalCommand('launcher.open', () => launcher.show());

@@ -282,3 +282,30 @@ button.lzr-mot:hover {
     width: 120px;
   }
 }
+
+/* ------------------------------------------- sous-catégories des réglages */
+.lzr-cats {
+  display: grid;
+  gap: 6px;
+}
+.lzr-cats .reg-g {
+  margin-top: 12px;
+}
+.lzr-cats > div:first-child .reg-g {
+  margin-top: 0;
+}
+.lzr-retour {
+  margin-bottom: 4px;
+}
+.lzr-cats .li-ic.dan {
+  color: var(--dan, #e5534b);
+}
+.lzr-etapes {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 14px;
+  padding-left: 20px;
+}
+.lzr-etapes .copie {
+  margin-top: 6px;
+}

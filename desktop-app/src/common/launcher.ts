@@ -17,6 +17,10 @@ export type LauncherProviderId =
   | 'processes'
   | 'bookmarks'
   | 'tools'
+  | 'aliases'
+  | 'steam'
+  | 'homeassistant'
+  | 'spotify'
   | 'history';
 
 export const LAUNCHER_PROVIDER_IDS: LauncherProviderId[] = [
@@ -30,7 +34,11 @@ export const LAUNCHER_PROVIDER_IDS: LauncherProviderId[] = [
   'winsettings',
   'processes',
   'bookmarks',
-  'tools'
+  'tools',
+  'aliases',
+  'steam',
+  'homeassistant',
+  'spotify'
 ];
 
 /** Icône d'un résultat : symbole du sprite « encre » ou icône de fichier. */
@@ -105,6 +113,20 @@ export interface LauncherWebEngine {
   enabled: boolean;
 }
 
+/**
+ * Raccourci du lanceur : taper `keyword` puis Entrée ouvre directement `target`
+ * (site, dossier, fichier ou programme). Avec {q} dans la cible,
+ * « mot-clé texte » remplace {q} par le texte.
+ */
+export interface LauncherAlias {
+  id: string;
+  keyword: string;
+  /** Nom affiché (facultatif ; sinon la cible). */
+  name: string;
+  target: string;
+  enabled: boolean;
+}
+
 export type LauncherLastQuery = 'selected' | 'keep' | 'empty';
 
 /** Accent propre à la barre, ou « app » pour suivre Réglages → Apparence. */
@@ -166,6 +188,12 @@ export interface LauncherSettings {
   debounceMs: number;
   providers: Record<Exclude<LauncherProviderId, 'history'>, LauncherProviderConfig>;
   webEngines: LauncherWebEngine[];
+  /** Raccourcis : mot-clé → site / dossier / programme. */
+  aliases: LauncherAlias[];
+  /** Home Assistant : adresse (le jeton est chiffré à part, jamais ici). */
+  homeAssistant: { url: string };
+  /** Spotify : Client ID de ta propre appli (le jeton est chiffré à part). */
+  spotify: { clientId: string };
   /** Moteur proposé en dernier résultat de toute recherche ('' = aucun). */
   defaultEngine: string;
   shell: { kind: 'cmd' | 'powershell'; keepOpen: boolean };
@@ -191,4 +219,6 @@ export interface LauncherStats {
   bookmarks: number;
   indexedAt: string | null;
   everything: boolean;
+  /** Jeux Steam détectés. */
+  steamGames: number;
 }

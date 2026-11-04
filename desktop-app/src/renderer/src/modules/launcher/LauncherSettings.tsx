@@ -18,6 +18,7 @@ import {
 } from 'react';
 import type { LauncherSettingsInfo } from '../../../../common/api';
 import type {
+  LauncherAlias,
   LauncherProviderId,
   LauncherSettings as Settings,
   LauncherWebEngine
@@ -46,8 +47,472 @@ const PROVIDERS: Array<[ProviderKey, string]> = [
   ['winsettings', 'gear'],
   ['processes', 'x'],
   ['bookmarks', 'bookmark'],
-  ['tools', 'wrench']
+  ['tools', 'wrench'],
+  ['aliases', 'arrow'],
+  ['steam', 'play'],
+  ['homeassistant', 'home'],
+  ['spotify', 'play']
 ];
+
+/**
+ * Sous-catégories des réglages du lanceur, comme la liste des Réglages.
+ * Un futur plugin = une entrée ici + sa section.
+ */
+type CategoryId =
+  | 'general'
+  | 'look'
+  | 'sources'
+  | 'aliases'
+  | 'steam'
+  | 'homeassistant'
+  | 'spotify'
+  | 'web'
+  | 'files'
+  | 'shell'
+  | 'reset';
+const CATEGORIES: Array<{ id: CategoryId; icon: string; group: 'base' | 'plugins' | 'other' }> = [
+  { id: 'general', icon: 'gear', group: 'base' },
+  { id: 'look', icon: 'palette', group: 'base' },
+  { id: 'sources', icon: 'layers', group: 'base' },
+  { id: 'aliases', icon: 'arrow', group: 'plugins' },
+  { id: 'steam', icon: 'play', group: 'plugins' },
+  { id: 'homeassistant', icon: 'home', group: 'plugins' },
+  { id: 'spotify', icon: 'play', group: 'plugins' },
+  { id: 'web', icon: 'compass', group: 'plugins' },
+  { id: 'files', icon: 'folder', group: 'plugins' },
+  { id: 'shell', icon: 'zap', group: 'plugins' },
+  { id: 'reset', icon: 'alert', group: 'other' }
+];
+
+function CategoryList({ t, onOpen }: { t: TFunc; onOpen(id: CategoryId): void }): ReactNode {
+  return (
+    <div className="lzr-cats">
+      {(['base', 'plugins', 'other'] as const).map((g) => (
+        <div key={g}>
+          <div className="reg-g">{t(`launcher.cat.group.${g}`)}</div>
+          <div className="liste-r">
+            {CATEGORIES.filter((c) => c.group === g).map((c) => (
+              <button key={c.id} type="button" className="li" onClick={() => onOpen(c.id)}>
+                <span className={`li-ic${c.id === 'reset' ? ' dan' : ' acc'}`}>
+                  <Icon name={c.icon} />
+                </span>
+                <span className="tx">
+                  {t(`launcher.cat.${c.id}`)}
+                  <small>{t(`launcher.cat.${c.id}.sub`)}</small>
+                </span>
+                <Icon name="chev" className="muted" />
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** En tête d'un plugin : activé + mot-clé (le même réglage que « Sources »). */
+function PluginHeader({
+  id,
+  s,
+  t,
+  onChange
+}: {
+  id: ProviderKey;
+  s: Settings;
+  t: TFunc;
+  onChange(id: ProviderKey, patch: Partial<Settings['providers'][ProviderKey]>): void;
+}): ReactNode {
+  const p = s.providers[id];
+  const nom = t(`launcher.provider.${id}`);
+  return (
+    <RegSec titre={nom}>
+      <RegSwitch
+        titre={t('launcher.plugin.enabled')}
+        aide={aide(t, nom, `launcher.help.${id}`)}
+        sous={t(`launcher.reg.p.${id}`)}
+        checked={p.enabled}
+        onChange={(v) => onChange(id, { enabled: v })}
+      />
+      <RegLigne titre={t('launcher.plugin.keyword')} sous={t('launcher.plugin.keywordDesc')}>
+        <MotCle value={p.keyword} nom={nom} onCommit={(v) => onChange(id, { keyword: v })} />
+      </RegLigne>
+    </RegSec>
+  );
+}
+
+/** Home Assistant : adresse, jeton (chiffré côté main), test de connexion. */
+function HomeAssistantSection({ url, onUrl }: { url: string; onUrl(v: string): void }): ReactNode {
+  const { t } = useI18n();
+  const [hasToken, setHasToken] = useState<boolean | null>(null);
+  const [token, setToken] = useState('');
+  const [test, setTest] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    void window.api.launcher.haStatus().then((r) => setHasToken(r.hasToken));
+  }, []);
+  const saveToken = async (v: string): Promise<void> => {
+    try {
+      const r = await window.api.launcher.haSetToken(v);
+      setHasToken(r.hasToken);
+      setToken('');
+      setTest(null);
+    } catch (err) {
+      ui.toastErr(err);
+    }
+  };
+  const runTest = async (): Promise<void> => {
+    setBusy(true);
+    const r = await window.api.launcher.haTest();
+    setBusy(false);
+    setTest(
+      r.ok
+        ? { ok: true, text: t('launcher.ha.testOk', { n: r.count }) }
+        : {
+            ok: false,
+            text: t(
+              r.error === 'not-configured'
+                ? 'launcher.ha.notConfiguredSub'
+                : r.error === 'unauthorized'
+                  ? 'launcher.ha.badToken'
+                  : 'launcher.ha.testFail',
+              { msg: r.error }
+            )
+          }
+    );
+  };
+  return (
+    <RegSec titre={t('launcher.ha.connection')}>
+      <RegLigne
+        titre={t('launcher.ha.url')}
+        aide={<Aide titre={t('launcher.ha.url')} texte={t('launcher.ha.urlHelp')} exemple="http://homeassistant.local:8123" />}
+        sous={t('launcher.ha.urlDesc')}
+      >
+        <Champ
+          value={url}
+          onCommit={onUrl}
+          className="input mono lzr-sel"
+          placeholder="http://homeassistant.local:8123"
+          aria-label={t('launcher.ha.url')}
+        />
+      </RegLigne>
+      <RegLigne
+        titre={t('launcher.ha.token')}
+        aide={<Aide titre={t('launcher.ha.token')} texte={t('launcher.ha.tokenHelp')} exemple={t('launcher.ha.tokenHelp.ex')} />}
+        sous={hasToken ? t('launcher.ha.tokenSaved') : t('launcher.ha.tokenDesc')}
+      >
+        <form
+          className="ligne"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (token.trim()) void saveToken(token);
+          }}
+        >
+          <input
+            type="password"
+            className="input mono lzr-sel"
+            value={token}
+            placeholder={hasToken ? '••••••••' : 'eyJhbGciOi…'}
+            aria-label={t('launcher.ha.token')}
+            autoComplete="off"
+            onChange={(e) => setToken(e.target.value)}
+          />
+          <button type="submit" className="btn sm" disabled={!token.trim()}>
+            {t('common.save')}
+          </button>
+          {hasToken && (
+            <button type="button" className="btn sm gh" onClick={() => void saveToken('')}>
+              {t('launcher.settings.remove')}
+            </button>
+          )}
+        </form>
+      </RegLigne>
+      <RegLigne titre={t('launcher.ha.test')} sous={test ? <span className={test.ok ? 'ok' : 'dan'}>{test.text}</span> : t('launcher.ha.testDesc')}>
+        <button type="button" className={`btn sm${busy ? ' occupe' : ''}`} disabled={busy} onClick={() => void runTest()}>
+          <Icon name="plug" size={16} />
+          {t('launcher.ha.test')}
+        </button>
+      </RegLigne>
+    </RegSec>
+  );
+}
+
+/** Adresse de retour à déclarer dans l'appli Spotify (même valeur que le main). */
+const SPOTIFY_REDIRECT = 'http://127.0.0.1:4378/callback';
+
+/** Spotify : Client ID de ton appli, connexion par le navigateur, état. */
+function SpotifySection({
+  clientId,
+  keyword,
+  onClientId
+}: {
+  clientId: string;
+  keyword: string;
+  onClientId(v: string): void;
+}): ReactNode {
+  const { t } = useI18n();
+  const [status, setStatus] = useState<{ connected: boolean; user?: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    void window.api.launcher.spotifyStatus().then(setStatus);
+  }, []);
+  const validId = /^[0-9a-f]{32}$/i.test(clientId.trim());
+  const connect = async (): Promise<void> => {
+    setBusy(true);
+    setError(null);
+    const r = await window.api.launcher.spotifyConnect();
+    setBusy(false);
+    if (r.ok) setStatus({ connected: true, user: r.user });
+    else setError(t(`launcher.spotify.err.${r.error}`) === `launcher.spotify.err.${r.error}` ? r.error : t(`launcher.spotify.err.${r.error}`));
+  };
+  const disconnect = async (): Promise<void> => {
+    setStatus(await window.api.launcher.spotifyDisconnect());
+  };
+  return (
+    <>
+      <RegSec titre={t('launcher.spotify.setup')}>
+        <ol className="lzr-etapes soft petit">
+          <li>
+            {t('launcher.spotify.step1')}{' '}
+            <a className="lien" href="https://developer.spotify.com/dashboard" target="_blank" rel="noreferrer">
+              developer.spotify.com/dashboard
+            </a>
+          </li>
+          <li>{t('launcher.spotify.step2')}</li>
+          <li>
+            {t('launcher.spotify.step3')}
+            <div className="copie">
+              <code>{SPOTIFY_REDIRECT}</code>
+              <button type="button" className="btn sm" onClick={() => void window.api.system.copyText(SPOTIFY_REDIRECT)}>
+                <Icon name="copy" size={16} />
+                {t('text.copy')}
+              </button>
+            </div>
+          </li>
+          <li>{t('launcher.spotify.step4')}</li>
+        </ol>
+        <RegLigne
+          titre={t('launcher.spotify.clientId')}
+          aide={<Aide titre={t('launcher.spotify.clientId')} texte={t('launcher.spotify.clientIdHelp')} exemple="a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6" />}
+          sous={clientId && !validId ? <span className="dan">{t('launcher.spotify.clientIdBad')}</span> : t('launcher.spotify.clientIdDesc')}
+        >
+          <Champ
+            value={clientId}
+            onCommit={(v) => onClientId(v.trim())}
+            className="input mono lzr-sel"
+            placeholder="a1b2c3d4…"
+            aria-label={t('launcher.spotify.clientId')}
+          />
+        </RegLigne>
+        <RegLigne
+          titre={t('launcher.spotify.account')}
+          sous={
+            error ? (
+              <span className="dan">{error}</span>
+            ) : status?.connected ? (
+              <span className="ok">{t('launcher.spotify.connectedAs', { user: status.user || '?' })}</span>
+            ) : (
+              t('launcher.spotify.notConnectedDesc')
+            )
+          }
+        >
+          {status?.connected ? (
+            <button type="button" className="btn sm" onClick={() => void disconnect()}>
+              <Icon name="logout" size={16} />
+              {t('launcher.spotify.disconnect')}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`btn sm pri${busy ? ' occupe' : ''}`}
+              disabled={!validId || busy}
+              onClick={() => void connect()}
+            >
+              <Icon name="plug" size={16} />
+              {busy ? t('launcher.spotify.waiting') : t('launcher.spotify.connect')}
+            </button>
+          )}
+        </RegLigne>
+      </RegSec>
+      <div className="reg-sec">
+        <div className="lbl-mono">{t('launcher.spotify.examples')}</div>
+        <div className="lzr-exemples">
+          {(['', ' daft punk', ' pause', ' suivant', ' vol 40', ' shuffle'] as const).map((rest) => (
+            <div className="carte lzr-ex" key={rest}>
+              <code className="mono">{`${keyword}${rest}`}</code>
+              <span className="soft petit">{t(`launcher.spotify.ex.${rest.trim().split(' ')[0] || 'now'}`)}</span>
+            </div>
+          ))}
+        </div>
+        <p className="muted petit">{t('launcher.spotify.premium')}</p>
+      </div>
+    </>
+  );
+}
+
+/** Fenêtre d'ajout / modification d'un raccourci. */
+function AliasFeuille({
+  alias,
+  taken,
+  onSave,
+  onClose
+}: {
+  alias: LauncherAlias;
+  taken: string[];
+  onSave(a: LauncherAlias): void;
+  onClose(): void;
+}): ReactNode {
+  const { t } = useI18n();
+  const [a, setA] = useState(alias);
+  const kw = a.keyword.replace(/\s+/g, '');
+  const conflict = taken.includes(kw.toLowerCase());
+  const submit = (e: FormEvent): void => {
+    e.preventDefault();
+    if (!kw || !a.target.trim() || conflict) return;
+    onSave({ ...a, keyword: kw, target: a.target.trim(), name: a.name.trim() });
+    onClose();
+  };
+  return (
+    <Feuille titre={t(alias.keyword ? 'launcher.alias.edit' : 'launcher.alias.add')} onClose={onClose}>
+      <form className="form" onSubmit={submit}>
+        <label className="lbl" htmlFor="alias-kw">
+          {t('launcher.alias.keyword')}
+        </label>
+        <input
+          id="alias-kw"
+          className="input mono"
+          value={a.keyword}
+          maxLength={24}
+          autoFocus
+          placeholder="yt"
+          onChange={(e) => setA({ ...a, keyword: e.target.value })}
+        />
+        {conflict && <p className="statut err petit">{t('launcher.alias.taken')}</p>}
+        <label className="lbl" htmlFor="alias-target">
+          {t('launcher.alias.target')}
+        </label>
+        <input
+          id="alias-target"
+          className="input mono"
+          value={a.target}
+          placeholder="https://www.youtube.com"
+          onChange={(e) => setA({ ...a, target: e.target.value })}
+        />
+        <p className="muted petit">{t('launcher.alias.targetHelp')}</p>
+        <label className="lbl" htmlFor="alias-name">
+          {t('launcher.alias.name')}
+        </label>
+        <input
+          id="alias-name"
+          className="input"
+          value={a.name}
+          placeholder="YouTube"
+          onChange={(e) => setA({ ...a, name: e.target.value })}
+        />
+        <div className="ligne">
+          <span className="esp" />
+          <button type="button" className="btn" onClick={onClose}>
+            {t('common.cancel')}
+          </button>
+          <button type="submit" className="btn pri" disabled={!kw || !a.target.trim() || conflict}>
+            <Icon name="check" size={16} />
+            {t('common.save')}
+          </button>
+        </div>
+      </form>
+    </Feuille>
+  );
+}
+
+/** Sous-catégorie « Raccourcis » : la liste, ajouter, modifier, supprimer. */
+function AliasesSection({ aliases, onSave }: { aliases: LauncherAlias[]; onSave(a: LauncherAlias[]): void }): ReactNode {
+  const { t } = useI18n();
+  const [open, setOpen] = useState<{ index: number; alias: LauncherAlias } | null>(null);
+  const put = (index: number, alias: LauncherAlias): void =>
+    onSave(index < 0 ? [...aliases, alias] : aliases.map((x, i) => (i === index ? alias : x)));
+  const remove = async (index: number): Promise<void> => {
+    const ok = await ui.confirmer(t('launcher.alias.removeConfirm', { kw: aliases[index].keyword }), {
+      ok: t('launcher.settings.remove'),
+      danger: true
+    });
+    if (ok) onSave(aliases.filter((_, i) => i !== index));
+  };
+  return (
+    <div className="reg-sec">
+      <div className="lzr-sous-t">
+        <span className="lbl-mono">
+          {t('launcher.cat.aliases')}
+          <Aide titre={t('launcher.cat.aliases')} texte={t('launcher.alias.help')} exemple={t('launcher.alias.help.ex')} />
+        </span>
+        <button
+          type="button"
+          className="btn sm gh"
+          onClick={() =>
+            setOpen({
+              index: -1,
+              alias: { id: `alias-${Date.now().toString(36)}`, keyword: '', name: '', target: '', enabled: true }
+            })
+          }
+        >
+          <Icon name="plus" size={16} />
+          {t('launcher.alias.add')}
+        </button>
+      </div>
+      <p className="muted petit lzr-intro">{t('launcher.alias.intro')}</p>
+      {aliases.length === 0 ? (
+        <div className="vide">
+          <Icon name="arrow" />
+          <span>{t('launcher.alias.empty')}</span>
+        </div>
+      ) : (
+        <div className="liste-r lzr-moteurs">
+          {aliases.map((a, i) => (
+            <div className={`li lzr-src${a.enabled ? '' : ' off'}`} key={a.id}>
+              <span className="kbd lzr-mot fixe">{a.keyword}</span>
+              <span className="tx">
+                <b>{a.name || a.target}</b>
+                <small className="mono">{a.target}</small>
+              </span>
+              <button
+                type="button"
+                className="ib"
+                title={t('launcher.reg.edit')}
+                aria-label={`${t('launcher.reg.edit')} : ${a.keyword}`}
+                onClick={() => setOpen({ index: i, alias: a })}
+              >
+                <Icon name="edit" size={16} />
+              </button>
+              <button
+                type="button"
+                className="ib"
+                title={t('launcher.settings.remove')}
+                aria-label={`${t('launcher.settings.remove')} : ${a.keyword}`}
+                onClick={() => void remove(i)}
+              >
+                <Icon name="trash" size={16} />
+              </button>
+              <input
+                type="checkbox"
+                className="sw"
+                aria-label={a.keyword}
+                checked={a.enabled}
+                onChange={(e) => put(i, { ...a, enabled: e.target.checked })}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+      {open && (
+        <AliasFeuille
+          alias={open.alias}
+          taken={aliases.filter((_, i) => i !== open.index).map((x) => x.keyword.toLowerCase())}
+          onSave={(a) => put(open.index, a)}
+          onClose={() => setOpen(null)}
+        />
+      )}
+    </div>
+  );
+}
 
 /** Bulle « ? » à partir des clés `<cle>` (texte) et `<cle>.ex` (exemple). */
 function aide(t: TFunc, titre: string, cle: string): ReactNode {
@@ -240,6 +705,8 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
   const { t, lang } = useI18n();
   const [info, setInfo] = useState<LauncherSettingsInfo | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  /** Sous-catégorie ouverte (null = la liste des catégories). */
+  const [cat, setCat] = useState<CategoryId | null>(null);
   /** Moteur ouvert dans la fenêtre d'édition (index -1 = nouveau). */
   const [moteur, setMoteur] = useState<{ index: number; engine: LauncherWebEngine } | null>(null);
 
@@ -352,7 +819,17 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
 
   return (
     <div className="lzr">
-      {/* ------------------------------------------------------------ Général */}
+      {!cat ? (
+        <CategoryList t={t} onOpen={setCat} />
+      ) : (
+        <button type="button" className="btn gh sm lzr-retour" onClick={() => setCat(null)}>
+          <Icon name="chevl" />
+          {t('launcher.title')}
+        </button>
+      )}
+
+      {cat === 'general' && (
+        <>
       <RegSec titre={t('launcher.reg.general')}>
         <RegLigne
           titre={t('launcher.settings.shortcut')}
@@ -411,11 +888,17 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
           onChange={(v) => void save({ hideOnBlur: v })}
         />
       </RegSec>
+        </>
+      )}
 
-      {/* ------------------------------------------------ Apparence de la barre */}
+      {cat === 'look' && (
+        <>
       <LookSettings look={s.look} onSave={(look) => save({ look })} />
+        </>
+      )}
 
-      {/* ------------------------------------------------ Sources de résultats */}
+      {cat === 'sources' && (
+        <>
       <div className="reg-sec">
         <div className="lbl-mono">
           {t('launcher.reg.sources')}
@@ -455,8 +938,66 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
           })}
         </div>
       </div>
+        </>
+      )}
 
-      {/* ------------------------------------------------------- Recherche web */}
+      {cat === 'aliases' && (
+        <>
+          <PluginHeader id="aliases" s={s} t={t} onChange={setProvider} />
+          <AliasesSection aliases={s.aliases} onSave={(aliases) => void save({ aliases })} />
+        </>
+      )}
+
+      {cat === 'steam' && (
+        <>
+          <PluginHeader id="steam" s={s} t={t} onChange={setProvider} />
+          <RegSec titre={t('launcher.cat.steam')}>
+            <RegLigne
+              titre={t('launcher.steam.found', { n: info.stats.steamGames })}
+              sous={t('launcher.steam.foundDesc')}
+            >
+              <button
+                type="button"
+                className={`btn sm${busy === 'reindex' ? ' occupe' : ''}`}
+                disabled={busy === 'reindex'}
+                onClick={() =>
+                  void run('reindex', async () => {
+                    const stats = await window.api.launcher.reindex();
+                    setInfo((cur) => (cur ? { ...cur, stats } : cur));
+                  })
+                }
+              >
+                <Icon name="refresh" size={16} />
+                {t('launcher.steam.rescan')}
+              </button>
+            </RegLigne>
+          </RegSec>
+        </>
+      )}
+
+      {cat === 'homeassistant' && (
+        <>
+          <PluginHeader id="homeassistant" s={s} t={t} onChange={setProvider} />
+          <HomeAssistantSection
+            url={s.homeAssistant.url}
+            onUrl={(url) => void save({ homeAssistant: { url } })}
+          />
+        </>
+      )}
+
+      {cat === 'spotify' && (
+        <>
+          <PluginHeader id="spotify" s={s} t={t} onChange={setProvider} />
+          <SpotifySection
+            clientId={s.spotify.clientId}
+            keyword={s.providers.spotify.keyword}
+            onClientId={(clientId) => void save({ spotify: { clientId } })}
+          />
+        </>
+      )}
+
+      {cat === 'web' && (
+        <>
       <RegSec titre={t('launcher.reg.web')}>
         <RegLigne
           titre={t('launcher.settings.defaultEngine')}
@@ -535,8 +1076,11 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
           </div>
         ))}
       </div>
+        </>
+      )}
 
-      {/* ------------------------------------------------------------ Fichiers */}
+      {cat === 'files' && (
+        <>
       <RegSec titre={t('launcher.reg.files')}>
         <RegLigne
           titre={t('launcher.settings.backend')}
@@ -626,21 +1170,11 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
         <p className="muted petit">{t('launcher.settings.excludesDesc')}</p>
         <ExcludesField value={s.excludes} onCommit={(v) => void save({ excludes: v })} />
       </div>
+        </>
+      )}
 
-      {/* ------------------------------------------------- Avancé (repliable) */}
-      <div className="faq lzr-avance">
-        <details>
-          <summary>
-            <span className="li-ic">
-              <Icon name="wrench" size={18} />
-            </span>
-            <span className="tx">
-              {t('launcher.reg.advanced')}
-              <small>{t('launcher.reg.advancedSub')}</small>
-            </span>
-            <Icon name="chev" className="chev" />
-          </summary>
-          <div className="lzr-avance-c">
+      {cat === 'shell' && (
+        <>
             <RegSec titre={t('launcher.reg.shell')}>
               <RegLigne
                 titre={t('launcher.settings.shellKind')}
@@ -676,11 +1210,11 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
                 onChange={(v) => void save({ showHistory: v })}
               />
             </RegSec>
-          </div>
-        </details>
-      </div>
+        </>
+      )}
 
-      {/* ------------------------------------------------------ Zone sensible */}
+      {cat === 'reset' && (
+        <>
       <div className="reg-sec">
         <div className="zone-d lzr-zone">
           <h3>
@@ -738,6 +1272,8 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
           </div>
         </div>
       </div>
+        </>
+      )}
 
       <p className="muted petit reg-note lzr-credit">{t('launcher.credit')}</p>
 

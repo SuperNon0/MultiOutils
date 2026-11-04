@@ -109,6 +109,10 @@ const PROVIDER_LABEL: Record<string, string> = {
   processes: 'launcher.provider.processes',
   bookmarks: 'launcher.provider.bookmarks',
   tools: 'launcher.provider.tools',
+  aliases: 'launcher.provider.aliases',
+  steam: 'launcher.provider.steam',
+  homeassistant: 'launcher.provider.homeassistant',
+  spotify: 'launcher.provider.spotify',
   history: 'launcher.provider.history'
 };
 

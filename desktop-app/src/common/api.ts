@@ -243,6 +243,14 @@ export interface PreloadApi {
     reindex(): Promise<import('./launcher').LauncherStats>;
     clearHistory(): Promise<void>;
     clearUsage(): Promise<void>;
+    /** Home Assistant : jeton chiffré côté main (jamais relu par le renderer). */
+    haStatus(): Promise<{ hasToken: boolean }>;
+    haSetToken(token: string): Promise<{ hasToken: boolean }>;
+    haTest(): Promise<{ ok: true; count: number } | { ok: false; error: string }>;
+    /** Spotify : connexion OAuth par le navigateur, jeton chiffré côté main. */
+    spotifyStatus(): Promise<{ connected: boolean; user?: string }>;
+    spotifyConnect(): Promise<{ ok: true; user: string } | { ok: false; error: string }>;
+    spotifyDisconnect(): Promise<{ connected: boolean }>;
     onResults(cb: (msg: import('./launcher').LauncherResultsMsg) => void): Unsubscribe;
     onShown(cb: () => void): Unsubscribe;
     onHidden(cb: () => void): Unsubscribe;

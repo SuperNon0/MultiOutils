@@ -2,6 +2,7 @@ import {
   DEFAULT_LAUNCHER_LOOK,
   LAUNCHER_LOOK_LIMITS,
   LAUNCHER_PROVIDER_IDS,
+  type LauncherAlias,
   type LauncherLook,
   type LauncherProviderConfig,
   type LauncherSettings,
@@ -23,7 +24,11 @@ export const DEFAULT_PROVIDERS: Record<ProviderKey, LauncherProviderConfig> = {
   winsettings: { enabled: true, keyword: '' },
   processes: { enabled: true, keyword: 'kill' },
   bookmarks: { enabled: true, keyword: '' },
-  tools: { enabled: true, keyword: '' }
+  tools: { enabled: true, keyword: '' },
+  aliases: { enabled: true, keyword: '' },
+  steam: { enabled: true, keyword: '' },
+  homeassistant: { enabled: true, keyword: 'ha' },
+  spotify: { enabled: true, keyword: 'sp' }
 };
 
 export function defaultLauncherSettings(): LauncherSettings {
@@ -36,6 +41,9 @@ export function defaultLauncherSettings(): LauncherSettings {
     debounceMs: 60,
     providers: structuredClone(DEFAULT_PROVIDERS),
     webEngines: DEFAULT_WEB_ENGINES.map((e) => ({ ...e })),
+    aliases: [],
+    homeAssistant: { url: '' },
+    spotify: { clientId: '' },
     defaultEngine: 'google',
     shell: { kind: 'cmd', keepOpen: true },
     fileBackend: 'auto',
@@ -77,6 +85,25 @@ export function sanitizeLauncherLook(raw: unknown): LauncherLook {
   };
 }
 
+/** Raccourcis : mot-clé sans espace (24 car. max), cible non vide, ids uniques. */
+export function sanitizeAliases(raw: unknown): LauncherAlias[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: LauncherAlias[] = [];
+  raw.forEach((a, i) => {
+    if (!a || typeof a !== 'object') return;
+    const r = a as Partial<LauncherAlias>;
+    const keyword = str(r.keyword, '').replace(/\s+/g, '').slice(0, 24);
+    const target = str(r.target, '').trim().slice(0, 2000);
+    if (!keyword || !target) return;
+    let id = str(r.id, '').slice(0, 64) || `alias-${i}`;
+    while (seen.has(id)) id = `${id}-${i}`;
+    seen.add(id);
+    out.push({ id, keyword, name: str(r.name, '').trim().slice(0, 60), target, enabled: r.enabled !== false });
+  });
+  return out.slice(0, 500);
+}
+
 /** Nettoie une valeur lue en base (ou reçue du renderer) : toujours complète et valide. */
 export function sanitizeLauncherSettings(raw: unknown): LauncherSettings {
   const d = defaultLauncherSettings();
@@ -92,6 +119,8 @@ export function sanitizeLauncherSettings(raw: unknown): LauncherSettings {
       };
     }
   }
+  // Spotify n'interroge l'API qu'avec son mot-clé : jamais vide
+  if (!providers.spotify.keyword) providers.spotify = { ...providers.spotify, keyword: 'sp' };
   const engines: LauncherWebEngine[] = Array.isArray(r.webEngines)
     ? r.webEngines
         .filter((e): e is LauncherWebEngine => !!e && typeof e === 'object' && typeof e.url === 'string')
@@ -112,6 +141,9 @@ export function sanitizeLauncherSettings(raw: unknown): LauncherSettings {
     debounceMs: clampInt(r.debounceMs, 0, 500, d.debounceMs),
     providers,
     webEngines: engines,
+    aliases: sanitizeAliases(r.aliases),
+    homeAssistant: { url: str(r.homeAssistant?.url, '').trim().slice(0, 300) },
+    spotify: { clientId: str(r.spotify?.clientId, '').trim().slice(0, 64) },
     defaultEngine: str(r.defaultEngine, d.defaultEngine),
     shell: {
       kind: r.shell?.kind === 'powershell' ? 'powershell' : 'cmd',
@@ -137,6 +169,8 @@ export function mergeLauncherSettings(
     ...patch,
     providers: { ...current.providers, ...(patch.providers ?? {}) },
     shell: { ...current.shell, ...(patch.shell ?? {}) },
+    homeAssistant: { ...current.homeAssistant, ...(patch.homeAssistant ?? {}) },
+    spotify: { ...current.spotify, ...(patch.spotify ?? {}) },
     look: { ...current.look, ...(patch.look ?? {}) }
   });
 }
