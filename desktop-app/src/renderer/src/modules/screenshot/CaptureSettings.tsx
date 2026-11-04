@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { AppSettings } from '../../../../common/types';
+import { RegLigne, RegSec, RegSwitch } from '../../host/reglages';
 import { useI18n } from '../../i18n';
 
 /** Section « Capture » des Paramètres, contribuée par le module (docs/00 §1.3). */
@@ -19,86 +20,78 @@ export function CaptureSettings(): ReactNode {
   };
 
   return (
-    <div>
-      <label className="check-row">
-        <input
-          type="checkbox"
+    <>
+      <RegSec>
+        <RegSwitch
+          titre={t('settings.capture.clipboardAuto')}
           checked={settings.clipboardAuto}
-          onChange={(e) => update({ clipboardAuto: e.target.checked })}
+          onChange={(v) => update({ clipboardAuto: v })}
         />
-        <span>{t('settings.capture.clipboardAuto')}</span>
-      </label>
-
-      <label className="check-row">
-        <input
-          type="checkbox"
+        <RegSwitch
+          titre={t('settings.capture.openEditor')}
           checked={settings.openEditorAfterCapture}
-          onChange={(e) => update({ openEditorAfterCapture: e.target.checked })}
+          onChange={(v) => update({ openEditorAfterCapture: v })}
         />
-        <span>{t('settings.capture.openEditor')}</span>
-      </label>
-
-      <label className="check-row">
-        <input type="checkbox" checked={settings.includeCursor} disabled />
-        <span>
-          {t('settings.capture.includeCursor')}
-          <div className="check-note">{t('settings.capture.includeCursorNote')}</div>
-        </span>
-      </label>
-
-      <label className="check-row">
-        <input
-          type="checkbox"
+        <RegSwitch
+          titre={t('settings.capture.includeCursor')}
+          sous={t('settings.capture.includeCursorNote')}
+          checked={settings.includeCursor}
+          disabled
+          onChange={() => undefined}
+        />
+        <RegSwitch
+          titre={t('settings.capture.captureAllScreens')}
           checked={settings.captureAllScreens}
-          onChange={(e) => update({ captureAllScreens: e.target.checked })}
+          onChange={(v) => update({ captureAllScreens: v })}
         />
-        <span>{t('settings.capture.captureAllScreens')}</span>
-      </label>
+      </RegSec>
 
-      <div className="setting-row">
-        <span>{t('settings.capture.format')}</span>
-        <select
-          className="select"
-          value={settings.defaultFormat}
-          onChange={(e) =>
-            update({ defaultFormat: e.target.value as AppSettings['defaultFormat'] })
-          }
-        >
-          <option value="png">PNG</option>
-          <option value="jpg">JPG</option>
-        </select>
-      </div>
+      <RegSec>
+        <RegLigne titre={t('settings.capture.format')}>
+          <div className="seg reg-seg" role="group" aria-label={t('settings.capture.format')}>
+            {(['png', 'jpg'] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                className={settings.defaultFormat === f ? 'on' : ''}
+                aria-pressed={settings.defaultFormat === f}
+                onClick={() => update({ defaultFormat: f })}
+              >
+                {f.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </RegLigne>
 
-      {settings.defaultFormat === 'jpg' && (
-        <div className="setting-row">
-          <span>
-            {t('settings.capture.jpgQuality')} — {settings.jpgQuality}
-          </span>
-          <input
-            type="range"
-            min={40}
-            max={100}
-            step={5}
-            value={settings.jpgQuality}
-            onChange={(e) => update({ jpgQuality: Number(e.target.value) })}
-          />
-        </div>
-      )}
+        {settings.defaultFormat === 'jpg' && (
+          <RegLigne titre={t('settings.capture.jpgQuality')} sous={`${settings.jpgQuality} %`}>
+            <input
+              type="range"
+              className="curseur"
+              min={40}
+              max={100}
+              step={5}
+              value={settings.jpgQuality}
+              aria-label={t('settings.capture.jpgQuality')}
+              onChange={(e) => update({ jpgQuality: Number(e.target.value) })}
+            />
+          </RegLigne>
+        )}
 
-      <div className="setting-row">
-        <span>{t('settings.capture.delayedSeconds')}</span>
-        <select
-          className="select"
-          value={settings.delayedSeconds}
-          onChange={(e) => update({ delayedSeconds: Number(e.target.value) })}
-        >
-          {[3, 5, 10, 15, 30].map((s) => (
-            <option key={s} value={s}>
-              {s} s
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
+        <RegLigne titre={t('settings.capture.delayedSeconds')}>
+          <select
+            className="select reg-select"
+            value={settings.delayedSeconds}
+            onChange={(e) => update({ delayedSeconds: Number(e.target.value) })}
+          >
+            {[3, 5, 10, 15, 30].map((s) => (
+              <option key={s} value={s}>
+                {s} s
+              </option>
+            ))}
+          </select>
+        </RegLigne>
+      </RegSec>
+    </>
   );
 }

@@ -16,10 +16,27 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, string> = {
   delayed: 'CommandOrControl+Shift+D'
 };
 
+/** Couleurs d'accent du design « encre » (design-encre/LISEZMOI.md §3). */
+export type AppearanceAccent = 'lavande' | 'or' | 'ambre' | 'corail' | 'menthe';
+/** Thème : automatique (suit le système), sombre ou clair forcé. */
+export type AppearanceTheme = 'auto' | 'sombre' | 'clair';
+
+/** Apparence partagée par toutes les fenêtres (et lue par le module Lanceur). */
+export interface AppearanceSettings {
+  accent: AppearanceAccent;
+  theme: AppearanceTheme;
+}
+
+export const APPEARANCE_ACCENTS: AppearanceAccent[] = ['lavande', 'or', 'ambre', 'corail', 'menthe'];
+export const APPEARANCE_THEMES: AppearanceTheme[] = ['auto', 'sombre', 'clair'];
+export const DEFAULT_APPEARANCE: AppearanceSettings = { accent: 'lavande', theme: 'auto' };
+
 export interface AppSettings {
   language: Language;
-  /** Thème sombre uniquement pour l'instant (CDC.html) ; le clair viendra plus tard. */
+  /** Ancien réglage (sombre seul) : remplacé par `appearance`, gardé pour la migration. */
   theme: 'dark';
+  /** Apparence « encre » : couleur d'accent + thème. */
+  appearance: { accent: 'lavande' | 'or' | 'ambre' | 'corail' | 'menthe'; theme: 'auto' | 'sombre' | 'clair' };
   autostart: boolean;
   startMinimized: boolean;
   closeToTray: boolean;

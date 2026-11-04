@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { RegionShot } from '../../../common/types';
+import { useInkColors } from '../encre/appearance';
 import { useI18n } from '../i18n';
 import { formatColor, toHex } from '../lib/color';
 
@@ -13,6 +14,7 @@ const LOUPE_SIZE = LOUPE_SRC * LOUPE_ZOOM;
  */
 export function Eyedropper({ displayId }: { displayId: string }): ReactNode {
   const { t } = useI18n();
+  const ink = useInkColors();
   const [shot, setShot] = useState<RegionShot | null>(null);
   const [format, setFormat] = useState<'hex' | 'rgb' | 'hsl'>('hex');
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
@@ -65,7 +67,7 @@ export function Eyedropper({ displayId }: { displayId: string }): ReactNode {
     if (!context) return;
     const half = (LOUPE_SRC - 1) / 2;
     context.imageSmoothingEnabled = false;
-    context.fillStyle = '#0e0f11';
+    context.fillStyle = ink.bg;
     context.fillRect(0, 0, LOUPE_SIZE, LOUPE_SIZE);
     context.drawImage(
       img,
@@ -78,7 +80,7 @@ export function Eyedropper({ displayId }: { displayId: string }): ReactNode {
       LOUPE_SIZE,
       LOUPE_SIZE
     );
-    context.strokeStyle = 'rgba(240, 237, 230, 0.08)';
+    context.strokeStyle = ink.scrim;
     for (let i = 1; i < LOUPE_SRC; i++) {
       context.beginPath();
       context.moveTo(i * LOUPE_ZOOM + 0.5, 0);
@@ -89,9 +91,9 @@ export function Eyedropper({ displayId }: { displayId: string }): ReactNode {
       context.lineTo(LOUPE_SIZE, i * LOUPE_ZOOM + 0.5);
       context.stroke();
     }
-    context.strokeStyle = '#e8c547';
+    context.strokeStyle = ink.accent;
     context.strokeRect(half * LOUPE_ZOOM + 0.5, half * LOUPE_ZOOM + 0.5, LOUPE_ZOOM, LOUPE_ZOOM);
-  }, [cursor, shot]);
+  }, [cursor, shot, ink]);
 
   const pick = (): void => {
     if (!rgb) return;
@@ -128,7 +130,12 @@ export function Eyedropper({ displayId }: { displayId: string }): ReactNode {
         <img ref={imgRef} className="region-shot" src={shot.dataUrl} alt="" draggable={false} />
       )}
 
-      {!cursor && <div className="region-hint">{t('colorpicker.hint')}</div>}
+      {!cursor && (
+        <div className="region-hint">
+          <svg className="i s18" aria-hidden="true"><use href="#i-eyedropper" /></svg>
+          {t('colorpicker.hint')}
+        </div>
+      )}
 
       {infoPos && shot && (
         <div className="region-loupe" style={infoPos}>
@@ -137,7 +144,7 @@ export function Eyedropper({ displayId }: { displayId: string }): ReactNode {
             {rgb && (
               <>
                 <span className="eyedropper-swatch" style={{ background: toHex(rgb.r, rgb.g, rgb.b) }} />
-                <span>{formatColor(rgb.r, rgb.g, rgb.b, format)}</span>
+                <span className="mono">{formatColor(rgb.r, rgb.g, rgb.b, format)}</span>
               </>
             )}
           </div>

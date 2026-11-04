@@ -22,6 +22,7 @@ import {
   Text,
   Transformer
 } from 'react-konva';
+import { cssToken, useInkColors } from '../../../encre/appearance';
 import { useI18n } from '../../../i18n';
 import type {
   AnnoObject,
@@ -86,6 +87,7 @@ export const CanvasStage = forwardRef<StageHandle, Props>(function CanvasStage(
   ref
 ): ReactNode {
   const { t } = useI18n();
+  const ink = useInkColors();
   const stageRef = useRef<Konva.Stage>(null);
   const uiLayerRef = useRef<Konva.Layer>(null);
   const trRef = useRef<Konva.Transformer>(null);
@@ -696,10 +698,10 @@ export const CanvasStage = forwardRef<StageHandle, Props>(function CanvasStage(
                 ref={trRef}
                 rotateEnabled={selectedObj?.type !== 'blur' && selectedObj?.type !== 'step'}
                 keepRatio={false}
-                anchorStroke="#e8c547"
-                anchorFill="#16181c"
+                anchorStroke={ink.accent}
+                anchorFill={ink.surface}
                 anchorSize={8}
-                borderStroke="#e8c547"
+                borderStroke={ink.accent}
                 borderDash={[4, 3]}
                 boundBoxFunc={(oldBox, newBox) =>
                   Math.abs(newBox.width) < 4 || Math.abs(newBox.height) < 4
@@ -721,7 +723,7 @@ export const CanvasStage = forwardRef<StageHandle, Props>(function CanvasStage(
                   y={effectiveCropDraft.y}
                   width={effectiveCropDraft.width}
                   height={effectiveCropDraft.height}
-                  stroke="#e8c547"
+                  stroke={ink.accent}
                   strokeWidth={1.5 / zoom}
                   draggable
                   onDragEnd={(e) =>
@@ -748,8 +750,8 @@ export const CanvasStage = forwardRef<StageHandle, Props>(function CanvasStage(
                   ref={cropTrRef}
                   rotateEnabled={false}
                   keepRatio={false}
-                  anchorStroke="#e8c547"
-                  anchorFill="#16181c"
+                  anchorStroke={ink.accent}
+                  anchorFill={ink.surface}
                   anchorSize={9}
                   borderEnabled={false}
                 />
@@ -851,7 +853,8 @@ function CropVeil({
   imageH: number;
   rect: CropRect;
 }): ReactNode {
-  const fill = 'rgba(8, 9, 10, 0.55)';
+  // voile du kit « encre » (lu dans les jetons : Konva ne lit pas var(--…))
+  const fill = cssToken('--scrim', 'rgba(3, 5, 9, .62)');
   return (
     <>
       <Rect listening={false} x={0} y={0} width={imageW} height={rect.y} fill={fill} />

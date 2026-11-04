@@ -6,6 +6,7 @@ import {
   type ReactNode
 } from 'react';
 import type { RegionShot } from '../../../common/types';
+import { useInkColors } from '../encre/appearance';
 import { useI18n } from '../i18n';
 
 const LOUPE_SRC = 11; // pixels source (impair → pixel central)
@@ -26,6 +27,7 @@ interface Drag {
  */
 export function RegionOverlay({ displayId }: { displayId: string }): ReactNode {
   const { t } = useI18n();
+  const ink = useInkColors();
   const [shot, setShot] = useState<RegionShot | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const [cursor, setCursor] = useState<{ x: number; y: number } | null>(null);
@@ -52,7 +54,7 @@ export function RegionOverlay({ displayId }: { displayId: string }): ReactNode {
     const py = Math.round(cursor.y * shot.scale);
     const half = (LOUPE_SRC - 1) / 2;
     ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = '#0e0f11';
+    ctx.fillStyle = ink.bg;
     ctx.fillRect(0, 0, LOUPE_SIZE, LOUPE_SIZE);
     ctx.drawImage(
       img,
@@ -66,7 +68,7 @@ export function RegionOverlay({ displayId }: { displayId: string }): ReactNode {
       LOUPE_SIZE
     );
     // grille discrète
-    ctx.strokeStyle = 'rgba(240, 237, 230, 0.08)';
+    ctx.strokeStyle = ink.scrim;
     ctx.lineWidth = 1;
     for (let i = 1; i < LOUPE_SRC; i++) {
       ctx.beginPath();
@@ -79,9 +81,9 @@ export function RegionOverlay({ displayId }: { displayId: string }): ReactNode {
       ctx.stroke();
     }
     // pixel central
-    ctx.strokeStyle = '#e8c547';
+    ctx.strokeStyle = ink.accent;
     ctx.strokeRect(half * LOUPE_ZOOM + 0.5, half * LOUPE_ZOOM + 0.5, LOUPE_ZOOM, LOUPE_ZOOM);
-  }, [cursor, shot]);
+  }, [cursor, shot, ink]);
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>): void => {
     if (event.button !== 0) return;
@@ -174,7 +176,12 @@ export function RegionOverlay({ displayId }: { displayId: string }): ReactNode {
         <div className="region-veil" style={{ inset: 0 }} />
       )}
 
-      {!drag && <div className="region-hint">{t('region.hint')}</div>}
+      {!drag && (
+        <div className="region-hint">
+          <svg className="i s18" aria-hidden="true"><use href="#i-region" /></svg>
+          {t('region.hint')}
+        </div>
+      )}
 
       {loupePos && shot && (
         <div className="region-loupe" style={loupePos}>
