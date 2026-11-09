@@ -5,6 +5,7 @@ import {
   fetchJson,
   httpError,
   parseTranslationJson,
+  pickModel,
   systemPrompt,
   TRANSLATION_SCHEMA_GEMINI,
   userPrompt,
@@ -16,8 +17,8 @@ import {
 export const GEMINI_INFO: AiProviderInfo = {
   id: 'gemini',
   label: 'Google Gemini',
-  models: [{ id: 'gemini-2.5-flash' }, { id: 'gemini-2.5-pro' }],
-  defaultModel: 'gemini-2.5-flash',
+  models: [{ id: 'gemini-3.8-flash' }, { id: 'gemini-3.8-pro' }],
+  defaultModel: 'gemini-3.8-flash',
   fixedModels: false,
   keyUrl: 'https://aistudio.google.com/apikey'
 };
@@ -101,6 +102,35 @@ export function createGeminiProvider(fetchImpl: typeof fetch = fetch): Translate
         20_000
       );
       if (status < 200 || status >= 300) throw geminiHttpError(status, body);
+    },
+    async listModels(apiKey) {
+      const { status, body } = await fetchJson(
+        fetchImpl,
+        `${BASE}/models?pageSize=1000`,
+        { method: 'GET', headers: { 'x-goog-api-key': apiKey } },
+        20_000
+      );
+      if (status < 200 || status >= 300) throw geminiHttpError(status, body);
+      return parseGeminiModels(body);
     }
   };
+}
+
+/** Liste `GET /models` → noms utilisables avec generateContent (sans « models/ »). */
+export function parseGeminiModels(body: unknown): string[] {
+  const list = (body as { models?: unknown })?.models;
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((m): m is { name: string; supportedGenerationMethods?: unknown } =>
+      !!m && typeof (m as { name?: unknown }).name === 'string')
+    .filter((m) =>
+      !Array.isArray(m.supportedGenerationMethods) ||
+      m.supportedGenerationMethods.includes('generateContent'))
+    .map((m) => m.name.replace(/^models\//, ''))
+    .filter((id) => id.startsWith('gemini'));
+}
+
+/** Remplaçant automatique quand le modèle choisi a été retiré. */
+export function pickGeminiModel(available: string[]): string | null {
+  return pickModel(available, /^gemini-[\d.]+-flash$/, /^gemini-[\d.]+-(flash|pro)$/);
 }

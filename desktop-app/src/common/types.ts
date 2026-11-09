@@ -117,6 +117,12 @@ export interface AiTranslation {
   model: string;
 }
 
+/** Traduction enregistrée avec une capture (« Revoir la traduction »). */
+export interface AiSavedTranslation extends AiTranslation {
+  targetLang: string;
+  createdAt: string;
+}
+
 export type AiTranslateResult =
   | ({ ok: true } & AiTranslation)
   | { ok: false; error: AiErrorCode; message?: string };

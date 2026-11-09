@@ -48,6 +48,8 @@ export function TraductionSection({
   const [target, setTarget] = useState(settings.aiTargetLang);
   const providerId = settings.aiProvider;
   const [modelInput, setModelInput] = useState(settings.aiModels[providerId] ?? '');
+  /** Modèles réellement proposés par le fournisseur pour la clé enregistrée. */
+  const [liveModels, setLiveModels] = useState<string[]>([]);
 
   const reload = (): Promise<void> => window.api.ai.getConfig().then(setConfig);
   useEffect(() => {
@@ -58,6 +60,18 @@ export function TraductionSection({
     setKeyInput('');
     setResult(null);
   }, [providerId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const keySaved = config?.hasKey[providerId] ?? false;
+  useEffect(() => {
+    setLiveModels([]);
+    if (!keySaved) return;
+    let alive = true;
+    void window.api.ai.listModels(providerId).then((ids) => {
+      if (alive) setLiveModels(ids);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [providerId, keySaved, result]);
 
   if (!config) return null;
   const provider = config.providers.find((p) => p.id === providerId) ?? config.providers[0];
@@ -159,8 +173,8 @@ export function TraductionSection({
               onBlur={() => setModel(modelInput.trim())}
             />
             <datalist id={`ai-modeles-${provider.id}`}>
-              {provider.models.map((m) => (
-                <option key={m.id} value={m.id} />
+              {(liveModels.length > 0 ? liveModels : provider.models.map((m) => m.id)).map((id) => (
+                <option key={id} value={id} />
               ))}
             </datalist>
           </RegLigne>

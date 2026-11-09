@@ -356,6 +356,16 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
     capture: CaptureListItem,
     anchor: HTMLElement | { x: number; y: number }
   ): void => {
+    // traduction déjà faite → « Revoir la traduction » au lieu de « Traduire »
+    const savedP = view === 'library' ? window.api.ai.getSaved(capture.id).catch(() => null) : Promise.resolve(null);
+    void savedP.then((saved) => showCaptureMenu(capture, anchor, saved !== null));
+  };
+
+  const showCaptureMenu = (
+    capture: CaptureListItem,
+    anchor: HTMLElement | { x: number; y: number },
+    translated: boolean
+  ): void => {
     const items: Array<MenuItem | null> =
       view === 'library'
         ? [
@@ -381,7 +391,7 @@ export function Gallery({ onEdit }: { onEdit(capture: Capture): void }): ReactNo
             } },
             null,
             { icone: 'textscan', texte: t('text.ocr.action'), action: () => captureText.open('ocr', capture.id) },
-            { icone: 'sparkle', texte: t('text.ai.action'), action: () => captureText.open('translate', capture.id) },
+            { icone: 'sparkle', texte: t(translated ? 'text.ai.review' : 'text.ai.action'), action: () => captureText.open('translate', capture.id) },
             null,
             { icone: 'download', texte: t('gallery.saveAs'), action: () => void window.api.library.update({ action: 'saveAs', id: capture.id }) },
             { icone: 'folderopen', texte: t('gallery.reveal'), action: () => void window.api.library.update({ action: 'reveal', id: capture.id }) },

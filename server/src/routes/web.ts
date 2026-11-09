@@ -131,7 +131,9 @@ webRouter.post('/login', requireLocalLoginEnabled, (req, res) => {
 
 // « Mot de passe oublié » : AUCUN reset depuis le web. On indique la commande
 // serveur (script deploy/reset_admin.sh).
-const RESET_CMD = 'cd /opt/multioutils/server && sudo bash deploy/reset_admin.sh';
+// Pas de sudo : le conteneur Debian n'en a pas, et on y est déjà root.
+const RESET_CMD = 'bash /opt/multioutils/server/deploy/reset_admin.sh';
+const RESET_CMD_PCT = 'pct exec <CTID> -- bash /opt/multioutils/server/deploy/reset_admin.sh';
 
 webRouter.get('/oubli', requireLocalLoginEnabled, (_req, res) => {
   res.send(
@@ -144,6 +146,8 @@ webRouter.get('/oubli', requireLocalLoginEnabled, (_req, res) => {
         <p class="forgot-intro">Par sécurité, le mot de passe local ne se
         réinitialise pas depuis le web. Sur le <b>serveur</b>, lance :</p>
         <div class="copie"><code>${e(RESET_CMD)}</code><button type="button" class="btn sm" data-copier="${e(RESET_CMD)}">${ic('copy', 's16')}Copier</button></div>
+        <p class="forgot-intro">Depuis l'hôte <b>Proxmox</b> (remplace &lt;CTID&gt; par le numéro du conteneur) :</p>
+        <div class="copie"><code>${e(RESET_CMD_PCT)}</code><button type="button" class="btn sm" data-copier="${e(RESET_CMD_PCT)}">${ic('copy', 's16')}Copier</button></div>
         <p class="forgot-note">Un nouveau mot de passe est généré et affiché (ou
         passe-le en argument). L'entrée normale, elle, passe par <b>Cloudflare</b>.</p>
         <a class="btn gh w" href="/login">${ic('chevl', 's18')}Retour à la connexion</a>

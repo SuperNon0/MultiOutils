@@ -85,6 +85,20 @@ export function createOpenAiProvider(fetchImpl: typeof fetch = fetch): Translate
         20_000
       );
       if (status < 200 || status >= 300) throw httpError(status, body);
+    },
+    async listModels(apiKey) {
+      const { status, body } = await fetchJson(
+        fetchImpl,
+        `${BASE}/models`,
+        { method: 'GET', headers: { Authorization: `Bearer ${apiKey}` } },
+        20_000
+      );
+      if (status < 200 || status >= 300) throw httpError(status, body);
+      const data = (body as { data?: unknown })?.data;
+      if (!Array.isArray(data)) return [];
+      return data
+        .map((m) => (m && typeof (m as { id?: unknown }).id === 'string' ? (m as { id: string }).id : ''))
+        .filter((id) => /^gpt-[\d.]+(-mini)?$/.test(id));
     }
   };
 }
