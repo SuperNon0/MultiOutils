@@ -521,6 +521,11 @@ function UpdatesSection({ version }: { version: string }): ReactNode {
           <div className="pg epais">
             <i style={{ width: `${status.percent}%` }} />
           </div>
+          <p className="muted petit">{t('settings.updates.autoRestart')}</p>
+        </div>
+      ) : status.state === 'installing' ? (
+        <div className="bloc maj-bloc">
+          <p className="acc">{t('settings.updates.installing', { v: status.version })}</p>
         </div>
       ) : status.state === 'downloaded' ? (
         <div className="bloc maj-bloc">
