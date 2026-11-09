@@ -3,7 +3,7 @@
  * scène…) et l'allume / l'éteint par l'API REST. Adresse dans les réglages
  * du lanceur ; jeton d'accès chiffré (safeStorage), jamais renvoyé au renderer.
  */
-import type { LauncherAction, LauncherOutcome } from '../../../../common/launcher';
+import type { HaNotification, LauncherAction, LauncherOutcome } from '../../../../common/launcher';
 import type { Provider, ProviderItem, ProviderQuery } from '../core/engine';
 import {
   haBaseUrl,
@@ -83,7 +83,26 @@ export class HomeAssistantClient {
   }
 }
 
-export function createHomeAssistantProvider(env: LauncherEnv, client: HomeAssistantClient): Provider {
+/** Liens avec la liaison PC ↔ HA (mini tableau de bord, notifications reçues). */
+export interface HaProviderHooks {
+  openDashboard(path?: string): void;
+  history(): HaNotification[];
+}
+
+const ago = (ts: number, lang: 'fr' | 'en'): string => {
+  const min = Math.round((Date.now() - ts) / 60_000);
+  if (min < 1) return lang === 'en' ? 'just now' : "à l'instant";
+  if (min < 60) return lang === 'en' ? `${min} min ago` : `il y a ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return lang === 'en' ? `${h} h ago` : `il y a ${h} h`;
+  return new Date(ts).toLocaleDateString(lang === 'en' ? 'en-GB' : 'fr-FR');
+};
+
+export function createHomeAssistantProvider(
+  env: LauncherEnv,
+  client: HomeAssistantClient,
+  hooks?: HaProviderHooks
+): Provider {
   const exec = async (s: HaState, action: HaAction): Promise<LauncherOutcome> => {
     try {
       await client.run(s.entity_id, action, isOn(s));
@@ -97,6 +116,49 @@ export function createHomeAssistantProvider(env: LauncherEnv, client: HomeAssist
     id: 'homeassistant',
     global: true,
     async query({ parsed, byKeyword }: ProviderQuery): Promise<ProviderItem[]> {
+      const extra: ProviderItem[] = [];
+      if (hooks && env.settings().homeAssistant.url) {
+        const search = parsed.search.trim();
+        // « ha » seul, ou une recherche qui ressemble à « tableau de bord / home assistant »
+        const dash = search.length >= (byKeyword ? 1 : 3)
+          ? bestMatch(search, [
+              { text: env.t('launcher.ha.dashboard'), weight: 1 },
+              { text: 'Home Assistant', weight: 0.9 },
+              { text: 'dashboard', weight: 0.7 }
+            ])
+          : null;
+        if ((byKeyword && !search) || dash) {
+          extra.push({
+            title: env.t('launcher.ha.dashboard'),
+            subtitle: env.t('launcher.ha.dashboardSub'),
+            icon: { kind: 'sprite', name: 'home' },
+            titleHl: dash?.field === 0 ? dash.indices : undefined,
+            score: byKeyword ? 1000 : (dash?.score ?? 0),
+            priority: byKeyword ? 10 : 0,
+            recordKey: 'ha:dashboard',
+            data: { dashboard: true }
+          });
+        }
+        // notifications reçues : « ha » seul (les 3 dernières) ou « ha notif… »
+        const wantNotifs = byKeyword && (!search || /^notif/i.test(search));
+        if (wantNotifs) {
+          hooks
+            .history()
+            .slice(0, search ? 15 : 3)
+            .forEach((n, i) => {
+              extra.push({
+                title: n.title,
+                subtitle: `${ago(n.receivedAt, env.lang())}${n.message ? ` · ${n.message.replace(/\s+/g, ' ').slice(0, 120)}` : ''}`,
+                icon: { kind: 'sprite', name: 'bell' },
+                score: 900 - i,
+                priority: 5,
+                noRecord: true,
+                data: { notification: n }
+              });
+            });
+          if (search) return extra;
+        }
+      }
       let states: HaState[];
       try {
         states = (await client.states()).filter(isControllable);
@@ -105,6 +167,7 @@ export function createHomeAssistantProvider(env: LauncherEnv, client: HomeAssist
         // erreur montrée seulement quand on interroge HA exprès (mot-clé)
         return byKeyword
           ? [
+              ...extra,
               {
                 title: env.t(msg === 'not-configured' ? 'launcher.ha.notConfigured' : 'launcher.ha.unreachable'),
                 subtitle: msg === 'not-configured' ? env.t('launcher.ha.notConfiguredSub') : msg,
@@ -114,10 +177,10 @@ export function createHomeAssistantProvider(env: LauncherEnv, client: HomeAssist
                 data: { error: true }
               }
             ]
-          : [];
+          : extra;
       }
       const { text, action } = splitHaAction(parsed.search);
-      const out: ProviderItem[] = [];
+      const out: ProviderItem[] = [...extra];
       for (const s of states) {
         let score = 80;
         let titleHl: number[] | undefined;
@@ -150,7 +213,17 @@ export function createHomeAssistantProvider(env: LauncherEnv, client: HomeAssist
       return out;
     },
     execute(item): Promise<LauncherOutcome> | LauncherOutcome {
-      const d = item.data as { state?: HaState; action?: HaAction; error?: boolean };
+      const d = item.data as { state?: HaState; action?: HaAction; error?: boolean; dashboard?: boolean; notification?: HaNotification };
+      if (d.dashboard) {
+        hooks?.openDashboard();
+        return { kind: 'hide' };
+      }
+      if (d.notification) {
+        const url = d.notification.url;
+        if (url && /^https?:/i.test(url) && !url.startsWith(env.settings().homeAssistant.url)) void env.openExternal(url);
+        else hooks?.openDashboard(url?.startsWith('/') ? url : undefined);
+        return { kind: 'hide' };
+      }
       if (!d.state) {
         env.showMainWindow({ view: 'settings', section: 'launcher' });
         return { kind: 'hide' };
@@ -158,7 +231,8 @@ export function createHomeAssistantProvider(env: LauncherEnv, client: HomeAssist
       return exec(d.state, d.action ?? 'toggle');
     },
     actions(item): LauncherAction[] {
-      const d = item.data as { state?: HaState };
+      const d = item.data as { state?: HaState; notification?: HaNotification };
+      if (d.notification) return [{ id: 'copy', title: env.t('launcher.ha.copyText'), icon: 'copy' }];
       if (!d.state) return [];
       if (isOneShot(d.state.entity_id)) {
         return [{ id: 'on', title: env.t('launcher.ha.run'), icon: 'play', hint: 'Entrée' }];
@@ -171,7 +245,11 @@ export function createHomeAssistantProvider(env: LauncherEnv, client: HomeAssist
       ];
     },
     runAction(item, actionId): Promise<LauncherOutcome> | LauncherOutcome {
-      const d = item.data as { state?: HaState };
+      const d = item.data as { state?: HaState; notification?: HaNotification };
+      if (d.notification && actionId === 'copy') {
+        env.copyText(`${d.notification.title}\n${d.notification.message}`.trim());
+        return { kind: 'hide' };
+      }
       if (!d.state) return { kind: 'hide' };
       if (actionId === 'copy') {
         env.copyText(d.state.entity_id);

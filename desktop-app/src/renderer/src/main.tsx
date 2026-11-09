@@ -16,6 +16,12 @@ import { QuickBar } from './windows/QuickBar';
 import { RegionOverlay } from './windows/RegionOverlay';
 import { WindowPicker } from './windows/WindowPicker';
 
+// Home Assistant (pop-ups, barre de la mini fenêtre) : chargés à part aussi.
+const HaToasts = lazy(() => import('./modules/launcher/ha/HaToasts').then((m) => ({ default: m.HaToasts })));
+const HaDashboardBar = lazy(() =>
+  import('./modules/launcher/ha/HaDashboardBar').then((m) => ({ default: m.HaDashboardBar }))
+);
+
 // Lanceur : chargé à part (son code et launcher.css ne pèsent pas sur la fenêtre principale).
 const Launcher = lazy(() => import('./windows/Launcher'));
 
@@ -38,7 +44,7 @@ function Root(): ReactNode {
 
 function SatelliteOrApp(): ReactNode {
   const match = window.location.hash.match(
-    /^#\/(region|quickbar|picker|eyedropper)(?:\/(.+))?$/
+    /^#\/(region|quickbar|picker|eyedropper|ha-toasts|ha-dashboard)(?:\/(.+))?$/
   );
   const [lang, setLang] = useState<Language | null>(null);
 
@@ -65,6 +71,14 @@ function SatelliteOrApp(): ReactNode {
         <QuickBar captureId={param} />
       ) : route === 'picker' ? (
         <WindowPicker />
+      ) : route === 'ha-toasts' ? (
+        <Suspense fallback={null}>
+          <HaToasts />
+        </Suspense>
+      ) : route === 'ha-dashboard' ? (
+        <Suspense fallback={null}>
+          <HaDashboardBar />
+        </Suspense>
       ) : null}
       <EncreLayer />
     </I18nProvider>

@@ -190,8 +190,8 @@ export interface LauncherSettings {
   webEngines: LauncherWebEngine[];
   /** Raccourcis : mot-clé → site / dossier / programme. */
   aliases: LauncherAlias[];
-  /** Home Assistant : adresse (le jeton est chiffré à part, jamais ici). */
-  homeAssistant: { url: string };
+  /** Home Assistant : adresse (le jeton est chiffré à part, jamais ici) + liaison PC. */
+  homeAssistant: HaSettings;
   /** Spotify : Client ID de ta propre appli (le jeton est chiffré à part). */
   spotify: { clientId: string };
   /** Moteur proposé en dernier résultat de toute recherche ('' = aucun). */
@@ -222,3 +222,117 @@ export interface LauncherStats {
   /** Jeux Steam détectés. */
   steamGames: number;
 }
+
+/* ───────────── Home Assistant : liaison PC ↔ HA ───────────── */
+
+export type HaToastPosition = 'bottom-right' | 'top-right' | 'bottom-left' | 'top-left';
+
+/**
+ * Liaison avec Home Assistant : MultiOutils s'enregistre comme l'appli mobile
+ * (intégration « mobile_app »). HA voit un appareil, ses capteurs, et un
+ * service notify.mobile_app_<nom> qui arrive ici par WebSocket.
+ */
+export interface HaSettings {
+  url: string;
+  link: {
+    /** Liaison active (enregistrement + connexion permanente). */
+    enabled: boolean;
+    /** Nom de l'appareil dans HA ('' = nom de l'ordinateur). */
+    deviceName: string;
+    /** Envoie les capteurs du PC à HA. */
+    sensors: boolean;
+    /** Intervalle d'envoi des capteurs, en secondes (15 à 600). */
+    sensorInterval: number;
+    /** Autorise les commandes envoyées par HA (veille, verrouiller, ouvrir une page…). */
+    commands: boolean;
+    /** Autorise aussi éteindre / redémarrer le PC depuis HA. */
+    powerCommands: boolean;
+    /** Crée dans HA les scripts-boutons Veille / Verrouiller / Éteindre / Redémarrer. */
+    buttons: boolean;
+  };
+  notifications: {
+    enabled: boolean;
+    position: HaToastPosition;
+    /** Durée d'affichage par défaut, en secondes (3 à 120). */
+    duration: number;
+    sound: boolean;
+    /** Ne pas déranger : seules les notifications « importantes » s'affichent. */
+    doNotDisturb: boolean;
+  };
+  dashboard: {
+    /** Raccourci global de la mini fenêtre ('' = aucun). */
+    shortcut: string;
+    /** Chemin du tableau de bord (ex. /lovelace/0 ou /dashboard-pc). */
+    path: string;
+    width: number;
+    height: number;
+    hideOnBlur: boolean;
+  };
+}
+
+export const HA_DASHBOARD_LIMITS = { width: [320, 1600], height: [320, 1400] } as const;
+
+/** Une notification reçue de Home Assistant, déjà nettoyée. */
+export interface HaNotification {
+  id: string;
+  title: string;
+  message: string;
+  /** Image (data URL, déjà téléchargée côté main). */
+  image?: string;
+  /** Symbole du sprite « encre » ou emoji. */
+  icon?: string;
+  /** Accent (lavande, or, ambre, corail, menthe) ou couleur #rrggbb. */
+  color?: string;
+  /** Durée en secondes ; 0 = reste jusqu'à fermeture. */
+  duration: number;
+  important: boolean;
+  sound: boolean;
+  /** Même tag = remplace la notification précédente. */
+  tag?: string;
+  /** Lien ouvert au clic sur la notification. */
+  url?: string;
+  actions: HaNotificationAction[];
+  receivedAt: number;
+}
+
+export interface HaNotificationAction {
+  /** Identifiant renvoyé à HA (événement mobile_app_notification_action). */
+  action: string;
+  title: string;
+  /** Lien à ouvrir au lieu de renvoyer l'action. */
+  uri?: string;
+  danger?: boolean;
+}
+
+export type HaLinkState = 'off' | 'not-configured' | 'registering' | 'connecting' | 'connected' | 'error';
+
+export interface HaLinkStatus {
+  state: HaLinkState;
+  /** Nom du service notify à utiliser dans HA (ex. notify.mobile_app_connor_vii). */
+  notifyService: string | null;
+  deviceName: string | null;
+  registered: boolean;
+  error?: string;
+  /** Nombre de capteurs envoyés. */
+  sensors: number;
+  /** Scripts-boutons créés dans HA (script.pc_veille…). */
+  buttons: string[];
+}
+
+export interface HaToastMsg {
+  toasts: HaNotification[];
+  position: HaToastPosition;
+}
+
+/** Patch partiel imbriqué (le renderer n'envoie que la sous-partie modifiée). */
+export type HaSettingsPatch = Partial<{
+  url: string;
+  link: Partial<HaSettings['link']>;
+  notifications: Partial<HaSettings['notifications']>;
+  dashboard: Partial<HaSettings['dashboard']>;
+}>;
+
+/** Patch des réglages du lanceur (Home Assistant fusionné en profondeur). */
+export type LauncherSettingsPatch = Omit<Partial<LauncherSettings>, 'homeAssistant'> & {
+  homeAssistant?: HaSettingsPatch;
+};
