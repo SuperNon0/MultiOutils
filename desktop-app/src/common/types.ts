@@ -228,6 +228,7 @@ export type UpdateStatus =
   | { state: 'available'; version: string; notes?: string }
   | { state: 'downloading'; percent: number }
   | { state: 'downloaded'; version: string }
+  | { state: 'installing'; version: string }
   | { state: 'error'; message: string };
 
 export type NavAction = 'select' | 'edit' | 'ocr' | 'translate';
