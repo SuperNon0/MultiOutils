@@ -1,6 +1,7 @@
 import type { AiProviderInfo, AiTranslation } from '../../../common/types';
 import {
   AiError,
+  num,
   errorMessageFrom,
   fetchJson,
   httpError,
@@ -20,7 +21,8 @@ export const GEMINI_INFO: AiProviderInfo = {
   models: [{ id: 'gemini-3.8-flash' }, { id: 'gemini-3.8-pro' }],
   defaultModel: 'gemini-3.8-flash',
   fixedModels: false,
-  keyUrl: 'https://aistudio.google.com/apikey'
+  keyUrl: 'https://aistudio.google.com/apikey',
+  billingUrl: 'https://aistudio.google.com/usage'
 };
 
 const BASE = 'https://generativelanguage.googleapis.com/v1beta';
@@ -58,6 +60,7 @@ const BLOCKED = ['SAFETY', 'PROHIBITED_CONTENT', 'BLOCKLIST', 'SPII', 'RECITATIO
 export function parseGeminiResponse(body: unknown, requestedModel: string): AiTranslation {
   const b = (body ?? {}) as {
     modelVersion?: string;
+    usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
     promptFeedback?: { blockReason?: string };
     candidates?: Array<{ finishReason?: string; content?: { parts?: Array<{ text?: string }> } }>;
   };
@@ -70,7 +73,16 @@ export function parseGeminiResponse(body: unknown, requestedModel: string): AiTr
   if (cand.finishReason === 'MAX_TOKENS') throw new AiError('truncated');
   const text = (cand.content?.parts ?? []).map((p) => p.text ?? '').join('');
   if (!text.trim()) throw new AiError('badResponse', 'empty response');
-  return parseTranslationJson(text, b.modelVersion ?? requestedModel);
+  const result = parseTranslationJson(text, b.modelVersion ?? requestedModel);
+  const u = b.usageMetadata;
+  if (u) {
+    // la réflexion (thoughts) est facturée au prix de la sortie
+    result.usage = {
+      inputTokens: num(u.promptTokenCount),
+      outputTokens: num(u.candidatesTokenCount) + num(u.thoughtsTokenCount)
+    };
+  }
+  return result;
 }
 
 /** Gemini répond 400 (et non 401) à une clé invalide : on le reconnaît. */

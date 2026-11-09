@@ -52,7 +52,9 @@ export function buildDefaults(defaultStorageDir: string): AppSettings {
     ocrLang: 'fra',
     aiProvider: 'anthropic',
     aiModels: { ...DEFAULT_AI_MODELS },
-    aiTargetLang: 'Français'
+    aiTargetLang: 'Français',
+    aiPrices: {},
+    aiGeminiFreeTier: false
   };
 }
 

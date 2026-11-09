@@ -84,7 +84,9 @@ const api: PreloadApi = {
     getSaved: (captureId) => ipcRenderer.invoke('ai:getSaved', captureId),
     saveEdit: (captureId, original, translated) =>
       ipcRenderer.invoke('ai:saveEdit', captureId, original, translated),
-    translate: (captureId, targetLang) => ipcRenderer.invoke('ai:translate', captureId, targetLang)
+    translate: (captureId, targetLang) => ipcRenderer.invoke('ai:translate', captureId, targetLang),
+    getUsage: (provider) => ipcRenderer.invoke('ai:getUsage', provider),
+    resetUsage: (provider) => ipcRenderer.invoke('ai:resetUsage', provider)
   },
   autoclicker: {
     getStore: () => ipcRenderer.invoke('autoclick:getStore'),

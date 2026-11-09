@@ -6,6 +6,7 @@ import type {
 import type { AiProviderInfo, AiTranslation } from '../../../common/types';
 import {
   AiError,
+  num,
   parseTranslationJson,
   systemPrompt,
   TRANSLATION_SCHEMA,
@@ -25,7 +26,8 @@ export const ANTHROPIC_INFO: AiProviderInfo = {
   ],
   defaultModel: 'claude-opus-5-5',
   fixedModels: true,
-  keyUrl: 'https://platform.claude.com'
+  keyUrl: 'https://platform.claude.com',
+  billingUrl: 'https://platform.claude.com/settings/billing'
 };
 
 /** Le strict nécessaire du client du SDK (remplaçable par un faux dans les tests). */
@@ -72,7 +74,23 @@ export function parseAnthropicMessage(message: BetaMessage): AiTranslation {
     .map((block) => (block.type === 'text' ? block.text : ''))
     .join('');
   if (!text.trim()) throw new AiError('badResponse', 'empty response');
-  return parseTranslationJson(text, message.model);
+  const result = parseTranslationJson(text, message.model);
+  const u = message.usage as
+    | {
+        input_tokens?: number;
+        output_tokens?: number;
+        cache_creation_input_tokens?: number | null;
+        cache_read_input_tokens?: number | null;
+      }
+    | undefined;
+  if (u) {
+    result.usage = {
+      inputTokens:
+        num(u.input_tokens) + num(u.cache_creation_input_tokens) + num(u.cache_read_input_tokens),
+      outputTokens: num(u.output_tokens)
+    };
+  }
+  return result;
 }
 
 /** Erreurs typées du SDK → codes clairs (du plus précis au plus général). */

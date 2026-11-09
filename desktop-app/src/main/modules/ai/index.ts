@@ -9,6 +9,8 @@ import {
   type AiSavedTranslation,
   type AiTranslateResult,
   type AiTranslation,
+  type AiUsageEntry,
+  type AiUsageSummary,
   type AppSettings
 } from '../../../common/types';
 import type { MainHostContext, MainToolModule } from '../../module-registry';
@@ -17,7 +19,9 @@ import { canSendAsIs, candidateSizes, MAX_IMAGE_BYTES } from './image';
 import { AiKeyStore, type KeyValue } from './keys';
 import { AiError, cleanTargetLang, pickModel, resolveModel, type TranslateImage } from './provider';
 import { pickGeminiModel } from './gemini';
+import { costOf, priceFor } from '../../../common/aiPricing';
 import { createProviders } from './providers';
+import { summarizeUsage } from './usage';
 
 /**
  * Traduction IA d'une capture (« Traduire (IA) » dans le menu ⋯ de la
@@ -175,6 +179,63 @@ export function createAiMainModule(): MainToolModule {
         editSaved.run(original, translated, captureId);
       });
 
+      // ── Suivi local des dépenses (tokens × prix du modèle) ──────────────
+      const putUsage = ctx.db.prepare(
+        `INSERT INTO ai_usage (provider, model, input_tokens, output_tokens, cost_usd, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      );
+      /** Compte une traduction réussie ; renvoie son coût estimé (null si prix inconnu). */
+      const record = (provider: AiProviderId, requested: string, r: AiTranslation): number | null => {
+        if (!r.usage) return null;
+        const s = ctx.settings.get();
+        const free = provider === 'gemini' && s.aiGeminiFreeTier;
+        const price = free
+          ? { input: 0, output: 0 }
+          : (priceFor(r.model, s.aiPrices) ?? priceFor(requested, s.aiPrices));
+        const cost = costOf(r.usage, price);
+        try {
+          putUsage.run(provider, r.model, r.usage.inputTokens, r.usage.outputTokens, cost, new Date().toISOString());
+        } catch {
+          // le suivi ne doit jamais faire échouer une traduction
+        }
+        return cost;
+      };
+
+      ipcMain.handle('ai:getUsage', (_e, provider?: unknown): AiUsageSummary => {
+        const rows = (
+          isProvider(provider)
+            ? ctx.db.prepare('SELECT * FROM ai_usage WHERE provider = ?').all(provider)
+            : ctx.db.prepare('SELECT * FROM ai_usage').all()
+        ) as Array<{
+          id: number;
+          provider: AiProviderId;
+          model: string;
+          input_tokens: number;
+          output_tokens: number;
+          cost_usd: number | null;
+          created_at: string;
+        }>;
+        const prices = ctx.settings.get().aiPrices;
+        const entries: AiUsageEntry[] = rows.map((r) => {
+          const usage = { inputTokens: r.input_tokens, outputTokens: r.output_tokens };
+          return {
+            id: r.id,
+            provider: r.provider,
+            model: r.model,
+            ...usage,
+            // prix inconnu au moment de la traduction : on réessaie avec les prix actuels
+            costUsd: r.cost_usd ?? costOf(usage, priceFor(r.model, prices, new Date(r.created_at))),
+            createdAt: r.created_at
+          };
+        });
+        return summarizeUsage(entries);
+      });
+
+      ipcMain.handle('ai:resetUsage', (_e, provider?: unknown): void => {
+        if (isProvider(provider)) ctx.db.prepare('DELETE FROM ai_usage WHERE provider = ?').run(provider);
+        else ctx.db.prepare('DELETE FROM ai_usage').run();
+      });
+
       ipcMain.handle(
         'ai:translate',
         async (_e, captureId: unknown, targetLang?: unknown): Promise<AiTranslateResult> => {
@@ -198,7 +259,8 @@ export function createAiMainModule(): MainToolModule {
             try {
               const result = await p.translate(request);
               save(capture.id, request.targetLang, result);
-              return { ok: true, ...result };
+              const costUsd = record(provider, request.model, result);
+              return { ok: true, ...result, costUsd };
             } catch (err) {
               // Modèle retiré ou inconnu (champ libre) : on prend le plus récent
               // proposé par le fournisseur, on réessaie une fois et on le garde.
@@ -209,8 +271,9 @@ export function createAiMainModule(): MainToolModule {
               if (!replacement) throw err;
               const result = await p.translate({ ...request, model: replacement });
               save(capture.id, request.targetLang, result);
+              const costUsd = record(provider, replacement, result);
               ctx.settings.set({ aiModels: { [provider]: replacement } as AppSettings['aiModels'] });
-              return { ok: true, ...result };
+              return { ok: true, ...result, costUsd };
             }
           } catch (err) {
             return fail(err);

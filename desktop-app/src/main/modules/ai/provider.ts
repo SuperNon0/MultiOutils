@@ -120,6 +120,11 @@ export function userPrompt(targetLang: string): string {
   return `Extract the text of this screenshot and translate it into ${cleanTargetLang(targetLang)}.`;
 }
 
+/** Nombre de jetons lu dans une réponse (0 si absent ou invalide). */
+export function num(v: unknown): number {
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? Math.round(v) : 0;
+}
+
 /** Lit le JSON renvoyé par l'IA et vérifie sa forme. */
 export function parseTranslationJson(text: string, model: string): AiTranslation {
   let value: unknown;
