@@ -861,7 +861,7 @@
   "launcher.ha.testFail": "Failed: {msg}",
   "launcher.ha.badToken": "Token rejected by Home Assistant.",
   "launcher.ha.notConfigured": "Home Assistant is not set up",
-  "launcher.ha.notConfiguredSub": "Add the address and token in Settings → Launcher → Home Assistant.",
+  "launcher.ha.notConfiguredSub": "Add the address and token in Settings → Home Assistant.",
   "launcher.ha.unreachable": "Home Assistant is not responding",
   "launcher.ha.isOn": "On",
   "launcher.ha.isOff": "Off",
@@ -1037,5 +1037,16 @@
   "ha.dash.pin": "Keep open",
   "ha.dash.unpin": "Stop keeping open",
   "ha.dash.error": "Home Assistant is not responding: {msg}",
-  "ha.dash.retry": "Retry"
+  "ha.dash.retry": "Retry",
+  "ha.section": "Home Assistant",
+  "reglages.sub.homeassistant": "PC link, notifications, buttons, mini dashboard",
+  "ha.keywords": "smart home notification pop-up sleep sensors dashboard",
+  "ha.page.intro": "Link this PC to your Home Assistant: on-screen notifications, Sleep / Lock / Shutdown / Restart buttons, sensors and a mini dashboard. The same connection powers the launcher's \"ha\" keyword.",
+  "ha.launcher.title": "In the launcher",
+  "ha.launcher.keyword": "Keyword \"{kw}\"",
+  "ha.launcher.desc": "Turn entities on or off, open the dashboard, read received notifications.",
+  "ha.launcher.open": "Launcher settings",
+  "ha.fromLauncher": "Connection, notifications and mini dashboard",
+  "ha.fromLauncherDesc": "Set on their own page: Settings → Home Assistant.",
+  "ha.openSettings": "Open Home Assistant"
 }

@@ -225,7 +225,7 @@ export function createHomeAssistantProvider(
         return { kind: 'hide' };
       }
       if (!d.state) {
-        env.showMainWindow({ view: 'settings', section: 'launcher' });
+        env.showMainWindow({ view: 'settings', section: 'homeassistant' });
         return { kind: 'hide' };
       }
       return exec(d.state, d.action ?? 'toggle');

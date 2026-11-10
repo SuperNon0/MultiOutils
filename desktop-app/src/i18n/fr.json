@@ -861,7 +861,7 @@
   "launcher.ha.testFail": "Échec : {msg}",
   "launcher.ha.badToken": "Jeton refusé par Home Assistant.",
   "launcher.ha.notConfigured": "Home Assistant n'est pas configuré",
-  "launcher.ha.notConfiguredSub": "Ajoute l'adresse et le jeton dans Réglages → Lanceur → Home Assistant.",
+  "launcher.ha.notConfiguredSub": "Ajoute l'adresse et le jeton dans Réglages → Home Assistant.",
   "launcher.ha.unreachable": "Home Assistant ne répond pas",
   "launcher.ha.isOn": "Allumé",
   "launcher.ha.isOff": "Éteint",
@@ -1037,5 +1037,16 @@
   "ha.dash.pin": "Garder ouverte",
   "ha.dash.unpin": "Ne plus garder ouverte",
   "ha.dash.error": "Home Assistant ne répond pas : {msg}",
-  "ha.dash.retry": "Réessayer"
+  "ha.dash.retry": "Réessayer",
+  "ha.section": "Home Assistant",
+  "reglages.sub.homeassistant": "Liaison avec le PC, notifications, boutons, mini tableau de bord",
+  "ha.keywords": "domotique notification pop-up veille capteurs tableau de bord",
+  "ha.page.intro": "Relie ce PC à ton Home Assistant : notifications sur l'écran, boutons Veille / Verrouiller / Éteindre / Redémarrer, capteurs et mini tableau de bord. La même connexion sert au mot-clé « ha » du lanceur.",
+  "ha.launcher.title": "Dans le lanceur",
+  "ha.launcher.keyword": "Mot-clé « {kw} »",
+  "ha.launcher.desc": "Allume ou éteint tes entités, ouvre le tableau de bord, relit les notifications reçues.",
+  "ha.launcher.open": "Réglages du lanceur",
+  "ha.fromLauncher": "Connexion, notifications et mini tableau de bord",
+  "ha.fromLauncherDesc": "Réglés dans leur propre page : Réglages → Home Assistant.",
+  "ha.openSettings": "Ouvrir Home Assistant"
 }

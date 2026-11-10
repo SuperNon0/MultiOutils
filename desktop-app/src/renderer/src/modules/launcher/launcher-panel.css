@@ -59,6 +59,13 @@
 .lzr-intro {
   margin: -2px 0 12px;
 }
+/* champ texte posé directement dans une ligne (adresse, Client ID…) : largeur
+   fixe, sinon .input { width: 100% } écrase le titre et sa description */
+.lzr .reg-l > .input {
+  flex: 0 1 320px;
+  width: 320px;
+  min-width: 0;
+}
 .lzr .reg-select.lzr-sel {
   min-width: 160px;
 }

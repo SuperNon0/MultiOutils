@@ -26,6 +26,7 @@ import { Brand } from './Sidebar';
 import { Icon } from './Icon';
 import { RegLigne, RegSec, RegSwitch } from './reglages';
 import { TraductionSection } from './TraductionReglages';
+import { HaSettingsPage } from '../modules/launcher/ha/HaSettingsPage';
 import type { ToolModule } from './types';
 
 interface Props {
@@ -107,6 +108,14 @@ export function settingsSections(modules: ToolModule[]): SectionDef[] {
         icon: m.icon,
         keywords: [m.name]
       })),
+    {
+      id: 'homeassistant',
+      group: 'reglages.group.tools',
+      title: 'ha.section',
+      sub: 'reglages.sub.homeassistant',
+      icon: 'home',
+      keywords: ['ha.link.enabled', 'ha.notif.title', 'ha.buttons.title', 'ha.dash.title', 'ha.sensors.title', 'ha.keywords']
+    },
     {
       id: 'ai',
       group: 'reglages.group.tools',
@@ -281,6 +290,7 @@ export function SettingsView({ settings, version, section, modules, update }: Pr
             {current.id === 'storage' && <StorageSection settings={settings} update={update} />}
             {current.id === 'server' && <ServerSection onSaved={flash} />}
             {current.id === 'ai' && <TraductionSection settings={settings} update={update} />}
+            {current.id === 'homeassistant' && <HaSettingsPage />}
             {current.id === 'updates' && <UpdatesSection version={version} />}
             {current.id === 'about' && (
               <div className="reg-sec apropos">
