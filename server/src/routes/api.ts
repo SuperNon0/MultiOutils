@@ -374,6 +374,7 @@ apiRouter.get('/clips/:id/raw', requireSessionOrToken, (req, res) => {
     res.status(404).json({ error: 'ressource inconnue' });
     return;
   }
+  res.setHeader('X-Content-Type-Options', 'nosniff');
   if (clip.kind === 'text') {
     res.type('text/plain').send(clip.content ?? '');
     return;
@@ -382,7 +383,9 @@ apiRouter.get('/clips/:id/raw', requireSessionOrToken, (req, res) => {
     res.status(404).json({ error: 'fichier absent' });
     return;
   }
-  if ('download' in req.query) {
+  const inlineImage = clip.kind === 'image' && clip.mime && Object.hasOwn(ALLOWED_MIME, clip.mime);
+  if (!inlineImage || 'download' in req.query) {
+    if (!inlineImage) res.type('application/octet-stream');
     res.download(clip.path, clip.filename ?? path.basename(clip.path));
     return;
   }

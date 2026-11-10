@@ -57,18 +57,32 @@ async function findValidToken(raw: string): Promise<string | null> {
 
 // ── Middlewares ─────────────────────────────────────────────────────────
 
+// Un jeton invalide peut parcourir tous les hashes. Borne le travail Argon2
+// simultané sans changer les jetons déjà configurés sur les clients.
+const MAX_TOKEN_CHECKS = 2;
+let activeTokenChecks = 0;
+
 /** API : jeton Bearer obligatoire. */
 export function requireApiToken(req: Request, res: Response, next: NextFunction): void {
   const header = req.headers.authorization ?? '';
   const raw = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
-  if (!raw) {
+  if (!/^mo_[A-Za-z0-9_-]{43}$/.test(raw)) {
     res.status(401).json({ error: 'jeton invalide' });
     return;
   }
-  void findValidToken(raw).then((id) => {
-    if (id) next();
-    else res.status(401).json({ error: 'jeton invalide' });
-  });
+  if (activeTokenChecks >= MAX_TOKEN_CHECKS) {
+    res.setHeader('Retry-After', '1');
+    res.status(429).json({ error: 'vérification de jetons occupée' });
+    return;
+  }
+  activeTokenChecks += 1;
+  void findValidToken(raw)
+    .finally(() => { activeTokenChecks -= 1; })
+    .then((id) => {
+      if (id) next();
+      else res.status(401).json({ error: 'jeton invalide' });
+    })
+    .catch(next);
 }
 
 /** Média : accessible avec session humaine OU jeton (jamais public). */
