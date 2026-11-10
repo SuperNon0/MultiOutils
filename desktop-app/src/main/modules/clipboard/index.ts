@@ -113,7 +113,6 @@ export function createClipboardMainModule(): MainToolModule {
   let lastSignature = '';
   let clipsDir = '';
   /** Ids serveur dont l'image n'a pas pu être décodée : pas de re-tentative en boucle. */
-  const undecodable = new Set<string>();
 
   const kvGet = (key: string): string | null => {
     const row = ctx.db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as
@@ -422,23 +421,13 @@ export function createClipboardMainModule(): MainToolModule {
 
   // ── Récupération des clips du serveur (partagés depuis l'iPhone) ─────────
 
-  const syncFromServer = async (): Promise<number> => {
+  const runSyncFromServer = async (): Promise<number> => {
     const settings = getSettings();
     if (!settings.enabled || !settings.sync) return 0;
     const remote = remoteConfig();
     if (!remote) return 0;
 
-    const since = kvGet(LAST_SYNC_KEY) ?? '';
-    const res = await fetch(
-      `${remote.url}/api/clips?since=${encodeURIComponent(since)}`,
-      {
-        headers: { Authorization: `Bearer ${remote.token}` },
-        signal: AbortSignal.timeout(15_000)
-      }
-    );
-    if (!res.ok) return 0;
-    const body = (await res.json()) as {
-      items: Array<{
+    type RemoteClip = {
         id: string;
         kind: 'text' | 'image' | 'file';
         text: string | null;
@@ -446,67 +435,76 @@ export function createClipboardMainModule(): MainToolModule {
         mime: string | null;
         createdAt: string;
         source: string;
-      }>;
     };
+    const cursorKey = `${LAST_SYNC_KEY}:${remote.url}`;
+    const previous = kvGet(cursorKey)?.split('|');
+    let since = previous?.[0] ?? kvGet(LAST_SYNC_KEY) ?? '';
+    let afterId = previous?.[1] ?? '';
     let imported = 0;
-    let newest = since;
-    for (const item of body.items) {
-      if (item.createdAt > newest) newest = item.createdAt;
-      // dédup : déjà importé, ou envoyé par nous-mêmes (remote_id connu)
-      const known = ctx.db
-        .prepare('SELECT 1 FROM clips WHERE remote_id = ?')
-        .get(item.id);
-      if (known) continue;
+    const importItem = async (item: RemoteClip): Promise<boolean> => {
+      const exists = () => ctx.db.prepare('SELECT 1 FROM clips WHERE remote_id = ?').get(item.id);
+      if (exists()) return true;
       if (item.kind === 'text') {
         insertText(item.text ?? '', 'remote', item.id);
-        imported += 1;
-      } else if (!undecodable.has(item.id)) {
-        try {
-          const raw = await fetch(`${remote.url}/api/clips/${item.id}/raw`, {
-            headers: { Authorization: `Bearer ${remote.token}` },
-            signal: AbortSignal.timeout(120_000)
-          });
-          if (!raw.ok) continue;
-          const buffer = Buffer.from(await raw.arrayBuffer());
-          if (item.kind === 'image') {
-            const image = nativeImage.createFromBuffer(buffer);
-            if (insertImage(image, 'remote', item.id, item.filename)) {
-              imported += 1;
-              // Photo envoyée depuis le téléphone → aussi dans la bibliothèque
-              // de captures (choix utilisateur « Captures + presse-papiers »).
-              // Elle reste par ailleurs dans le presse-papiers comme un clip.
-              // On passe par ctx.events : ce module n'appelle jamais le module
-              // Capture d'écran directement (docs/00 §0.1).
-              if (item.source === 'iphone' || item.source === 'ipad') {
-                ctx.events.emit('import-capture', {
-                  image,
-                  createdAt: item.createdAt
-                });
-              }
-            } else {
-              undecodable.add(item.id); // format non décodable : on n'insiste pas
-            }
-          } else {
-            insertFileFromBuffer(
-              buffer,
-              item.filename || item.id,
-              item.mime || 'application/octet-stream',
-              'remote',
-              item.id
-            );
-            imported += 1;
+      } else {
+        const raw = await fetch(`${remote.url}/api/clips/${item.id}/raw`, {
+          headers: { Authorization: `Bearer ${remote.token}` },
+          signal: AbortSignal.timeout(120_000)
+        });
+        if (raw.status === 404) return true;
+        if (!raw.ok) return false;
+        const buffer = Buffer.from(await raw.arrayBuffer());
+        if (exists()) return true;
+        const image = item.kind === 'image' ? nativeImage.createFromBuffer(buffer) : null;
+        if (image && insertImage(image, 'remote', item.id, item.filename)) {
+          if (item.source === 'iphone' || item.source === 'ipad') {
+            ctx.events.emit('import-capture', { image, createdAt: item.createdAt });
           }
-        } catch {
-          // fichier irrécupérable pour l'instant : retenté au prochain passage
+        } else {
+          insertFileFromBuffer(buffer, item.filename || item.id, item.mime || 'application/octet-stream', 'remote', item.id);
         }
       }
-    }
-    if (newest !== since) kvSet(LAST_SYNC_KEY, newest);
-    if (imported > 0) {
-      ctx.broadcast('clips:changed');
-      ctx.notify(ctx.i18n.t('clips.received', { n: imported }));
+      imported += 1;
+      return true;
+    };
+    try {
+      for (let page = 0; page < 10; page += 1) {
+        const query = new URLSearchParams({ since, order: 'asc' });
+        if (afterId) query.set('afterId', afterId);
+        const res = await fetch(`${remote.url}/api/clips?${query}`, {
+            headers: { Authorization: `Bearer ${remote.token}` },
+            signal: AbortSignal.timeout(15_000)
+        });
+        if (!res.ok) break;
+        const body = (await res.json()) as { items: RemoteClip[]; hasMore?: boolean };
+        const paged = typeof body.hasMore === 'boolean';
+        if (!paged) body.items.reverse();
+        for (const item of body.items) {
+          if (!(await importItem(item))) return imported;
+          since = item.createdAt;
+          afterId = item.id;
+          // Sur un ancien serveur, garde le curseur d'origine jusqu'à la fin
+          // du lot pour pouvoir reprendre aussi les clips de même date.
+          if (paged) kvSet(cursorKey, `${since}|${afterId}`);
+        }
+        if (!paged) kvSet(cursorKey, `${since}|${afterId}`);
+        if (!body.hasMore || body.items.length === 0) break;
+      }
+    } catch {
+      // La prochaine synchronisation reprend après le dernier clip confirmé.
+    } finally {
+      if (imported > 0) {
+        ctx.broadcast('clips:changed');
+        ctx.notify(ctx.i18n.t('clips.received', { n: imported }));
+      }
     }
     return imported;
+  };
+
+  let activeSync: Promise<number> | null = null;
+  const syncFromServer = (): Promise<number> => {
+    activeSync ??= runSyncFromServer().finally(() => { activeSync = null; });
+    return activeSync;
   };
 
   const getRow = (id: string): ClipRow | undefined =>

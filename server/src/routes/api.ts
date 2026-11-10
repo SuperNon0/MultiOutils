@@ -343,13 +343,19 @@ apiRouter.patch('/clips/:id', requireApiToken, (req, res) => {
 
 apiRouter.get('/clips', requireApiToken, (req, res) => {
   const since = req.query.since ? String(req.query.since) : '';
-  const rows = getDb()
-    .prepare(
-      'SELECT * FROM clips WHERE created_at > ? ORDER BY created_at DESC LIMIT 200'
-    )
-    .all(since) as ServerClip[];
+  const paged = req.query.order === 'asc';
+  const afterId = typeof req.query.afterId === 'string' ? req.query.afterId : null;
+  const db = getDb();
+  const rows = (paged
+    ? db.prepare(`
+        SELECT * FROM clips WHERE created_at > ? OR (created_at = ? AND id > ?)
+        ORDER BY created_at ASC, id ASC LIMIT 201
+      `).all(since, since, afterId)
+    : db.prepare('SELECT * FROM clips WHERE created_at > ? ORDER BY created_at DESC LIMIT 200').all(since)
+  ) as ServerClip[];
   res.json({
-    items: rows.map((c) => ({
+    ...(paged ? { hasMore: rows.length > 200 } : {}),
+    items: rows.slice(0, 200).map((c) => ({
       id: c.id,
       kind: c.kind,
       text: c.kind === 'text' ? c.content : null,
