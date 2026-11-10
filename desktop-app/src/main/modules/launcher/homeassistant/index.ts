@@ -340,7 +340,7 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
       broadcastStatus();
     },
     tokenChanged() {
-      dashboard.invalidate();
+      dashboard.resetSession();
       if (s().link.enabled) link.start();
     },
     openDashboard: (path) => dashboard.show(path),
