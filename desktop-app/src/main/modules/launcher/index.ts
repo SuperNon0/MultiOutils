@@ -15,6 +15,7 @@ import type {
   LauncherExecMode,
   LauncherOutcome,
   LauncherSettings,
+  LauncherSettingsPatch,
   LauncherState,
   LauncherStats
 } from '../../../common/launcher';
@@ -44,6 +45,7 @@ import {
   createWinSettingsProvider
 } from './providers/system';
 import { LauncherWindow } from './window';
+import { createHaIntegration, HA_DASHBOARD_SHORTCUT_ID, type HaIntegration } from './homeassistant';
 
 const SETTINGS_KEY = 'launcher.settings';
 const USAGE_KEY = 'launcher.usage';
@@ -117,6 +119,18 @@ export function createLauncherMainModule(): MainToolModule {
     }
   };
   const haClient = new HomeAssistantClient(() => settings.homeAssistant.url, haToken);
+  let ha: HaIntegration | null = null;
+  let haShortcutOk = true;
+
+  /** Raccourci de la mini fenêtre Home Assistant (aucun si vide). */
+  const applyHaShortcut = (): void => {
+    const acc = settings.homeAssistant.dashboard.shortcut;
+    if (acc) {
+      ctx.shortcuts.register({ id: HA_DASHBOARD_SHORTCUT_ID, accelerator: acc, run: () => ha?.toggleDashboard() });
+    } else {
+      ctx.shortcuts.unregister(HA_DASHBOARD_SHORTCUT_ID);
+    }
+  };
 
   /** Chiffre / déchiffre une valeur (safeStorage). */
   const encrypt = (v: string): string => `enc:${safeStorage.encryptString(v).toString('base64')}`;
@@ -211,15 +225,24 @@ export function createLauncherMainModule(): MainToolModule {
     ctx.shortcuts.setAccelerator(SHORTCUT_ID, settings.shortcut);
     const statuses = ctx.shortcuts.applyAll();
     shortcutOk = statuses.find((s) => s.id === SHORTCUT_ID)?.ok ?? false;
+    haShortcutOk = settings.homeAssistant.dashboard.shortcut
+      ? (statuses.find((s) => s.id === HA_DASHBOARD_SHORTCUT_ID)?.ok ?? false)
+      : true;
     return shortcutOk;
   };
 
-  const updateSettings = (patch: Partial<LauncherSettings>): LauncherSettings => {
+  const updateSettings = (patch: LauncherSettingsPatch): LauncherSettings => {
     const before = settings;
     settings = mergeLauncherSettings(settings, patch);
     kvSet(SETTINGS_KEY, settings);
     engine.setProviders(activeProviders());
-    if (settings.shortcut !== before.shortcut) applyShortcut();
+    const haShortcutChanged = settings.homeAssistant.dashboard.shortcut !== before.homeAssistant.dashboard.shortcut;
+    if (haShortcutChanged) applyHaShortcut();
+    if (settings.shortcut !== before.shortcut || haShortcutChanged) applyShortcut();
+    if (JSON.stringify(settings.homeAssistant) !== JSON.stringify(before.homeAssistant)) {
+      if (settings.homeAssistant.url !== before.homeAssistant.url) haClient.invalidate();
+      void ha?.apply(before.homeAssistant);
+    }
     if (JSON.stringify(settings.look) !== JSON.stringify(before.look)) launcher.applyLook();
     if (
       JSON.stringify(settings.indexedFolders) !== JSON.stringify(before.indexedFolders) ||
@@ -297,7 +320,13 @@ export function createLauncherMainModule(): MainToolModule {
         tools: createToolsProvider(env),
         aliases: createAliasesProvider(env),
         steam: createSteamProvider(env, steamLibrary),
-        homeassistant: createHomeAssistantProvider(env, haClient),
+        homeassistant: createHomeAssistantProvider(env, haClient, {
+          openDashboard: (path) => {
+            launcher.hide();
+            ha?.openDashboard(path);
+          },
+          history: () => ha?.history() ?? []
+        }),
         spotify: createSpotifyProvider(env, spotifyClient),
         history: createHistoryProvider(env, (q) => {
           history = history.filter((h) => h !== q);
@@ -323,6 +352,18 @@ export function createLauncherMainModule(): MainToolModule {
 
       // Raccourci global (appliqué par l'hôte après l'activation des modules).
       ctx.shortcuts.register({ id: SHORTCUT_ID, accelerator: settings.shortcut, run: () => launcher.toggle() });
+
+      // Home Assistant : liaison PC ↔ HA, pop-ups, mini tableau de bord, caméra.
+      ha = createHaIntegration({
+        ctx,
+        settings: () => settings.homeAssistant,
+        token: haToken,
+        kvGet,
+        kvSet,
+        showLauncher: () => launcher.show()
+      });
+      applyHaShortcut();
+      app.whenReady().then(() => setTimeout(() => void ha?.apply(null), 2500));
 
       // Pré-création : la première ouverture est aussi rapide que les suivantes.
       app.whenReady().then(() => setTimeout(() => launcher.create(), 1500));
@@ -382,14 +423,14 @@ export function createLauncherMainModule(): MainToolModule {
         if (typeof height === 'number' && Number.isFinite(height)) launcher.resize(height);
       });
       ipcMain.handle('launcher:open', () => launcher.show());
-      ipcMain.handle('launcher:getSettings', () => ({ settings, shortcutOk, stats: stats() }));
-      ipcMain.handle('launcher:setSettings', (_e, patch: Partial<LauncherSettings>) => {
+      ipcMain.handle('launcher:getSettings', () => ({ settings, shortcutOk, haShortcutOk, stats: stats() }));
+      ipcMain.handle('launcher:setSettings', (_e, patch: LauncherSettingsPatch) => {
         const next = updateSettings(patch ?? {});
-        return { settings: next, shortcutOk, stats: stats() };
+        return { settings: next, shortcutOk, haShortcutOk, stats: stats() };
       });
       ipcMain.handle('launcher:resetSettings', () => {
         const next = updateSettings(defaultLauncherSettings());
-        return { settings: next, shortcutOk, stats: stats() };
+        return { settings: next, shortcutOk, haShortcutOk, stats: stats() };
       });
       ipcMain.handle('launcher:reindex', async () => {
         reindex();
@@ -416,6 +457,7 @@ export function createLauncherMainModule(): MainToolModule {
           kvSet(HA_TOKEN_KEY, `enc:${safeStorage.encryptString(v).toString('base64')}`);
         }
         haClient.invalidate();
+        ha?.tokenChanged();
         return { hasToken: v !== '' };
       });
       ipcMain.handle('launcher:haTest', async (): Promise<{ ok: true; count: number } | { ok: false; error: string }> => {
@@ -457,6 +499,13 @@ export function createLauncherMainModule(): MainToolModule {
           accelerator: settings.shortcut || undefined,
           registerAccelerator: false,
           click: () => launcher.show()
+        },
+        {
+          label: hostCtx.i18n.t('ha.tray'),
+          accelerator: settings.homeAssistant.dashboard.shortcut || undefined,
+          registerAccelerator: false,
+          enabled: !!settings.homeAssistant.url,
+          click: () => ha?.openDashboard()
         }
       ];
     },
@@ -475,6 +524,7 @@ export function createLauncherMainModule(): MainToolModule {
         }
       }
       engine?.cancel();
+      ha?.dispose();
       launcher.destroy();
     }
   };

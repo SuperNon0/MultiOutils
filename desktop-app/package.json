@@ -20,7 +20,8 @@
     "better-sqlite3": "^11.10.0",
     "electron-updater": "^6.8.9",
     "koffi": "^3.3.3",
-    "tesseract.js": "^5.1.1"
+    "tesseract.js": "^5.1.1",
+    "ws": "^8.22.2"
   },
   "devDependencies": {
     "@multioutils/shared": "*",
@@ -28,6 +29,7 @@
     "@types/node": "^20.19.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@types/ws": "^8.18.2",
     "@vitejs/plugin-react": "^4.3.4",
     "electron": "33.4.11",
     "electron-builder": "^25.1.8",

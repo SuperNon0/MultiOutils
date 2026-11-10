@@ -1,0 +1,237 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Home Assistant : pop-ups (#/ha-toasts) et barre de la mini fenêtre
+   (#/ha-dashboard). Couleurs = jetons « encre ».
+   ───────────────────────────────────────────────────────────────────────── */
+
+html:has(> body[data-fenetre='ha-toasts']),
+body[data-fenetre='ha-toasts'],
+body[data-fenetre='ha-toasts'] #root {
+  background: transparent;
+  height: auto;
+  min-height: 0;
+  overflow: hidden;
+  scrollbar-gutter: auto;
+}
+body[data-fenetre='ha-toasts'],
+body[data-fenetre='ha-dashboard'] {
+  font-family: var(--f-body);
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--text);
+  user-select: none;
+}
+
+.hat-pile {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  /* marge transparente : place pour l'ombre */
+  padding: 16px 20px 20px;
+}
+
+.hat {
+  --ha-c: var(--accent);
+  position: relative;
+  overflow: hidden;
+  padding: 12px 12px 14px;
+  border-radius: 16px;
+  border: 1px solid var(--line2);
+  background: color-mix(in srgb, var(--pop) 94%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  backdrop-filter: blur(18px) saturate(1.5);
+  box-shadow: var(--shadow-s);
+  cursor: pointer;
+  animation: hat-in 0.22s var(--ease);
+}
+.hat::before {
+  /* liseré de couleur à gauche */
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: var(--ha-c);
+  opacity: 0.9;
+}
+.hat.imp {
+  border-color: color-mix(in srgb, var(--ha-c) 55%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ha-c) 25%, transparent), var(--shadow-s);
+}
+.hat:hover { border-color: color-mix(in srgb, var(--ha-c) 45%, var(--line2)); }
+@keyframes hat-in {
+  from { opacity: 0; transform: translateX(16px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.hat-pile.bottom-left .hat,
+.hat-pile.top-left .hat { animation-name: hat-in-g; }
+@keyframes hat-in-g {
+  from { opacity: 0; transform: translateX(-16px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hat { animation: none; }
+}
+
+.hat-tete { display: flex; align-items: flex-start; gap: 10px; }
+.hat-ic {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  font-size: 19px;
+  color: var(--ha-c);
+  background: color-mix(in srgb, var(--ha-c) 15%, transparent);
+}
+.hat-tx { flex: 1; min-width: 0; }
+.hat-titre {
+  font-weight: 600;
+  font-size: 15px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.hat-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.hat-badge {
+  padding: 0 6px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ha-c);
+  background: color-mix(in srgb, var(--ha-c) 15%, transparent);
+}
+.hat-x {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0.6;
+}
+.hat:hover .hat-x { opacity: 1; }
+.hat-x:hover { background: var(--card); color: var(--text); }
+.hat-msg {
+  margin: 8px 2px 0 44px;
+  color: var(--soft);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 6;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.hat-img {
+  display: block;
+  width: calc(100% - 44px);
+  max-height: 200px;
+  margin: 10px 0 0 44px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+}
+.hat-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 0 44px;
+}
+.hat-actions .btn.dan { color: var(--danger); }
+.hat-temps {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: color-mix(in srgb, var(--ha-c) 12%, transparent);
+}
+.hat-temps span {
+  display: block;
+  height: 100%;
+  background: var(--ha-c);
+  transform-origin: left;
+  transition: transform 0.1s linear;
+}
+
+/* ───────── mini fenêtre du tableau de bord ───────── */
+body[data-fenetre='ha-dashboard'] { background: var(--surface); overflow: hidden; }
+.had-barre {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 6px 0 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  -webkit-app-region: drag;
+}
+.had-ic { color: var(--accent); display: grid; place-items: center; }
+.had-titre {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.had-btns { display: flex; gap: 2px; -webkit-app-region: no-drag; }
+.had-btns .ib {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--soft);
+  cursor: pointer;
+}
+.had-btns .ib:hover { background: var(--card); color: var(--text); }
+.had-btns .ib.on { color: var(--accent); background: var(--acc-dim); }
+.had-erreur {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line2);
+  background: var(--card);
+  color: var(--danger);
+}
+.had-erreur span { flex: 1; color: var(--soft); }
+
+/* ───────── réglages : petite liste des boutons créés ───────── */
+.ha-mono-list { display: flex; flex-wrap: wrap; gap: 6px; }
+.ha-mono-list code {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+.ha-exemple-boite { padding: 2px 0 10px; }
+.ha-exemple {
+  margin: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--creux);
+  border: 1px solid var(--line);
+  font-family: var(--f-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre;
+  overflow-x: auto;
+  user-select: text;
+}

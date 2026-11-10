@@ -242,7 +242,7 @@ export interface PreloadApi {
     resize(height: number): void;
     open(): Promise<void>;
     getSettings(): Promise<LauncherSettingsInfo>;
-    setSettings(patch: Partial<import('./launcher').LauncherSettings>): Promise<LauncherSettingsInfo>;
+    setSettings(patch: import('./launcher').LauncherSettingsPatch): Promise<LauncherSettingsInfo>;
     resetSettings(): Promise<LauncherSettingsInfo>;
     reindex(): Promise<import('./launcher').LauncherStats>;
     clearHistory(): Promise<void>;
@@ -260,10 +260,43 @@ export interface PreloadApi {
     onHidden(cb: () => void): Unsubscribe;
     onState(cb: (state: import('./launcher').LauncherState) => void): Unsubscribe;
   };
+  /** Liaison PC ↔ Home Assistant (pop-ups, mini tableau de bord, capteurs). */
+  ha: {
+    status(): Promise<import('./launcher').HaLinkStatus>;
+    onStatus(cb: (status: import('./launcher').HaLinkStatus) => void): Unsubscribe;
+    /** Oublie l'enregistrement et se réenregistre (si la liaison est active). */
+    forget(): Promise<import('./launcher').HaLinkStatus>;
+    reconnect(): Promise<import('./launcher').HaLinkStatus>;
+    history(): Promise<import('./launcher').HaNotification[]>;
+    onHistory(cb: (list: import('./launcher').HaNotification[]) => void): Unsubscribe;
+    clearHistory(): Promise<void>;
+    testToast(): Promise<void>;
+    openDashboard(path?: string): Promise<void>;
+    /* fenêtre des pop-ups */
+    toasts(): Promise<import('./launcher').HaToastMsg | null>;
+    onToasts(cb: (msg: import('./launcher').HaToastMsg) => void): Unsubscribe;
+    toastResize(height: number): void;
+    toastDismiss(id: string): void;
+    toastOpen(id: string): void;
+    toastAction(id: string, action: string): void;
+    /* barre de la mini fenêtre */
+    dash: {
+      reload(): void;
+      back(): void;
+      home(): void;
+      external(): void;
+      hide(): void;
+      pin(): Promise<boolean>;
+      onTitle(cb: (title: string) => void): Unsubscribe;
+      onError(cb: (error: string | null) => void): Unsubscribe;
+    };
+  };
 }
 
 export interface LauncherSettingsInfo {
   settings: import('./launcher').LauncherSettings;
   shortcutOk: boolean;
+  /** Raccourci de la mini fenêtre Home Assistant enregistré (ou vide). */
+  haShortcutOk?: boolean;
   stats: import('./launcher').LauncherStats;
 }
