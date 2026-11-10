@@ -67,9 +67,13 @@ export function App(): ReactNode {
         }
       }
     });
+    // lien interne entre deux pages des Réglages (ex. Lanceur → Home Assistant)
+    const onOpenSettings = (e: Event): void => openSettings((e as CustomEvent<string>).detail);
+    window.addEventListener('mo:open-settings', onOpenSettings);
     return () => {
       unsubSettings();
       unsubNav();
+      window.removeEventListener('mo:open-settings', onOpenSettings);
     };
   }, [openSettings]);
 

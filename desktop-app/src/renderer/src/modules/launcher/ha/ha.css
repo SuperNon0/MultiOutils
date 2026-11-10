@@ -235,3 +235,24 @@ body[data-fenetre='ha-dashboard'] { background: var(--surface); overflow: hidden
   overflow-x: auto;
   user-select: text;
 }
+
+/* ───────── page Réglages → Home Assistant ───────── */
+.ha-page > .reg-sec { margin-top: 30px; }
+.ha-page > .reg-sec:first-of-type { margin-top: 6px; }
+.ha-page .reg-l .tx b { flex-wrap: wrap; }
+.ha-intro { margin: -2px 0 12px; font-size: 14px; }
+/* Champ texte dans une ligne de réglage : largeur fixe, le libellé garde sa place
+   (sans ça, .input { width: 100% } écrase le titre et sa description). */
+.reg-l > .input.ha-champ { flex: 0 1 320px; width: 320px; min-width: 0; }
+.ha-page .ligne > .input.ha-champ { flex: 1 1 200px; width: auto; }
+.ha-page .reg-select { min-width: 160px; }
+@media (max-width: 720px) {
+  .reg-l:has(> .input.ha-champ) { flex-wrap: wrap; }
+  .reg-l > .input.ha-champ { flex: 1 1 100%; width: 100%; }
+}
+/* Le libellé garde au moins 220 px : s'il manque de place, le contrôle passe
+   dessous au lieu d'écraser le texte (fenêtre étroite, longues listes). */
+.ha-page .reg-l { flex-wrap: wrap; }
+.ha-page .reg-l > .tx { flex: 1 1 220px; min-width: 200px; }
+.ha-page .reg-l > .ha-mono-list { flex: 1 1 100%; }
+.ha-page .reg-l > form.ligne { flex: 1 1 280px; justify-content: flex-end; }
