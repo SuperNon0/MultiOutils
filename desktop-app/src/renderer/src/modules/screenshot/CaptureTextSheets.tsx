@@ -9,6 +9,7 @@ import {
   type OcrLang
 } from '../../../../common/types';
 import { Feuille } from '../../host/Feuille';
+import { formatTokens, formatUsd } from '../../host/DepensesIA';
 import { COMMON_TARGET_LANGS } from '../../host/TraductionReglages';
 import { useHost } from '../../host/context';
 import { Icon } from '../../host/Icon';
@@ -459,6 +460,20 @@ function TranslateSheet({ captureId }: { captureId: string }): ReactNode {
                   {showSaved && saved
                     ? t('ai.savedOn', { date: formatDate(saved.createdAt, lang), model: saved.model })
                     : t('ai.answeredBy', { model: shown.model })}
+                  {!showSaved && result?.ok && result.usage && (
+                    <>
+                      <br />
+                      {(() => {
+                        const tokens = formatTokens(result.usage.inputTokens + result.usage.outputTokens, lang);
+                        if (provider?.id === 'gemini' && settings?.aiGeminiFreeTier) {
+                          return t('ai.usage.thisOneFree', { tokens });
+                        }
+                        return typeof result.costUsd === 'number'
+                          ? t('ai.usage.thisOne', { tokens, cost: `≈ ${formatUsd(result.costUsd, lang)}` })
+                          : t('ai.usage.thisOneUnknown', { tokens });
+                      })()}
+                    </>
+                  )}
                 </p>
                 <span className="esp" />
                 <button

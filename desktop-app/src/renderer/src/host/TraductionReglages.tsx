@@ -6,6 +6,7 @@ import type {
   AppSettings
 } from '../../../common/types';
 import { Aide, ui } from '../encre/ui';
+import { DepensesIA } from './DepensesIA';
 import { useI18n } from '../i18n';
 import { Icon } from './Icon';
 import { RegLigne, RegSec } from './reglages';
@@ -263,6 +264,8 @@ export function TraductionSection({
           )}
         </div>
       </div>
+
+      <DepensesIA provider={provider} model={model} settings={settings} update={update} />
     </>
   );
 }

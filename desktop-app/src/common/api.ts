@@ -109,6 +109,10 @@ export interface PreloadApi {
     saveEdit(captureId: string, original: string, translated: string): Promise<void>;
     /** Fournisseur et modèle des Réglages ; targetLang absent = langue des Réglages. */
     translate(captureId: string, targetLang?: string): Promise<import('./types').AiTranslateResult>;
+    /** Suivi local des dépenses : résumé du mois, total et dernières traductions. */
+    getUsage(provider?: import('./types').AiProviderId): Promise<import('./types').AiUsageSummary>;
+    /** Remet le compteur à zéro (provider absent = tous les fournisseurs). */
+    resetUsage(provider?: import('./types').AiProviderId): Promise<void>;
   };
   autoclicker: {
     getStore(): Promise<AutoclickStore>;

@@ -1850,3 +1850,13 @@ body[data-fenetre='launcher'] #root {
   margin-left: 6px;
   margin-top: -2px;
 }
+
+/* Réglages → Traduction IA → Dépenses (suivi local des coûts) */
+.ia-tuiles { margin-bottom: 10px; }
+@media (min-width: 760px) { .ia-tuiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.ia-actions { margin: 10px 0 4px; }
+.ia-prix { display: flex; gap: 8px; flex: none; }
+.ia-prix .input { width: 92px; }
+.ia-histo-t { margin: 18px 0 10px; }
+.ia-histo { max-height: 320px; overflow-y: auto; scrollbar-width: thin; }
+.ia-histo .li { min-height: 48px; }

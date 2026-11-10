@@ -64,6 +64,10 @@ export interface AppSettings {
   aiModels: Record<AiProviderId, string>;
   /** Traduction IA : langue cible (nom en clair, ex. « Français »). */
   aiTargetLang: string;
+  /** Traduction IA : prix saisis à la main (USD par million de jetons), par modèle. */
+  aiPrices: Record<string, AiPrice>;
+  /** Traduction IA : clé Gemini sur l'offre gratuite d'AI Studio (coût 0). */
+  aiGeminiFreeTier: boolean;
 }
 
 // ── Extraire le texte / Traduction IA ─────────────────────────────────────
@@ -85,6 +89,8 @@ export interface AiProviderInfo {
   fixedModels: boolean;
   /** Page où créer une clé API. */
   keyUrl: string;
+  /** Page du fournisseur où voir le solde et la facturation. */
+  billingUrl: string;
 }
 
 export interface AiConfig {
@@ -115,6 +121,51 @@ export interface AiTranslation {
   translated: string;
   /** Modèle qui a répondu (peut différer du modèle demandé : repli serveur). */
   model: string;
+  /** Jetons facturés pour cette réponse (absent si le fournisseur ne les donne pas). */
+  usage?: AiUsage;
+}
+
+/** Jetons consommés par une réponse (la réflexion est comptée en sortie). */
+export interface AiUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+/** Prix d'un modèle, en USD par million de jetons. */
+export interface AiPrice {
+  input: number;
+  output: number;
+}
+
+/** Une traduction comptée dans le suivi des dépenses. */
+export interface AiUsageEntry {
+  id: number;
+  provider: AiProviderId;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  /** Coût estimé en USD (null : prix du modèle inconnu). */
+  costUsd: number | null;
+  createdAt: string;
+}
+
+export interface AiUsageTotals {
+  count: number;
+  inputTokens: number;
+  outputTokens: number;
+  costUsd: number;
+  /** Traductions sans prix connu (non comptées dans costUsd). */
+  unpriced: number;
+}
+
+/** Suivi local des dépenses (aucune API ne donne le solde avec une simple clé). */
+export interface AiUsageSummary {
+  month: AiUsageTotals;
+  total: AiUsageTotals;
+  /** Date de la première traduction comptée (null si aucune). */
+  since: string | null;
+  /** Les dernières traductions, de la plus récente à la plus ancienne. */
+  recent: AiUsageEntry[];
 }
 
 /** Traduction enregistrée avec une capture (« Revoir la traduction »). */
@@ -124,7 +175,7 @@ export interface AiSavedTranslation extends AiTranslation {
 }
 
 export type AiTranslateResult =
-  | ({ ok: true } & AiTranslation)
+  | ({ ok: true; costUsd?: number | null } & AiTranslation)
   | { ok: false; error: AiErrorCode; message?: string };
 
 export type AiSimpleResult = { ok: true } | { ok: false; error: AiErrorCode; message?: string };

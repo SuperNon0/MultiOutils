@@ -1,6 +1,7 @@
 import type { AiProviderInfo, AiTranslation } from '../../../common/types';
 import {
   AiError,
+  num,
   fetchJson,
   httpError,
   parseTranslationJson,
@@ -18,7 +19,8 @@ export const OPENAI_INFO: AiProviderInfo = {
   models: [{ id: 'gpt-4.1' }, { id: 'gpt-4.1-mini' }],
   defaultModel: 'gpt-4.1',
   fixedModels: false,
-  keyUrl: 'https://platform.openai.com/api-keys'
+  keyUrl: 'https://platform.openai.com/api-keys',
+  billingUrl: 'https://platform.openai.com/settings/organization/billing/overview'
 };
 
 const BASE = 'https://api.openai.com/v1';
@@ -57,7 +59,11 @@ interface OpenAiChoice {
 }
 
 export function parseOpenAiResponse(body: unknown, requestedModel: string): AiTranslation {
-  const b = (body ?? {}) as { model?: string; choices?: OpenAiChoice[] };
+  const b = (body ?? {}) as {
+    model?: string;
+    choices?: OpenAiChoice[];
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
+  };
   const choice = b.choices?.[0];
   if (!choice?.message) throw new AiError('badResponse', 'no choice');
   if (choice.message.refusal) throw new AiError('refusal', choice.message.refusal);
@@ -65,7 +71,11 @@ export function parseOpenAiResponse(body: unknown, requestedModel: string): AiTr
   if (choice.finish_reason === 'length') throw new AiError('truncated');
   const text = choice.message.content ?? '';
   if (!text.trim()) throw new AiError('badResponse', 'empty response');
-  return parseTranslationJson(text, b.model ?? requestedModel);
+  const result = parseTranslationJson(text, b.model ?? requestedModel);
+  if (b.usage) {
+    result.usage = { inputTokens: num(b.usage.prompt_tokens), outputTokens: num(b.usage.completion_tokens) };
+  }
+  return result;
 }
 
 export function createOpenAiProvider(fetchImpl: typeof fetch = fetch): TranslateProvider {

@@ -51,6 +51,17 @@ CREATE TABLE IF NOT EXISTS capture_translations (
   created_at      TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS ai_usage (
+  id            INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider      TEXT NOT NULL,
+  model         TEXT NOT NULL,
+  input_tokens  INTEGER NOT NULL,
+  output_tokens INTEGER NOT NULL,
+  cost_usd      REAL,
+  created_at    TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_usage_created ON ai_usage(created_at);
 CREATE INDEX IF NOT EXISTS idx_captures_created ON captures(created_at);
 CREATE INDEX IF NOT EXISTS idx_captures_deleted ON captures(deleted_at);
 `;
