@@ -69,6 +69,8 @@ export class HaLink {
   private lastSensors: HaSensorValues | null = null;
   private sensorsRegistered = false;
   private running = false;
+  private connection = new AbortController();
+  private connecting: Promise<void> | null = null;
   private state: HaLinkState = 'off';
   /** Scripts-boutons présents dans HA (ids d'entité). */
   private buttons: string[] = [];
@@ -106,6 +108,7 @@ export class HaLink {
   /** Démarre (ou redémarre après un changement de réglages). */
   start(): void {
     this.stop(false);
+    this.connection = new AbortController();
     this.running = true;
     this.attempt = 0;
     void this.connect();
@@ -113,6 +116,7 @@ export class HaLink {
 
   stop(report = true): void {
     this.running = false;
+    this.connection.abort();
     if (this.retryTimer) clearTimeout(this.retryTimer);
     if (this.pingTimer) clearInterval(this.pingTimer);
     if (this.sensorTimer) clearTimeout(this.sensorTimer);
@@ -152,7 +156,7 @@ export class HaLink {
     }, delay);
   }
 
-  private async http(path: string, body: unknown, auth = true): Promise<unknown> {
+  private async http(path: string, body: unknown, auth = true, signal?: AbortSignal): Promise<unknown> {
     const base = this.base();
     if (!base) throw new Error('not-configured');
     const token = this.deps.token();
@@ -164,7 +168,7 @@ export class HaLink {
         ...(auth && token ? { Authorization: `Bearer ${token}` } : {})
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10_000)
+      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(10_000)]) : AbortSignal.timeout(10_000)
     });
     if (!res.ok) throw new HttpError(res.status, res.status === 401 ? 'unauthorized' : `HTTP ${res.status}`);
     const text = await res.text();
@@ -176,14 +180,15 @@ export class HaLink {
   }
 
   /** Enregistre le PC si besoin (ou le réenregistre si HA l'a oublié). */
-  private async ensureRegistered(): Promise<HaRegistration> {
+  private async ensureRegistered(signal: AbortSignal): Promise<HaRegistration> {
     const device = this.deps.device();
     const existing = this.deps.loadRegistration();
     if (existing) {
       if (existing.device_name !== device.deviceName || existing.device_id !== device.deviceId) {
         // nom changé : on met à jour l'enregistrement (le service notify suit)
         try {
-          await this.webhook(existing, { type: 'update_registration', data: updateRegistrationPayload(device) });
+          await this.webhook(existing, { type: 'update_registration', data: updateRegistrationPayload(device) }, signal);
+          signal.throwIfAborted();
           const next = { ...existing, device_name: device.deviceName };
           this.deps.saveRegistration(next);
           return next;
@@ -195,7 +200,8 @@ export class HaLink {
       }
     }
     this.setState('registering');
-    const body = (await this.http('/api/mobile_app/registrations', registrationPayload(device))) as Partial<HaRegistration> | null;
+    const body = (await this.http('/api/mobile_app/registrations', registrationPayload(device), true, signal)) as Partial<HaRegistration> | null;
+    signal.throwIfAborted();
     if (!body?.webhook_id) throw new Error('registration-failed');
     const reg: HaRegistration = {
       webhook_id: body.webhook_id,
@@ -211,20 +217,34 @@ export class HaLink {
   }
 
   /** Appel du webhook de l'appareil ; 410 = appareil supprimé dans HA. */
-  async webhook(reg: HaRegistration, body: unknown): Promise<unknown> {
+  async webhook(reg: HaRegistration, body: unknown, signal?: AbortSignal): Promise<unknown> {
     const base = this.base();
     if (!base) throw new Error('not-configured');
     try {
-      return await this.http(haWebhookUrl(base, reg), body, false);
+      return await this.http(haWebhookUrl(base, reg), body, false, signal);
     } catch (err) {
       // adresse locale injoignable : on tente le webhook cloud (Nabu Casa)
-      if (!(err instanceof HttpError) && reg.cloudhook_url) return this.http(reg.cloudhook_url, body, false);
+      if (!signal?.aborted && !(err instanceof HttpError) && reg.cloudhook_url) {
+        return this.http(reg.cloudhook_url, body, false, signal);
+      }
       throw err;
     }
   }
 
-  private async connect(): Promise<void> {
-    if (!this.running) return;
+  private connect(): void {
+    if (!this.running || this.ws || this.connecting) return;
+    const signal = this.connection.signal;
+    this.connecting = this.openConnection(signal)
+      .catch((err: unknown) => {
+        if (!signal.aborted) this.scheduleRetry(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        this.connecting = null;
+        if (signal.aborted && this.running) this.connect();
+      });
+  }
+
+  private async openConnection(signal: AbortSignal): Promise<void> {
     const base = this.base();
     const token = this.deps.token();
     if (!base || !token) {
@@ -233,8 +253,9 @@ export class HaLink {
     }
     let reg: HaRegistration;
     try {
-      reg = await this.ensureRegistered();
+      reg = await this.ensureRegistered(signal);
     } catch (err) {
+      if (signal.aborted) return;
       const msg = err instanceof Error ? err.message : String(err);
       // jeton refusé : inutile de réessayer en boucle, on attend un nouveau jeton
       if (msg === 'unauthorized') {
@@ -245,7 +266,7 @@ export class HaLink {
       this.scheduleRetry(msg);
       return;
     }
-    if (!this.running) return;
+    if (signal.aborted) return;
     this.setState('connecting');
 
     const ws = new WebSocket(haWebSocketUrl(base), { handshakeTimeout: 10_000 });

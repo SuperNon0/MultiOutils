@@ -10,11 +10,12 @@
  * jeton d'accès déjà enregistré (comme le font les tablettes murales) ; sinon
  * on se connecte une fois à la main et la session est gardée.
  */
-import { BrowserWindow, screen, shell, WebContentsView } from 'electron';
+import { BrowserWindow, screen, session, shell, WebContentsView } from 'electron';
 import { loadRenderer, preloadPath } from '../../../windows';
 
 /** Hauteur de la barre du haut (px CSS, voir ha.css). */
 const BAR_H = 40;
+const PARTITION = 'persist:homeassistant';
 
 export interface DashboardDeps {
   base(): string | null;
@@ -31,6 +32,7 @@ export class DashboardWindow {
   private injectedAt = 0;
   private pinned = false;
   private hiddenAt = 0;
+  private storageReset: Promise<void> = Promise.resolve();
 
   constructor(private readonly deps: DashboardDeps) {}
 
@@ -61,7 +63,7 @@ export class DashboardWindow {
 
     const view = new WebContentsView({
       webPreferences: {
-        partition: 'persist:homeassistant',
+        partition: PARTITION,
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true
@@ -163,8 +165,12 @@ export class DashboardWindow {
       this.send('ha:dash:error', 'not-configured');
       return;
     }
-    this.loadedBase = base;
-    void this.view.webContents.loadURL(`${base}${path ?? (this.deps.path() || '/')}`).catch(() => undefined);
+    const view = this.view;
+    void this.storageReset.then(() => {
+      if (this.view !== view || this.deps.base() !== base) return;
+      this.loadedBase = base;
+      return view.webContents.loadURL(`${base}${path ?? (this.deps.path() || '/')}`);
+    }).catch(() => this.send('ha:dash:error', 'session-reset-failed'));
   }
 
   private place(): void {
@@ -232,7 +238,22 @@ export class DashboardWindow {
     this.loadedBase = null;
   }
 
+  resetSession(): void {
+    const visible = this.isVisible();
+    this.destroy();
+    this.loadedBase = null;
+    this.injectedAt = 0;
+    this.storageReset = this.storageReset.catch(() => undefined).then(() =>
+      session.fromPartition(PARTITION).clearStorageData({
+        storages: ['localstorage', 'cookies', 'indexdb', 'serviceworkers', 'cachestorage']
+      })
+    );
+    void this.storageReset.catch(() => undefined);
+    if (visible) this.show();
+  }
+
   destroy(): void {
+    this.view?.webContents.close();
     if (this.win && !this.win.isDestroyed()) {
       this.win.removeAllListeners('close');
       this.win.destroy();
