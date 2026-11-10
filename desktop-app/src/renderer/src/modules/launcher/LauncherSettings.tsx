@@ -18,9 +18,14 @@ import {
 } from 'react';
 import type { LauncherSettingsInfo } from '../../../../common/api';
 import type {
+  HaLinkStatus,
+  HaNotification,
+  HaSettingsPatch,
+  HaToastPosition,
   LauncherAlias,
   LauncherProviderId,
   LauncherSettings as Settings,
+  LauncherSettingsPatch,
   LauncherWebEngine
 } from '../../../../common/launcher';
 import { Aide, ui } from '../../encre/ui';
@@ -32,6 +37,7 @@ import { displayAccelerator } from '../../lib/format';
 import { eventToAccelerator } from '../../lib/shortcuts';
 import { LookSettings } from './LookSettings';
 import './launcher-panel.css';
+import './ha/ha.css';
 
 type ProviderKey = Exclude<LauncherProviderId, 'history'>;
 
@@ -233,6 +239,302 @@ function HomeAssistantSection({ url, onUrl }: { url: string; onUrl(v: string): v
         </button>
       </RegLigne>
     </RegSec>
+  );
+}
+
+/** Exemple d'automatisation affiché dans les réglages (à copier dans HA). */
+const haExample = (service: string): string => `action: ${service}
+data:
+  title: "Machine à laver"
+  message: "Le linge est prêt 🧺"
+  data:
+    icon: mdi:washing-machine
+    color: menthe
+    image: /api/camera_proxy/camera.entree
+    tag: lessive
+    actions:
+      - action: LESSIVE_VUE
+        title: "OK, j'y vais"`;
+
+/** Liaison PC ↔ Home Assistant : appareil, capteurs, boutons, notifications, mini fenêtre. */
+function HaLinkSections({
+  s,
+  shortcutOk,
+  onSave
+}: {
+  s: Settings['homeAssistant'];
+  shortcutOk: boolean;
+  onSave(patch: HaSettingsPatch): void;
+}): ReactNode {
+  const { t } = useI18n();
+  const [st, setSt] = useState<HaLinkStatus | null>(null);
+  const [historique, setHistorique] = useState<HaNotification[]>([]);
+  useEffect(() => {
+    void window.api.ha.status().then(setSt);
+    void window.api.ha.history().then(setHistorique);
+    const a = window.api.ha.onStatus(setSt);
+    const b = window.api.ha.onHistory(setHistorique);
+    return () => {
+      a();
+      b();
+    };
+  }, []);
+  const service = st?.notifyService ?? 'notify.mobile_app_pc';
+  const etat = st?.state ?? 'off';
+  const etatTexte =
+    etat === 'error' && st?.error
+      ? t('ha.link.state.errorMsg', {
+          msg: st.error === 'unauthorized' ? t('launcher.ha.badToken') : st.error === 'not-configured' ? t('launcher.ha.notConfiguredSub') : st.error
+        })
+      : t(`ha.link.state.${etat}`);
+  const copier = (v: string): void => {
+    void navigator.clipboard.writeText(v).then(() => ui.toast(t('ha.copied')));
+  };
+  const link = s.link;
+  const notif = s.notifications;
+  const dash = s.dashboard;
+  return (
+    <>
+      <RegSec titre={t('ha.link.title')}>
+        <RegSwitch
+          titre={t('ha.link.enabled')}
+          aide={<Aide titre={t('ha.link.enabled')} texte={t('ha.link.enabledHelp')} exemple={t('ha.link.enabledHelp.ex')} />}
+          sous={t('ha.link.enabledDesc')}
+          checked={link.enabled}
+          onChange={(v) => onSave({ link: { enabled: v } })}
+        />
+        <RegLigne
+          titre={t('ha.link.state')}
+          sous={<span className={etat === 'connected' ? 'ok' : etat === 'error' ? 'dan' : ''}>{etatTexte}</span>}
+        >
+          {link.enabled && (
+            <button type="button" className="btn sm" onClick={() => void window.api.ha.reconnect().then(setSt)}>
+              <Icon name="refresh" size={16} />
+              {t('ha.link.reconnect')}
+            </button>
+          )}
+        </RegLigne>
+        <RegLigne titre={t('ha.link.name')} sous={t('ha.link.nameDesc')}>
+          <Champ
+            value={link.deviceName}
+            onCommit={(v) => onSave({ link: { deviceName: v.trim() } })}
+            className="input lzr-sel"
+            placeholder="PC"
+            maxLength={60}
+            aria-label={t('ha.link.name')}
+          />
+        </RegLigne>
+        {st?.registered && (
+          <RegLigne titre={t('ha.link.service')} sous={t('ha.link.serviceDesc')}>
+            <button type="button" className="btn sm" onClick={() => copier(service)}>
+              <Icon name="copy" size={16} />
+              <code>{service}</code>
+            </button>
+          </RegLigne>
+        )}
+      </RegSec>
+
+      <RegSec titre={t('ha.buttons.title')}>
+        <RegSwitch
+          titre={t('ha.buttons.enabled')}
+          aide={<Aide titre={t('ha.buttons.enabled')} texte={t('ha.buttons.help')} exemple={t('ha.buttons.help.ex')} />}
+          sous={t('ha.buttons.enabledDesc')}
+          checked={link.commands && link.buttons}
+          disabled={!link.enabled}
+          onChange={(v) => onSave({ link: v ? { buttons: true, commands: true } : { buttons: false } })}
+        />
+        <RegSwitch
+          titre={t('ha.buttons.power')}
+          sous={t('ha.buttons.powerDesc')}
+          checked={link.powerCommands}
+          disabled={!link.enabled || !link.commands}
+          onChange={(v) => onSave({ link: { powerCommands: v } })}
+        />
+        <RegSwitch
+          titre={t('ha.buttons.commands')}
+          sous={t('ha.buttons.commandsDesc')}
+          checked={link.commands}
+          disabled={!link.enabled}
+          onChange={(v) => onSave({ link: { commands: v } })}
+        />
+        {st && st.buttons.length > 0 && (
+          <RegLigne titre={t('ha.buttons.created')} sous={t('ha.buttons.createdDesc')}>
+            <div className="ha-mono-list">
+              {st.buttons.map((b) => (
+                <code key={b}>{b}</code>
+              ))}
+            </div>
+          </RegLigne>
+        )}
+      </RegSec>
+
+      <RegSec titre={t('ha.sensors.title')}>
+        <RegSwitch
+          titre={t('ha.sensors.enabled')}
+          aide={<Aide titre={t('ha.sensors.enabled')} texte={t('ha.sensors.help')} exemple={t('ha.sensors.help.ex')} />}
+          sous={t('ha.sensors.enabledDesc')}
+          checked={link.sensors}
+          disabled={!link.enabled}
+          onChange={(v) => onSave({ link: { sensors: v } })}
+        />
+        <RegLigne titre={t('ha.sensors.interval')} sous={t('ha.sensors.intervalDesc')}>
+          <select
+            className="select reg-select lzr-sel"
+            value={link.sensorInterval}
+            disabled={!link.enabled || !link.sensors}
+            aria-label={t('ha.sensors.interval')}
+            onChange={(e) => onSave({ link: { sensorInterval: Number(e.target.value) } })}
+          >
+            {[15, 30, 60, 120, 300, 600].map((n) => (
+              <option key={n} value={n}>
+                {n < 60 ? `${n} s` : `${n / 60} min`}
+              </option>
+            ))}
+          </select>
+        </RegLigne>
+      </RegSec>
+
+      <RegSec titre={t('ha.notif.title')}>
+        <RegSwitch
+          titre={t('ha.notif.enabled')}
+          aide={<Aide titre={t('ha.notif.enabled')} texte={t('ha.notif.help')} exemple={t('ha.notif.help.ex')} />}
+          sous={t('ha.notif.enabledDesc')}
+          checked={notif.enabled}
+          onChange={(v) => onSave({ notifications: { enabled: v } })}
+        />
+        <RegLigne titre={t('ha.notif.position')}>
+          <select
+            className="select reg-select lzr-sel"
+            value={notif.position}
+            aria-label={t('ha.notif.position')}
+            onChange={(e) => onSave({ notifications: { position: e.target.value as HaToastPosition } })}
+          >
+            {(['bottom-right', 'top-right', 'bottom-left', 'top-left'] as const).map((p) => (
+              <option key={p} value={p}>
+                {t(`ha.notif.pos.${p}`)}
+              </option>
+            ))}
+          </select>
+        </RegLigne>
+        <RegLigne titre={t('ha.notif.duration')} sous={t('ha.notif.durationDesc')}>
+          <select
+            className="select reg-select lzr-sel"
+            value={notif.duration}
+            aria-label={t('ha.notif.duration')}
+            onChange={(e) => onSave({ notifications: { duration: Number(e.target.value) } })}
+          >
+            {[4, 6, 8, 12, 20, 30, 60].map((n) => (
+              <option key={n} value={n}>
+                {n} s
+              </option>
+            ))}
+          </select>
+        </RegLigne>
+        <RegSwitch
+          titre={t('ha.notif.sound')}
+          checked={notif.sound}
+          onChange={(v) => onSave({ notifications: { sound: v } })}
+        />
+        <RegSwitch
+          titre={t('ha.notif.dnd')}
+          sous={t('ha.notif.dndDesc')}
+          checked={notif.doNotDisturb}
+          onChange={(v) => onSave({ notifications: { doNotDisturb: v } })}
+        />
+        <RegLigne titre={t('ha.notif.test')} sous={t('ha.notif.testDesc')}>
+          <button type="button" className="btn sm" onClick={() => void window.api.ha.testToast()}>
+            <Icon name="bell" size={16} />
+            {t('ha.notif.testBtn')}
+          </button>
+        </RegLigne>
+        <RegLigne titre={t('ha.notif.example')} sous={t('ha.notif.exampleDesc')}>
+          <button type="button" className="btn sm gh" onClick={() => copier(haExample(service))}>
+            <Icon name="copy" size={16} />
+            {t('ha.notif.copyExample')}
+          </button>
+        </RegLigne>
+        <div className="ha-exemple-boite">
+          <pre className="ha-exemple">{haExample(service)}</pre>
+        </div>
+        {historique.length > 0 && (
+          <RegLigne
+            titre={t('ha.notif.history', { n: historique.length })}
+            sous={t('ha.notif.historyDesc')}
+          >
+            <button type="button" className="btn sm gh" onClick={() => void window.api.ha.clearHistory()}>
+              {t('ha.notif.clearHistory')}
+            </button>
+          </RegLigne>
+        )}
+      </RegSec>
+
+      <RegSec titre={t('ha.dash.title')}>
+        <RegLigne titre={t('ha.dash.shortcut')} sous={t('ha.dash.shortcutDesc')}>
+          <div className="ligne">
+            <ShortcutRecorder value={dash.shortcut} ok={shortcutOk} onSet={(v) => onSave({ dashboard: { shortcut: v } })} />
+            {dash.shortcut && (
+              <button type="button" className="btn sm gh" onClick={() => onSave({ dashboard: { shortcut: '' } })}>
+                {t('launcher.settings.remove')}
+              </button>
+            )}
+          </div>
+        </RegLigne>
+        <RegLigne
+          titre={t('ha.dash.path')}
+          aide={<Aide titre={t('ha.dash.path')} texte={t('ha.dash.pathHelp')} exemple="/lovelace/0 · /dashboard-pc" />}
+          sous={t('ha.dash.pathDesc')}
+        >
+          <Champ
+            value={dash.path}
+            onCommit={(v) => onSave({ dashboard: { path: v.trim() } })}
+            className="input mono lzr-sel"
+            placeholder="/lovelace/0"
+            aria-label={t('ha.dash.path')}
+          />
+        </RegLigne>
+        <RegLigne titre={t('ha.dash.size')} sous={t('ha.dash.sizeDesc')}>
+          <select
+            className="select reg-select lzr-sel"
+            value={`${dash.width}x${dash.height}`}
+            aria-label={t('ha.dash.size')}
+            onChange={(e) => {
+              const [w, h] = e.target.value.split('x').map(Number);
+              onSave({ dashboard: { width: w, height: h } });
+            }}
+          >
+            {[
+              [400, 640],
+              [460, 760],
+              [560, 860],
+              [800, 900],
+              [1100, 900]
+            ]
+              .concat(
+                [[400, 640], [460, 760], [560, 860], [800, 900], [1100, 900]].some(([w, h]) => w === dash.width && h === dash.height)
+                  ? []
+                  : [[dash.width, dash.height]]
+              )
+              .map(([w, h]) => (
+                <option key={`${w}x${h}`} value={`${w}x${h}`}>
+                  {w} × {h}
+                </option>
+              ))}
+          </select>
+        </RegLigne>
+        <RegSwitch
+          titre={t('ha.dash.hideOnBlur')}
+          sous={t('ha.dash.hideOnBlurDesc')}
+          checked={dash.hideOnBlur}
+          onChange={(v) => onSave({ dashboard: { hideOnBlur: v } })}
+        />
+        <RegLigne titre={t('ha.dash.open')} sous={t('ha.dash.openDesc')}>
+          <button type="button" className="btn sm" disabled={!s.url} onClick={() => void window.api.ha.openDashboard()}>
+            <Icon name="home" size={16} />
+            {t('ha.dash.open')}
+          </button>
+        </RegLigne>
+      </RegSec>
+    </>
   );
 }
 
@@ -720,9 +1022,22 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
   if (!info) return null;
   const s = info.settings;
 
-  const save = async (patch: Partial<Settings>): Promise<void> => {
+  const save = async (patch: LauncherSettingsPatch): Promise<void> => {
     // affichage immédiat, puis valeur nettoyée renvoyée par le main
-    setInfo({ ...info, settings: { ...s, ...patch } as Settings });
+    const ha = patch.homeAssistant;
+    const optimistic = {
+      ...s,
+      ...patch,
+      homeAssistant: ha
+        ? {
+            url: ha.url ?? s.homeAssistant.url,
+            link: { ...s.homeAssistant.link, ...ha.link },
+            notifications: { ...s.homeAssistant.notifications, ...ha.notifications },
+            dashboard: { ...s.homeAssistant.dashboard, ...ha.dashboard }
+          }
+        : s.homeAssistant
+    } as Settings;
+    setInfo({ ...info, settings: optimistic });
     try {
       setInfo(await window.api.launcher.setSettings(patch));
       onSaved?.();
@@ -981,6 +1296,11 @@ export function LauncherSettingsView({ onSaved }: { onSaved?: () => void } = {})
           <HomeAssistantSection
             url={s.homeAssistant.url}
             onUrl={(url) => void save({ homeAssistant: { url } })}
+          />
+          <HaLinkSections
+            s={s.homeAssistant}
+            shortcutOk={info.haShortcutOk ?? true}
+            onSave={(homeAssistant) => void save({ homeAssistant })}
           />
         </>
       )}

@@ -196,6 +196,33 @@ const api: PreloadApi = {
     onShown: (cb) => subscribe<void>('launcher:shown', cb),
     onHidden: (cb) => subscribe<void>('launcher:hidden', cb),
     onState: (cb) => subscribe('launcher:state', cb)
+  },
+  ha: {
+    status: () => ipcRenderer.invoke('ha:status'),
+    onStatus: (cb) => subscribe('ha:status', cb),
+    forget: () => ipcRenderer.invoke('ha:forget'),
+    reconnect: () => ipcRenderer.invoke('ha:reconnect'),
+    history: () => ipcRenderer.invoke('ha:history'),
+    onHistory: (cb) => subscribe('ha:history', cb),
+    clearHistory: () => ipcRenderer.invoke('ha:clearHistory'),
+    testToast: () => ipcRenderer.invoke('ha:testToast'),
+    openDashboard: (path) => ipcRenderer.invoke('ha:openDashboard', path),
+    toasts: () => ipcRenderer.invoke('ha:toasts'),
+    onToasts: (cb) => subscribe('ha:toasts', cb),
+    toastResize: (height) => ipcRenderer.send('ha:toastResize', height),
+    toastDismiss: (id) => ipcRenderer.send('ha:toastDismiss', id),
+    toastOpen: (id) => ipcRenderer.send('ha:toastOpen', id),
+    toastAction: (id, action) => ipcRenderer.send('ha:toastAction', id, action),
+    dash: {
+      reload: () => ipcRenderer.send('ha:dash:reload'),
+      back: () => ipcRenderer.send('ha:dash:back'),
+      home: () => ipcRenderer.send('ha:dash:home'),
+      external: () => ipcRenderer.send('ha:dash:external'),
+      hide: () => ipcRenderer.send('ha:dash:hide'),
+      pin: () => ipcRenderer.invoke('ha:dash:pin'),
+      onTitle: (cb) => subscribe('ha:dash:title', cb),
+      onError: (cb) => subscribe('ha:dash:error', cb)
+    }
   }
 };
 

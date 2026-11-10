@@ -19,6 +19,10 @@ export class ShortcutManager {
     this.defs.set(def.id, def);
   }
 
+  unregister(id: string): void {
+    this.defs.delete(id);
+  }
+
   setAccelerator(id: string, accelerator: string): void {
     const def = this.defs.get(id);
     if (def) def.accelerator = accelerator;
