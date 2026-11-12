@@ -8,7 +8,14 @@
  *    par la connexion WebSocket ouverte par le PC (« local push ») : aucun
  *    port à ouvrir, pas de MQTT, pas d'intégration à installer dans HA.
  */
-import type { HaNotification, HaNotificationAction } from '../../../../common/launcher';
+import {
+  HA_BUILTIN_SOUNDS,
+  HA_TOAST_POSITIONS,
+  type HaNotification,
+  type HaNotificationAction,
+  type HaToastPosition,
+  type HaToastSize
+} from '../../../../common/launcher';
 
 /** Identifiant d'appli déclaré à HA (stable : ne pas changer). */
 export const HA_APP_ID = 'io.multioutils.desktop';
@@ -138,7 +145,13 @@ export type HaCommand = 'lock' | 'sleep' | 'shutdown' | 'restart' | 'open_url' |
 const SIMPLE_COMMANDS: HaCommand[] = ['lock', 'sleep', 'shutdown', 'restart', 'dashboard', 'launcher'];
 
 export type ParsedHaMessage =
-  | { kind: 'notify'; notification: HaNotification; imageSrc?: string }
+  | {
+      kind: 'notify';
+      notification: HaNotification;
+      imageSrc?: string;
+      /** Son demandé : nom d'un son intégré, d'un fichier du dossier des sons, ou adresse. */
+      soundRef?: string;
+    }
   | { kind: 'clear'; tag: string | null }
   | { kind: 'command'; command: HaCommand; url?: string };
 
@@ -171,6 +184,43 @@ export function sanitizeColor(v: unknown): string | undefined {
   if (/^#[0-9a-f]{6}$/.test(c)) return c;
   if (/^#[0-9a-f]{3}$/.test(c)) return `#${c[1]}${c[1]}${c[2]}${c[2]}${c[3]}${c[3]}`;
   return undefined;
+}
+
+const POSITION_ALIASES: Record<string, HaToastPosition> = {
+  'haut-droite': 'top-right',
+  'haut-gauche': 'top-left',
+  'bas-droite': 'bottom-right',
+  'bas-gauche': 'bottom-left',
+  haut: 'top-center',
+  bas: 'bottom-center',
+  top: 'top-center',
+  bottom: 'bottom-center',
+  centre: 'center',
+  middle: 'center'
+};
+
+/** Emplacement d'une pop-up (anglais ou français), sinon undefined. */
+export function sanitizePosition(v: unknown): HaToastPosition | undefined {
+  const p = s(v, 20).toLowerCase().replace(/_/g, '-');
+  if (!p) return undefined;
+  if ((HA_TOAST_POSITIONS as string[]).includes(p)) return p as HaToastPosition;
+  return POSITION_ALIASES[p];
+}
+
+const SIZE_ALIASES: Record<string, HaToastSize> = {
+  small: 'small',
+  petite: 'small',
+  petit: 'small',
+  normal: 'normal',
+  normale: 'normal',
+  large: 'large',
+  big: 'large',
+  grande: 'large',
+  grand: 'large'
+};
+
+export function sanitizeSize(v: unknown): HaToastSize | undefined {
+  return SIZE_ALIASES[s(v, 20).toLowerCase()];
 }
 
 /** Icônes Material Design (mdi:) courantes → symboles du sprite « encre ». */
@@ -307,7 +357,16 @@ export function parseHaMessage(
   if (important && !(Number.isFinite(durationRaw) && durationRaw > 0)) duration = 0;
 
   const soundRaw = data.sound ?? push.sound;
-  const sound = soundRaw === undefined ? defaults.sound || important : !(soundRaw === false || soundRaw === 'none' || soundRaw === 'false');
+  const silent = soundRaw === false || soundRaw === 'none' || soundRaw === 'false' || soundRaw === 'off' || soundRaw === 0;
+  const sound = soundRaw === undefined || soundRaw === null || soundRaw === '' ? defaults.sound || important : !silent;
+  // un nom (« sonnette », « porte.mp3 ») ou une adresse : son choisi pour cette notification
+  const soundStr = typeof soundRaw === 'string' ? soundRaw.trim().slice(0, 1000) : '';
+  const soundRef =
+    sound && soundStr && !['true', 'on', 'default', 'defaut', 'défaut', '1'].includes(soundStr.toLowerCase()) ? soundStr : undefined;
+  const volumeRaw = Number(data.volume);
+  const volume = data.volume !== undefined && data.volume !== '' && Number.isFinite(volumeRaw) ? Math.max(0, Math.min(100, Math.round(volumeRaw))) : undefined;
+  const position = sanitizePosition(data.position);
+  const size = sanitizeSize(data.size ?? data.taille);
 
   const attachment = (data.attachment && typeof data.attachment === 'object' ? data.attachment : {}) as Record<string, unknown>;
   const imageSrc = s(data.image ?? attachment.url, 2000) || undefined;
@@ -329,9 +388,12 @@ export function parseHaMessage(
     ...(icon ? { icon } : {}),
     ...(color ? { color } : {}),
     ...(tag ? { tag } : {}),
-    ...(url ? { url } : {})
+    ...(url ? { url } : {}),
+    ...(volume !== undefined ? { volume } : {}),
+    ...(position ? { position } : {}),
+    ...(size && size !== 'normal' ? { size } : {})
   };
-  return { kind: 'notify', notification, ...(imageSrc ? { imageSrc } : {}) };
+  return { kind: 'notify', notification, ...(imageSrc ? { imageSrc } : {}), ...(soundRef ? { soundRef } : {}) };
 }
 
 /** Pile de notifications : même tag = remplacée, au plus `max` gardées. */
@@ -363,6 +425,41 @@ export function resolveHaImage(src: string, base: string): { url: string; auth: 
   } catch {
     return null;
   }
+}
+
+/** Extensions acceptées pour les sons personnalisés. */
+export const HA_SOUND_EXTS = ['.mp3', '.wav', '.ogg', '.m4a', '.flac', '.webm'];
+
+export type HaSoundRef =
+  | { kind: 'builtin'; name: string }
+  | { kind: 'url'; url: string; auth: boolean }
+  | { kind: 'file'; name: string };
+
+/**
+ * Son demandé : son intégré (« cloche »), adresse (relative = servie par HA,
+ * ex. /local/sons/porte.mp3) ou nom d'un fichier du dossier des sons du PC
+ * (« porte » ou « porte.mp3 », sans chemin).
+ */
+export function classifySoundRef(ref: string, base: string | null): HaSoundRef | null {
+  const r = ref.trim();
+  if (!r) return null;
+  const low = r.toLowerCase();
+  if ((HA_BUILTIN_SOUNDS as readonly string[]).includes(low)) return { kind: 'builtin', name: low };
+  if (r.startsWith('/') || /^https?:\/\//i.test(r)) {
+    if (!base) return /^https?:\/\//i.test(r) ? { kind: 'url', url: r, auth: false } : null;
+    const target = resolveHaImage(r, base);
+    return target ? { kind: 'url', ...target } : null;
+  }
+  // un simple nom de fichier : pas de dossier, pas de « .. »
+  if (/[\\/:]/.test(r) || r.includes('..') || r.length > 120) return null;
+  return { kind: 'file', name: r };
+}
+
+/** Nom de fichier → fichier existant du dossier des sons (extension facultative, casse ignorée). */
+export function matchSoundFile(name: string, files: string[]): string | null {
+  const n = name.toLowerCase();
+  const ok = files.filter((f) => HA_SOUND_EXTS.some((e) => f.toLowerCase().endsWith(e)));
+  return ok.find((f) => f.toLowerCase() === n) ?? ok.find((f) => f.toLowerCase().replace(/\.[^.]+$/, '') === n) ?? null;
 }
 
 /** Lien d'une notification : relatif = page de HA (ouvert dans la mini fenêtre). */

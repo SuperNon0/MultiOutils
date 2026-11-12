@@ -272,6 +272,10 @@ export interface PreloadApi {
     clearHistory(): Promise<void>;
     testToast(): Promise<void>;
     openDashboard(path?: string): Promise<void>;
+    /** Sons intégrés et fichiers du dossier des sons. */
+    sounds(): Promise<import('./launcher').HaSoundList>;
+    openSoundsFolder(): Promise<string>;
+    soundPreview(name: string): Promise<{ soundName?: string; soundSrc?: string; volume: number } | null>;
     /* fenêtre des pop-ups */
     toasts(): Promise<import('./launcher').HaToastMsg | null>;
     onToasts(cb: (msg: import('./launcher').HaToastMsg) => void): Unsubscribe;

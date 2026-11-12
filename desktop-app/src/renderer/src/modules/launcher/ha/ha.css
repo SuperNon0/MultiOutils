@@ -28,6 +28,16 @@ body[data-fenetre='ha-dashboard'] {
   /* marge transparente : place pour l'ombre */
   padding: 16px 20px 20px;
 }
+/* une pile peut mêler plusieurs tailles : chaque carte garde la sienne,
+   collée au bord de son coin (largeurs : voir TOAST_WIDTHS, toasts.ts) */
+.hat-pile { align-items: center; }
+.hat-pile.top-right,
+.hat-pile.bottom-right { align-items: flex-end; }
+.hat-pile.top-left,
+.hat-pile.bottom-left { align-items: flex-start; }
+.hat-pile > .hat { width: 100%; max-width: 380px; box-sizing: border-box; }
+.hat-pile > .hat.sz-small { max-width: 300px; }
+.hat-pile > .hat.sz-large { max-width: 560px; }
 
 .hat {
   --ha-c: var(--accent);
@@ -65,6 +75,21 @@ body[data-fenetre='ha-dashboard'] {
 .hat-pile.top-left .hat { animation-name: hat-in-g; }
 @keyframes hat-in-g {
   from { opacity: 0; transform: translateX(-16px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.hat-pile.top-center .hat { animation-name: hat-in-h; }
+.hat-pile.bottom-center .hat { animation-name: hat-in-b; }
+.hat-pile.center .hat { animation-name: hat-in-c; }
+@keyframes hat-in-h {
+  from { opacity: 0; transform: translateY(-14px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes hat-in-b {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes hat-in-c {
+  from { opacity: 0; transform: scale(0.94); }
   to { opacity: 1; transform: none; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -256,3 +281,26 @@ body[data-fenetre='ha-dashboard'] { background: var(--surface); overflow: hidden
 .ha-page .reg-l > .tx { flex: 1 1 220px; min-width: 200px; }
 .ha-page .reg-l > .ha-mono-list { flex: 1 1 100%; }
 .ha-page .reg-l > form.ligne { flex: 1 1 280px; justify-content: flex-end; }
+
+/* petite carte : plus compacte */
+.hat.sz-small { padding: 9px 10px 11px; }
+.hat.sz-small .hat-ic { width: 28px; height: 28px; font-size: 16px; border-radius: 8px; }
+.hat.sz-small .hat-titre { font-size: 13.5px; }
+.hat.sz-small .hat-meta { font-size: 11px; }
+.hat.sz-small .hat-msg { margin-left: 38px; font-size: 12.5px; -webkit-line-clamp: 3; }
+.hat.sz-small .hat-img { width: calc(100% - 38px); margin-left: 38px; max-height: 120px; }
+.hat.sz-small .hat-actions { margin-left: 38px; }
+
+/* grande carte : pour une alerte ou une image de caméra */
+.hat.sz-large { padding: 16px 16px 18px; border-radius: 20px; }
+.hat.sz-large .hat-ic { width: 44px; height: 44px; font-size: 24px; border-radius: 12px; }
+.hat.sz-large .hat-titre { font-size: 19px; }
+.hat.sz-large .hat-meta { font-size: 13px; }
+.hat.sz-large .hat-msg { margin-left: 54px; font-size: 15.5px; -webkit-line-clamp: 12; }
+.hat.sz-large .hat-img { width: calc(100% - 54px); margin-left: 54px; max-height: 360px; }
+.hat.sz-large .hat-actions { margin-left: 54px; }
+
+/* réglages : son par défaut, volume */
+.ha-son { display: flex; align-items: center; gap: 8px; }
+.ha-son input[type='range'] { width: 180px; accent-color: var(--accent); }
+.ha-son-val { min-width: 44px; text-align: right; color: var(--muted); font-variant-numeric: tabular-nums; }

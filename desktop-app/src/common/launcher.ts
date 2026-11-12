@@ -225,7 +225,31 @@ export interface LauncherStats {
 
 /* ───────────── Home Assistant : liaison PC ↔ HA ───────────── */
 
-export type HaToastPosition = 'bottom-right' | 'top-right' | 'bottom-left' | 'top-left';
+export type HaToastPosition =
+  | 'bottom-right'
+  | 'top-right'
+  | 'bottom-left'
+  | 'top-left'
+  | 'top-center'
+  | 'bottom-center'
+  | 'center';
+
+export const HA_TOAST_POSITIONS: HaToastPosition[] = [
+  'bottom-right',
+  'top-right',
+  'bottom-left',
+  'top-left',
+  'top-center',
+  'bottom-center',
+  'center'
+];
+
+/** Taille d'une pop-up : petite, normale, grande. */
+export type HaToastSize = 'small' | 'normal' | 'large';
+
+/** Sons intégrés (joués sans fichier). */
+export const HA_BUILTIN_SOUNDS = ['carillon', 'cloche', 'alerte', 'sonnette', 'bulle', 'douce'] as const;
+export type HaBuiltinSound = (typeof HA_BUILTIN_SOUNDS)[number];
 
 /**
  * Liaison avec Home Assistant : MultiOutils s'enregistre comme l'appli mobile
@@ -256,6 +280,10 @@ export interface HaSettings {
     /** Durée d'affichage par défaut, en secondes (3 à 120). */
     duration: number;
     sound: boolean;
+    /** Son par défaut : un son intégré ou le nom d'un fichier du dossier des sons. */
+    soundName: string;
+    /** Volume des sons, de 0 à 100. */
+    volume: number;
     /** Ne pas déranger : seules les notifications « importantes » s'affichent. */
     doNotDisturb: boolean;
   };
@@ -287,6 +315,15 @@ export interface HaNotification {
   duration: number;
   important: boolean;
   sound: boolean;
+  /** Son intégré à jouer (sinon le son par défaut). */
+  soundName?: string;
+  /** Son personnalisé (data URL, déjà chargée côté main). */
+  soundSrc?: string;
+  /** Volume de 0 à 100 (sinon celui des réglages). */
+  volume?: number;
+  /** Emplacement de cette pop-up (sinon celui des réglages). */
+  position?: HaToastPosition;
+  size?: HaToastSize;
   /** Même tag = remplace la notification précédente. */
   tag?: string;
   /** Lien ouvert au clic sur la notification. */
@@ -322,6 +359,16 @@ export interface HaLinkStatus {
 export interface HaToastMsg {
   toasts: HaNotification[];
   position: HaToastPosition;
+  /** Volume par défaut (0 à 100). */
+  volume: number;
+}
+
+/** Sons disponibles pour les notifications (réglages). */
+export interface HaSoundList {
+  builtin: string[];
+  /** Fichiers du dossier des sons du PC. */
+  files: string[];
+  folder: string;
 }
 
 /** Patch partiel imbriqué (le renderer n'envoie que la sous-partie modifiée). */

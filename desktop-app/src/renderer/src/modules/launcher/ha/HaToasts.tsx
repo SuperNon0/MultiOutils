@@ -8,33 +8,10 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type 
 import type { HaNotification, HaToastMsg } from '../../../../../common/launcher';
 import { Icon } from '../../../host/Icon';
 import { useI18n } from '../../../i18n';
+import { playHaSound } from './sounds';
 import './ha.css';
 
 const ACCENTS = ['lavande', 'or', 'ambre', 'corail', 'menthe'];
-
-/** Petit carillon (deux notes douces), sans fichier son. */
-function chime(important: boolean): void {
-  try {
-    const ctx = new AudioContext();
-    const notes = important ? [880, 660, 880] : [784, 1047];
-    notes.forEach((f, i) => {
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.type = 'sine';
-      o.frequency.value = f;
-      const t0 = ctx.currentTime + i * 0.12;
-      g.gain.setValueAtTime(0, t0);
-      g.gain.linearRampToValueAtTime(0.12, t0 + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.35);
-      o.connect(g).connect(ctx.destination);
-      o.start(t0);
-      o.stop(t0 + 0.4);
-    });
-    setTimeout(() => void ctx.close(), 1200);
-  } catch {
-    // pas de son disponible : tant pis
-  }
-}
 
 function Toast({ n, hovered }: { n: HaNotification; hovered: boolean }): ReactNode {
   const { t, lang } = useI18n();
@@ -68,7 +45,7 @@ function Toast({ n, hovered }: { n: HaNotification; hovered: boolean }): ReactNo
 
   return (
     <div
-      className={`hat${n.important ? ' imp' : ''}${n.color ? ' col' : ''}`}
+      className={`hat${n.important ? ' imp' : ''}${n.color ? ' col' : ''}${n.size && n.size !== 'normal' ? ` sz-${n.size}` : ''}`}
       style={style}
       role="alert"
       onClick={() => window.api.ha.toastOpen(n.id)}
@@ -124,7 +101,7 @@ function Toast({ n, hovered }: { n: HaNotification; hovered: boolean }): ReactNo
 }
 
 export function HaToasts(): ReactNode {
-  const [msg, setMsg] = useState<HaToastMsg>({ toasts: [], position: 'bottom-right' });
+  const [msg, setMsg] = useState<HaToastMsg>({ toasts: [], position: 'bottom-right', volume: 70 });
   const [hovered, setHovered] = useState(false);
   const seen = useRef(new Set<string>());
   const pile = useRef<HTMLDivElement>(null);
@@ -137,7 +114,7 @@ export function HaToasts(): ReactNode {
       const fresh = m.toasts.filter((x) => !seen.current.has(x.id));
       fresh.forEach((x) => seen.current.add(x.id));
       const loud = fresh.find((x) => x.sound);
-      if (loud) chime(loud.important);
+      if (loud) playHaSound(loud, loud.volume ?? m.volume);
       if (m.toasts.length === 0) setHovered(false);
       setMsg(m);
     };

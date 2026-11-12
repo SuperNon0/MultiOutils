@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
+  classifySoundRef,
+  matchSoundFile,
   cpuPercent,
   haButtonScripts,
   haDeviceName,
@@ -222,5 +224,49 @@ describe('Home Assistant : réglages', () => {
   });
   it('valeurs par défaut', () => {
     expect(defaultLauncherSettings().homeAssistant.link.powerCommands).toBe(true);
+  });
+});
+
+describe('Home Assistant : emplacement, taille et sons', () => {
+  const D = { duration: 8, sound: true };
+  it('lit position, taille et volume (anglais ou français)', () => {
+    const r = parseHaMessage({ message: 'x', data: { position: 'centre', size: 'grande', volume: 140 } }, D, 'a');
+    expect(r?.kind === 'notify' && r.notification).toMatchObject({ position: 'center', size: 'large', volume: 100 });
+    const r2 = parseHaMessage({ message: 'x', data: { position: 'top_center', size: 'small' } }, D, 'a');
+    expect(r2?.kind === 'notify' && r2.notification).toMatchObject({ position: 'top-center', size: 'small' });
+    const r3 = parseHaMessage({ message: 'x', data: { position: 'milieu', size: 'normal' } }, D, 'a');
+    expect(r3?.kind === 'notify' && r3.notification.position).toBeUndefined();
+    expect(r3?.kind === 'notify' && r3.notification.size).toBeUndefined();
+  });
+  it('sound : nom, adresse, false, true', () => {
+    const named = parseHaMessage({ message: 'x', data: { sound: 'sonnette' } }, { duration: 8, sound: false }, 'a');
+    expect(named).toMatchObject({ kind: 'notify', soundRef: 'sonnette', notification: { sound: true } });
+    const off = parseHaMessage({ message: 'x', data: { sound: 'none' } }, D, 'a');
+    expect(off).toMatchObject({ notification: { sound: false } });
+    expect(off && 'soundRef' in off).toBe(false);
+    const def = parseHaMessage({ message: 'x', data: { sound: true } }, D, 'a');
+    expect(def && 'soundRef' in def).toBe(false);
+    const ios = parseHaMessage({ message: 'x', data: { push: { sound: 'default' } } }, D, 'a');
+    expect(ios && 'soundRef' in ios).toBe(false);
+  });
+  it('classe les sons demandés', () => {
+    const base = 'http://ha.local:8123';
+    expect(classifySoundRef('Cloche', base)).toEqual({ kind: 'builtin', name: 'cloche' });
+    expect(classifySoundRef('/local/sons/porte.mp3', base)).toEqual({ kind: 'url', url: `${base}/local/sons/porte.mp3`, auth: true });
+    expect(classifySoundRef('https://exemple.fr/a.mp3', base)).toEqual({ kind: 'url', url: 'https://exemple.fr/a.mp3', auth: false });
+    expect(classifySoundRef('porte', base)).toEqual({ kind: 'file', name: 'porte' });
+    expect(classifySoundRef('../secret.mp3', base)).toBeNull();
+    expect(classifySoundRef('C:\\Windows\\a.wav', base)).toBeNull();
+    expect(classifySoundRef('/local/a.mp3', null)).toBeNull();
+  });
+  it('retrouve un fichier du dossier des sons', () => {
+    const files = ['Porte.mp3', 'alarme.wav', 'notes.txt'];
+    expect(matchSoundFile('porte', files)).toBe('Porte.mp3');
+    expect(matchSoundFile('ALARME.WAV', files)).toBe('alarme.wav');
+    expect(matchSoundFile('notes', files)).toBeNull();
+  });
+  it('réglages : son par défaut et volume bornés', () => {
+    const h = sanitizeHaSettings({ notifications: { soundName: '../x', volume: 250, position: 'center' } });
+    expect(h.notifications).toMatchObject({ soundName: 'carillon', volume: 100, position: 'center' });
   });
 });

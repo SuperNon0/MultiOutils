@@ -1,28 +1,56 @@
 /**
- * Fenêtre des pop-ups Home Assistant : transparente, toujours au-dessus, sans
- * prendre le focus (on ne vole pas le clavier pendant qu'on tape), dans un coin
- * de l'écran principal. Elle prend la hauteur de sa pile de notifications.
+ * Fenêtres des pop-ups Home Assistant : transparentes, toujours au-dessus,
+ * sans prendre le focus (on ne vole pas le clavier pendant qu'on tape).
+ * Une fenêtre par emplacement utilisé (coins, haut, bas, centre de l'écran
+ * principal) : chaque notification peut choisir le sien. Chaque fenêtre
+ * prend la hauteur de sa pile et la largeur de sa plus grande carte.
  */
 import { BrowserWindow, screen } from 'electron';
-import type { HaNotification, HaToastMsg, HaToastPosition } from '../../../../common/launcher';
+import type { HaNotification, HaToastMsg, HaToastPosition, HaToastSize } from '../../../../common/launcher';
 import { loadRenderer, preloadPath } from '../../../windows';
 
-/** Largeur d'une carte + marge transparente pour l'ombre (px CSS). */
-const WIDTH = 420;
+/** Largeur d'une carte + marge transparente pour l'ombre (px CSS, voir ha.css). */
+export const TOAST_WIDTHS: Record<HaToastSize, number> = { small: 340, normal: 420, large: 600 };
 
-export class ToastWindow {
+/** Largeur de la fenêtre : celle de la plus grande carte. */
+export function stackWidth(toasts: HaNotification[]): number {
+  return toasts.reduce((w, t) => Math.max(w, TOAST_WIDTHS[t.size ?? 'normal']), TOAST_WIDTHS.small);
+}
+
+/** Place d'une pile dans la zone de travail de l'écran. */
+export function stackBounds(
+  pos: HaToastPosition,
+  wa: { x: number; y: number; width: number; height: number },
+  width: number,
+  height: number
+): { x: number; y: number; width: number; height: number } {
+  const w = Math.min(width, wa.width);
+  const h = Math.min(height, wa.height);
+  const x = pos.endsWith('right')
+    ? wa.x + wa.width - w
+    : pos.endsWith('left')
+      ? wa.x
+      : wa.x + (wa.width - w) / 2;
+  const y = pos.startsWith('bottom') ? wa.y + wa.height - h : pos === 'center' ? wa.y + (wa.height - h) / 2 : wa.y;
+  return { x: Math.round(x), y: Math.round(y), width: Math.round(w), height: Math.round(h) };
+}
+
+class StackWindow {
   private win: BrowserWindow | null = null;
   private ready = false;
   private height = 10;
   private toasts: HaNotification[] = [];
 
-  constructor(private readonly position: () => HaToastPosition) {}
+  constructor(
+    readonly position: HaToastPosition,
+    private readonly volume: () => number
+  ) {}
 
   private create(): BrowserWindow {
     if (this.win && !this.win.isDestroyed()) return this.win;
     this.ready = false;
     const win = new BrowserWindow({
-      width: WIDTH,
+      width: stackWidth(this.toasts),
       height: this.height,
       show: false,
       frame: false,
@@ -68,22 +96,17 @@ export class ToastWindow {
   private place(): void {
     if (!this.win || this.win.isDestroyed()) return;
     const wa = screen.getPrimaryDisplay().workArea;
-    const pos = this.position();
-    const h = Math.min(this.height, wa.height);
-    const x = pos.endsWith('right') ? wa.x + wa.width - WIDTH : wa.x;
-    const y = pos.startsWith('bottom') ? wa.y + wa.height - h : wa.y;
-    this.win.setBounds({ x: Math.round(x), y: Math.round(y), width: WIDTH, height: Math.round(h) });
+    this.win.setBounds(stackBounds(this.position, wa, stackWidth(this.toasts), this.height));
   }
 
   private flush(): void {
     if (!this.win || this.win.isDestroyed() || !this.ready) return;
-    const msg: HaToastMsg = { toasts: this.toasts, position: this.position() };
-    this.win.webContents.send('ha:toasts', msg);
+    this.win.webContents.send('ha:toasts', this.current());
     if (this.toasts.length === 0) {
       this.win.hide();
-    } else if (!this.win.isVisible()) {
+    } else {
       this.place();
-      this.win.showInactive();
+      if (!this.win.isVisible()) this.win.showInactive();
     }
   }
 
@@ -106,11 +129,61 @@ export class ToastWindow {
   }
 
   current(): HaToastMsg {
-    return { toasts: this.toasts, position: this.position() };
+    return { toasts: this.toasts, position: this.position, volume: this.volume() };
   }
 
   destroy(): void {
     if (this.win && !this.win.isDestroyed()) this.win.destroy();
     this.win = null;
+  }
+}
+
+export class ToastWindow {
+  private stacks = new Map<HaToastPosition, StackWindow>();
+
+  constructor(
+    private readonly position: () => HaToastPosition,
+    private readonly volume: () => number = () => 70
+  ) {}
+
+  /** Répartit les notifications par emplacement (le leur, sinon celui des réglages). */
+  set(toasts: HaNotification[]): void {
+    const fallback = this.position();
+    const groups = new Map<HaToastPosition, HaNotification[]>();
+    for (const t of toasts) {
+      const p = t.position ?? fallback;
+      groups.set(p, [...(groups.get(p) ?? []), t]);
+    }
+    for (const [p, list] of groups) {
+      let st = this.stacks.get(p);
+      if (!st) {
+        st = new StackWindow(p, this.volume);
+        this.stacks.set(p, st);
+      }
+      st.set(list);
+    }
+    for (const [p, st] of this.stacks) if (!groups.has(p)) st.set([]);
+  }
+
+  private find(id: number): StackWindow | undefined {
+    for (const st of this.stacks.values()) if (st.isSender(id)) return st;
+    return undefined;
+  }
+
+  resize(senderId: number, height: number): void {
+    this.find(senderId)?.resize(height);
+  }
+
+  isSender(id: number): boolean {
+    return !!this.find(id);
+  }
+
+  current(senderId: number): HaToastMsg | null {
+    return this.find(senderId)?.current() ?? null;
+  }
+
+  destroy(): void {
+    for (const st of this.stacks.values()) st.destroy();
+    this.stacks.clear();
   }
 }

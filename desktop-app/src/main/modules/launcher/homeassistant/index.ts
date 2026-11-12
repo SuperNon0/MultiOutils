@@ -6,11 +6,17 @@
  */
 import { app, ipcMain, powerMonitor, shell } from 'electron';
 import { execFile } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import os from 'node:os';
-import type { HaNotification, HaSettings, HaLinkStatus } from '../../../../common/launcher';
+import { extname, join } from 'node:path';
+import { HA_BUILTIN_SOUNDS, type HaNotification, type HaSettings, type HaLinkStatus, type HaSoundList } from '../../../../common/launcher';
 import type { MainHostContext } from '../../../module-registry';
 import {
+  classifySoundRef,
   haDeviceName,
+  HA_SOUND_EXTS,
+  matchSoundFile,
   parseHaMessage,
   pushToast,
   resolveHaImage,
@@ -29,6 +35,15 @@ const DEVICE_ID_KEY = 'launcher.ha.deviceId';
 const HISTORY_KEY = 'launcher.ha.history';
 const HISTORY_MAX = 50;
 const IMAGE_MAX_BYTES = 6 * 1024 * 1024;
+const SOUND_MAX_BYTES = 4 * 1024 * 1024;
+const SOUND_TYPES: Record<string, string> = {
+  '.mp3': 'audio/mpeg',
+  '.wav': 'audio/wav',
+  '.ogg': 'audio/ogg',
+  '.m4a': 'audio/mp4',
+  '.flac': 'audio/flac',
+  '.webm': 'audio/webm'
+};
 export const HA_DASHBOARD_SHORTCUT_ID = 'homeassistant.dashboard';
 
 export interface HaIntegrationDeps {
@@ -78,7 +93,10 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
   };
 
   const sensors = new PcSensors();
-  const toastWin = new ToastWindow(() => s().notifications.position);
+  const toastWin = new ToastWindow(
+    () => s().notifications.position,
+    () => s().notifications.volume
+  );
   const dashboard = new DashboardWindow({
     base,
     token: deps.token,
@@ -106,8 +124,8 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
   const dismiss = (id: string): void => setToasts(toasts.filter((t) => t.id !== id));
 
   const remember = (n: HaNotification): void => {
-    // l'image (lourde) n'est pas gardée dans l'historique
-    const { image: _img, ...light } = n;
+    // l'image et le son (lourds) ne sont pas gardés dans l'historique
+    const { image: _img, soundSrc: _snd, ...light } = n;
     history = [light, ...history.filter((h) => h.id !== n.id)].slice(0, HISTORY_MAX);
     deps.kvSet(HISTORY_KEY, history);
   };
@@ -134,7 +152,76 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
     }
   };
 
-  const showNotification = async (n: HaNotification, imageSrc?: string): Promise<void> => {
+  /* ───────── sons ───────── */
+
+  /** Dossier des sons personnalisés (on y dépose ses .mp3 / .wav…). */
+  const soundsDir = (): string => {
+    const dir = join(app.getPath('userData'), 'ha-sons');
+    try {
+      mkdirSync(dir, { recursive: true });
+    } catch {
+      // dossier non créé : la liste sera vide
+    }
+    return dir;
+  };
+
+  const soundFiles = async (): Promise<string[]> => {
+    try {
+      const all = await readdir(soundsDir());
+      return all.filter((f) => HA_SOUND_EXTS.includes(extname(f).toLowerCase())).sort((a, b) => a.localeCompare(b));
+    } catch {
+      return [];
+    }
+  };
+
+  const readSoundFile = async (name: string): Promise<string | undefined> => {
+    const file = matchSoundFile(name, await soundFiles());
+    if (!file) return undefined;
+    const full = join(soundsDir(), file);
+    try {
+      if ((await stat(full)).size > SOUND_MAX_BYTES) return undefined;
+      const buf = await readFile(full);
+      return `data:${SOUND_TYPES[extname(file).toLowerCase()] ?? 'audio/mpeg'};base64,${buf.toString('base64')}`;
+    } catch {
+      return undefined;
+    }
+  };
+
+  const fetchSound = async (url: string, auth: boolean): Promise<string | undefined> => {
+    const token = deps.token();
+    try {
+      const res = await fetch(url, {
+        headers: auth && token ? { Authorization: `Bearer ${token}` } : {},
+        signal: AbortSignal.timeout(8000)
+      });
+      let type = (res.headers.get('content-type') ?? '').split(';')[0].trim();
+      if (!type.startsWith('audio/')) {
+        // serveur qui répond application/octet-stream : on se fie à l'extension
+        type = SOUND_TYPES[extname(new URL(url).pathname).toLowerCase()] ?? '';
+      }
+      if (!res.ok || !type) return undefined;
+      const buf = Buffer.from(await res.arrayBuffer());
+      if (buf.length > SOUND_MAX_BYTES) return undefined;
+      return `data:${type};base64,${buf.toString('base64')}`;
+    } catch {
+      return undefined;
+    }
+  };
+
+  /** Son à jouer : intégré (nom) ou personnalisé (data URL). Sinon le carillon. */
+  const resolveSound = async (ref: string | undefined): Promise<{ soundName?: string; soundSrc?: string }> => {
+    const tries = [ref, s().notifications.soundName].filter((x): x is string => !!x);
+    for (const r of tries) {
+      const c = classifySoundRef(r, base());
+      if (!c) continue;
+      if (c.kind === 'builtin') return { soundName: c.name };
+      const src = c.kind === 'url' ? await fetchSound(c.url, c.auth) : await readSoundFile(c.name);
+      if (src) return { soundSrc: src };
+    }
+    return { soundName: 'carillon' };
+  };
+
+  const showNotification = async (n: HaNotification, imageSrc?: string, soundRef?: string): Promise<void> => {
     const cfg = s().notifications;
     remember(n);
     ctx.broadcast('ha:history', history);
@@ -144,6 +231,7 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
       const image = await fetchImage(imageSrc);
       if (image) n = { ...n, image };
     }
+    if (n.sound) n = { ...n, ...(await resolveSound(soundRef)) };
     setToasts(pushToast(toasts, n));
   };
 
@@ -203,7 +291,7 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
       runCommand(parsed.command, parsed);
       return;
     }
-    void showNotification(parsed.notification, parsed.imageSrc);
+    void showNotification(parsed.notification, parsed.imageSrc, parsed.soundRef);
   };
 
   const link = new HaLink({
@@ -263,9 +351,21 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
   ipcMain.handle('ha:testToast', () => api.showTest());
   ipcMain.handle('ha:openDashboard', (_e, path?: unknown) => dashboard.show(typeof path === 'string' && path.startsWith('/') ? path : undefined));
 
-  ipcMain.handle('ha:toasts', (e) => (toastWin.isSender(e.sender.id) ? toastWin.current() : null));
+  ipcMain.handle('ha:toasts', (e) => toastWin.current(e.sender.id));
   ipcMain.on('ha:toastResize', (e, h: unknown) => {
-    if (toastWin.isSender(e.sender.id) && typeof h === 'number' && Number.isFinite(h)) toastWin.resize(h);
+    if (typeof h === 'number' && Number.isFinite(h)) toastWin.resize(e.sender.id, h);
+  });
+  ipcMain.handle('ha:sounds', async (): Promise<HaSoundList> => ({
+    builtin: [...HA_BUILTIN_SOUNDS],
+    files: await soundFiles(),
+    folder: soundsDir()
+  }));
+  ipcMain.handle('ha:openSoundsFolder', () => shell.openPath(soundsDir()));
+  /** Écoute d'un son depuis les réglages. */
+  ipcMain.handle('ha:soundPreview', async (_e, name: unknown) => {
+    if (typeof name !== 'string') return null;
+    const r = await resolveSound(name);
+    return { ...r, volume: s().notifications.volume };
   });
   ipcMain.on('ha:toastDismiss', (e, id: unknown) => {
     if (toastWin.isSender(e.sender.id) && typeof id === 'string') dismiss(id);
@@ -336,7 +436,12 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
       ) {
         void link.ensureButtons();
       }
-      if (before && before.notifications.position !== cur.notifications.position) toastWin.set(toasts);
+      if (
+        before &&
+        (before.notifications.position !== cur.notifications.position || before.notifications.volume !== cur.notifications.volume)
+      ) {
+        toastWin.set(toasts);
+      }
       broadcastStatus();
     },
     tokenChanged() {

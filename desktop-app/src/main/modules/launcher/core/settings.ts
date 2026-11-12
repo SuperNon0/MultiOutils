@@ -3,6 +3,7 @@ import {
   LAUNCHER_LOOK_LIMITS,
   LAUNCHER_PROVIDER_IDS,
   HA_DASHBOARD_LIMITS,
+  HA_TOAST_POSITIONS,
   type HaSettings,
   type HaSettingsPatch,
   type LauncherSettingsPatch,
@@ -71,13 +72,13 @@ export function defaultHaSettings(): HaSettings {
   return {
     url: '',
     link: { enabled: false, deviceName: '', sensors: true, sensorInterval: 60, commands: true, powerCommands: true, buttons: true },
-    notifications: { enabled: true, position: 'bottom-right', duration: 8, sound: true, doNotDisturb: false },
+    notifications: { enabled: true, position: 'bottom-right', duration: 8, sound: true, soundName: 'carillon', volume: 70, doNotDisturb: false },
     dashboard: { shortcut: 'Alt+Shift+H', path: '', width: 460, height: 760, hideOnBlur: true }
   };
 }
 
 const bool = (v: unknown, fallback: boolean): boolean => (typeof v === 'boolean' ? v : fallback);
-const HA_POSITIONS: HaSettings['notifications']['position'][] = ['bottom-right', 'top-right', 'bottom-left', 'top-left'];
+const HA_POSITIONS: HaSettings['notifications']['position'][] = HA_TOAST_POSITIONS;
 
 /** Chemin de tableau de bord : relatif, sans schéma (« lovelace/0 » → « /lovelace/0 »). */
 export function sanitizeDashboardPath(v: unknown): string {
@@ -112,6 +113,12 @@ export function sanitizeHaSettings(raw: unknown): HaSettings {
         : d.notifications.position,
       duration: clampInt(n.duration, 3, 120, d.notifications.duration),
       sound: bool(n.sound, d.notifications.sound),
+      // son intégré ou simple nom de fichier (pas de chemin)
+      soundName: (() => {
+        const v = str(n.soundName, '').trim().slice(0, 120);
+        return v && !/[\\/:]/.test(v) && !v.includes('..') ? v : d.notifications.soundName;
+      })(),
+      volume: clampInt(n.volume, 0, 100, d.notifications.volume),
       doNotDisturb: bool(n.doNotDisturb, d.notifications.doNotDisturb)
     },
     dashboard: {
