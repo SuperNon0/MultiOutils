@@ -42,7 +42,13 @@ data:
     tag: lessive                     # même tag = remplace la précédente
     duration: 15                     # secondes ; 0 = reste à l'écran
     sticky: true                     # ou importance: high → reste à l'écran
-    sound: none                      # coupe le son
+    sound: sonnette                  # none = muet ; carillon, cloche, alerte, sonnette,
+                                     # bulle, douce ; nom d'un fichier du dossier des sons
+                                     # (Réglages → Home Assistant) ; ou /local/sons/x.mp3
+    volume: 80                       # 0 à 100
+    position: center                 # top-left, top-center, top-right, bottom-left,
+                                     # bottom-center, bottom-right, center (ou haut, bas, centre…)
+    size: large                      # small, normal, large (ou petite, grande)
     url: /lovelace/cameras           # clic sur la pop-up (page HA ou lien web)
     actions:
       - action: LESSIVE_VUE
@@ -56,6 +62,14 @@ Un bouton sans `uri` déclenche l'événement `mobile_app_notification_action`
 (comme sur le téléphone) : il sert de déclencheur à une automatisation.
 
 Effacer : `message: clear_notification` avec `data.tag`.
+
+Le script `script.pc_notification` (« PC · Notification ») propose tous ces
+champs dans l'éditeur de HA : pas besoin d'écrire le YAML à la main.
+
+Sons personnalisés : un fichier (.mp3, .wav, .ogg, .m4a, .flac ; 4 Mo max)
+déposé dans le dossier des sons du PC, ou servi par HA (`/local/…` = dossier
+`www` de HA, lu avec le jeton). Si le son n'est pas trouvé, on joue le son par
+défaut des réglages.
 
 Commandes (messages spéciaux, utilisés par les boutons) : `command_sleep`,
 `command_lock`, `command_shutdown`, `command_restart`, `command_dashboard`,

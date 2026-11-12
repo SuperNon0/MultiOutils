@@ -11,14 +11,17 @@ import type {
   HaLinkStatus,
   HaNotification,
   HaSettingsPatch,
+  HaSoundList,
   HaToastPosition,
   LauncherSettings as Settings
 } from '../../../../../common/launcher';
+import { HA_TOAST_POSITIONS } from '../../../../../common/launcher';
 import { Aide, ui } from '../../../encre/ui';
 import { Icon } from '../../../host/Icon';
 import { RegLigne, RegSec, RegSwitch } from '../../../host/reglages';
 import { useI18n } from '../../../i18n';
 import { Champ, ShortcutRecorder } from '../LauncherSettings';
+import { playHaSound } from './sounds';
 import './ha.css';
 
 /** Home Assistant : adresse, jeton (chiffré côté main), test de connexion. */
@@ -126,10 +129,113 @@ data:
     icon: mdi:washing-machine
     color: menthe
     image: /api/camera_proxy/camera.entree
+    position: center
+    size: large
+    sound: sonnette
     tag: lessive
     actions:
       - action: LESSIVE_VUE
         title: "OK, j'y vais"`;
+
+/** Son par défaut, volume, dossier des sons personnalisés. */
+function SoundSettings({
+  soundName,
+  volume,
+  disabled,
+  onSave
+}: {
+  soundName: string;
+  volume: number;
+  disabled: boolean;
+  onSave(patch: { soundName?: string; volume?: number }): void;
+}): ReactNode {
+  const { t } = useI18n();
+  const [list, setList] = useState<HaSoundList | null>(null);
+  const [vol, setVol] = useState(volume);
+  const refresh = (): void => void window.api.ha.sounds().then(setList);
+  useEffect(refresh, []);
+  useEffect(() => setVol(volume), [volume]);
+  // le son enregistré peut être un fichier supprimé depuis : on le garde dans la liste
+  const files = list ? list.files : [];
+  const known = (list?.builtin ?? []).includes(soundName) || files.includes(soundName);
+  const preview = async (name: string): Promise<void> => {
+    const r = await window.api.ha.soundPreview(name);
+    if (r) playHaSound(r, r.volume);
+  };
+  return (
+    <>
+      <RegLigne titre={t('ha.notif.soundName')} sous={t('ha.notif.soundNameDesc')}>
+        <div className="ha-son">
+          <select
+            className="select reg-select"
+            value={soundName}
+            disabled={disabled}
+            aria-label={t('ha.notif.soundName')}
+            onFocus={refresh}
+            onChange={(e) => {
+              onSave({ soundName: e.target.value });
+              void preview(e.target.value);
+            }}
+          >
+            <optgroup label={t('ha.notif.soundBuiltin')}>
+              {(list?.builtin ?? ['carillon']).map((n) => (
+                <option key={n} value={n}>
+                  {t(`ha.sound.${n}`)}
+                </option>
+              ))}
+            </optgroup>
+            {(files.length > 0 || !known) && (
+              <optgroup label={t('ha.notif.soundFiles')}>
+                {!known && <option value={soundName}>{soundName}</option>}
+                {files.map((f) => (
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+          <button
+            type="button"
+            className="btn sm gh"
+            disabled={disabled}
+            aria-label={t('ha.notif.soundPlay')}
+            title={t('ha.notif.soundPlay')}
+            onClick={() => void preview(soundName)}
+          >
+            <Icon name="play" size={16} />
+          </button>
+        </div>
+      </RegLigne>
+      <RegLigne titre={t('ha.notif.volume')}>
+        <div className="ha-son">
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={5}
+            value={vol}
+            disabled={disabled}
+            aria-label={t('ha.notif.volume')}
+            onChange={(e) => setVol(Number(e.target.value))}
+            onPointerUp={() => {
+              onSave({ volume: vol });
+              void preview(soundName);
+            }}
+            onKeyUp={() => onSave({ volume: vol })}
+          />
+          <span className="ha-son-val">{vol} %</span>
+        </div>
+      </RegLigne>
+      <RegLigne titre={t('ha.notif.soundFolder')} sous={t('ha.notif.soundFolderDesc')}>
+        <button type="button" className="btn sm gh" onClick={() => void window.api.ha.openSoundsFolder().then(refresh)}>
+          <Icon name="folder" size={16} />
+          {t('ha.notif.soundFolderBtn')}
+        </button>
+      </RegLigne>
+    </>
+  );
+}
 
 /** Liaison PC ↔ Home Assistant : appareil, capteurs, boutons, notifications, mini fenêtre. */
 function HaLinkSections({
@@ -284,7 +390,7 @@ function HaLinkSections({
             aria-label={t('ha.notif.position')}
             onChange={(e) => onSave({ notifications: { position: e.target.value as HaToastPosition } })}
           >
-            {(['bottom-right', 'top-right', 'bottom-left', 'top-left'] as const).map((p) => (
+            {HA_TOAST_POSITIONS.map((p) => (
               <option key={p} value={p}>
                 {t(`ha.notif.pos.${p}`)}
               </option>
@@ -309,6 +415,12 @@ function HaLinkSections({
           titre={t('ha.notif.sound')}
           checked={notif.sound}
           onChange={(v) => onSave({ notifications: { sound: v } })}
+        />
+        <SoundSettings
+          soundName={notif.soundName}
+          volume={notif.volume}
+          disabled={!notif.sound}
+          onSave={(patch) => onSave({ notifications: patch })}
         />
         <RegSwitch
           titre={t('ha.notif.dnd')}
