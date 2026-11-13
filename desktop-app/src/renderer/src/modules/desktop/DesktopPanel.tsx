@@ -1,10 +1,23 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import type { DesktopState, Zone, ZoneIconSize, ZoneSort, ZoneView } from '../../../../common/desktop';
+import {
+  defaultZoneStyle,
+  effectiveStyle,
+  onActivePage,
+  type DesktopState,
+  type PageAutoRule,
+  type Zone,
+  type ZoneIconSize,
+  type ZoneSort,
+  type ZoneStyle,
+  type ZoneView
+} from '../../../../common/desktop';
 import { ui } from '../../encre/ui';
 import { Icon } from '../../host/Icon';
 import { RegLigne, RegSwitch } from '../../host/reglages';
 import { useI18n } from '../../i18n';
+import { LayoutsTab, PagesBar } from './LayoutsPanel';
 import { LogTab, RulesTab } from './RulesPanel';
+import { StyleEditor } from './StyleEditor';
 import './desktop.css';
 
 /** État partagé du module (page et réglages). */
@@ -58,8 +71,17 @@ function MiniMap({ state, selected, onSelect }: { state: DesktopState; selected:
   );
 }
 
-function ZoneDetail({ zone }: { zone: Zone }): ReactNode {
+const saveStyleAs = async (t: (k: string) => string, style: Partial<ZoneStyle>): Promise<void> => {
+  const name = await ui.demander(t('desktop.style.save'), { placeholder: t('desktop.style.namePh') });
+  if (name && name.trim()) {
+    await window.api.desktop.saveStyle(name.trim(), style);
+    ui.toast(t('desktop.style.saved'));
+  }
+};
+
+function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): ReactNode {
   const { t } = useI18n();
+  const [showStyle, setShowStyle] = useState(false);
   const up = (patch: Partial<Zone>): void => void window.api.desktop.updateZone(zone.id, patch);
   const sorts: ZoneSort[] = zone.kind === 'folder' ? ['name', 'type', 'size', 'date', 'opens'] : ['manual', 'name', 'type', 'size', 'date', 'opens'];
   return (
@@ -102,6 +124,43 @@ function ZoneDetail({ zone }: { zone: Zone }): ReactNode {
             checked={zone.keepOnHide}
             onChange={(v) => up({ keepOnHide: v })}
           />
+          {state.settings.pages.length > 1 && (
+            <>
+              <RegLigne titre={t('desktop.page.of')} htmlFor="bz-page">
+                <select
+                  id="bz-page"
+                  className="select sm"
+                  style={{ width: 150 }}
+                  disabled={zone.allPages}
+                  value={zone.pageId || state.settings.pages[0].id}
+                  onChange={(e) => up({ pageId: e.target.value })}
+                >
+                  {state.settings.pages.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </RegLigne>
+              <RegSwitch titre={t('desktop.page.all')} sous={t('desktop.page.allSub')} checked={zone.allPages} onChange={(v) => up({ allPages: v })} />
+            </>
+          )}
+          <button className="btn sm gh bs-toggle" aria-expanded={showStyle} onClick={() => setShowStyle(!showStyle)}>
+            <Icon name="palette" size={16} />
+            {t('desktop.style.title')}
+            <Icon name={showStyle ? 'chevu' : 'chevd'} size={14} />
+          </button>
+          {showStyle && (
+            <StyleEditor
+              idPrefix={`bz-${zone.id.slice(0, 6)}`}
+              full={effectiveStyle(zone, state.settings)}
+              saved={state.settings.savedStyles}
+              onChange={(patch) => up({ style: { ...zone.style, ...patch } })}
+              onPick={(field) => void window.api.desktop.pickColor(zone.id, field)}
+              onReset={() => up({ style: {} })}
+              onSaveStyle={() => void saveStyleAs(t, zone.style)}
+            />
+          )}
         </>
       )}
       {zone.kind === 'folder' ? (
@@ -118,7 +177,7 @@ export function DesktopPanel(): ReactNode {
   const { t } = useI18n();
   const [state] = useDesktopState();
   const [selected, setSelected] = useState<string | null>(null);
-  const [section, setSection] = useState<'zones' | 'rules' | 'log'>('zones');
+  const [section, setSection] = useState<'zones' | 'rules' | 'log' | 'layouts'>('zones');
 
   useEffect(
     () =>
@@ -132,6 +191,8 @@ export function DesktopPanel(): ReactNode {
 
   if (!state) return null;
   const zone = state.zones.find((z) => z.id === selected) ?? null;
+  // Zones de la page affichée (un onglet suit la page de sa zone hôte).
+  const pageZones = state.zones.filter((z) => onActivePage(state.zones.find((h) => h.id === z.tabOf) ?? z, state.settings));
 
   const zoneMenu = (z: Zone, anchor: HTMLElement): void => {
     ui.menu(
@@ -200,18 +261,22 @@ export function DesktopPanel(): ReactNode {
       )}
 
       <div className="chips" role="tablist" style={{ marginBottom: 14 }}>
-        {(['zones', 'rules', 'log'] as const).map((k) => (
+        {(['zones', 'rules', 'log', 'layouts'] as const).map((k) => (
           <button key={k} role="tab" aria-selected={section === k} className={`chip${section === k ? ' on' : ''}`} onClick={() => setSection(k)}>
             {t(`desktop.section.${k}`)}
           </button>
         ))}
       </div>
 
+      {section === 'zones' && <PagesBar state={state} />}
+
       {section === 'rules' ? (
         <RulesTab state={state} />
+      ) : section === 'layouts' ? (
+        <LayoutsTab state={state} />
       ) : section === 'log' ? (
         <LogTab state={state} />
-      ) : state.zones.length === 0 ? (
+      ) : pageZones.length === 0 ? (
         <div className="carte bz-vide">
           <h2 className="sec-t">{t('desktop.empty.title')}</h2>
           <p>{t('desktop.empty.text')}</p>
@@ -229,7 +294,7 @@ export function DesktopPanel(): ReactNode {
       ) : (
         <div className="bz-grid">
           <div className="liste-r">
-            {state.zones.map((z) => (
+            {pageZones.map((z) => (
               <div
                 key={z.id}
                 className={`li${z.id === selected ? ' on' : ''}`}
@@ -274,10 +339,86 @@ export function DesktopPanel(): ReactNode {
           </div>
           <div className="bz-side">
             <MiniMap state={state} selected={selected} onSelect={setSelected} />
-            {zone ? <ZoneDetail zone={zone} /> : <p className="muted petit">{t('desktop.pickZone')}</p>}
+            {zone ? <ZoneDetail zone={zone} state={state} /> : <p className="muted petit">{t('desktop.pickZone')}</p>}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+const keyLabel = (accel: string): string => accel.replace(/\+/g, ' + ').replace('Control', 'Ctrl');
+
+const DAYS = [1, 2, 3, 4, 5, 6, 0];
+
+/** Pages automatiques : selon l'heure (et les jours) ou le programme au premier plan (g5). */
+function PageAutoEditor({ state }: { state: DesktopState }): ReactNode {
+  const { t } = useI18n();
+  const s = state.settings;
+  if (s.pages.length < 2) return <p className="muted petit">{t('desktop.auto.needPages')}</p>;
+  const save = (pageAuto: PageAutoRule[]): void => void window.api.desktop.setSettings({ pageAuto });
+  const up = (id: string, patch: Partial<PageAutoRule>): void =>
+    save(s.pageAuto.map((r) => (r.id === id ? ({ ...r, ...patch } as PageAutoRule) : r)));
+  const add = (type: 'time' | 'app'): void => {
+    const id = Math.random().toString(36).slice(2, 10);
+    const pageId = s.pages[1]?.id ?? s.pages[0].id;
+    save([...s.pageAuto, type === 'time' ? { id, pageId, type, from: '09:00', to: '18:00', days: [1, 2, 3, 4, 5] } : { id, pageId, type, exe: '' }]);
+  };
+  return (
+    <div className="bz-auto">
+      <div className="reg-l" style={{ borderBottom: 0 }}>
+        <span className="tx">
+          <b>{t('desktop.auto.title')}</b>
+          <span>{t('desktop.auto.sub')}</span>
+        </span>
+      </div>
+      {s.pageAuto.map((r) => (
+        <div key={r.id} className="bz-auto-r">
+          <select className="select sm" value={r.pageId} aria-label={t('desktop.page.label')} onChange={(e) => up(r.id, { pageId: e.target.value })}>
+            {s.pages.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+          {r.type === 'time' ? (
+            <>
+              <input className="bz-time" type="time" aria-label={t('desktop.auto.from')} value={r.from} onChange={(e) => up(r.id, { from: e.target.value })} />
+              <span className="muted">→</span>
+              <input className="bz-time" type="time" aria-label={t('desktop.auto.to')} value={r.to} onChange={(e) => up(r.id, { to: e.target.value })} />
+              <span className="bz-days">
+                {DAYS.map((d) => (
+                  <button
+                    key={d}
+                    className={`chip${r.days.includes(d) ? ' on' : ''}`}
+                    aria-pressed={r.days.includes(d)}
+                    onClick={() => up(r.id, { days: r.days.includes(d) ? r.days.filter((x) => x !== d) : [...r.days, d] })}
+                  >
+                    {t(`desktop.auto.day.${d}`)}
+                  </button>
+                ))}
+              </span>
+            </>
+          ) : (
+            <label className="champ" style={{ flex: 1, minWidth: 140, height: 34 }}>
+              <input value={r.exe} placeholder="code.exe" aria-label={t('desktop.auto.app')} onChange={(e) => up(r.id, { exe: e.target.value })} />
+            </label>
+          )}
+          <button className="ib" aria-label={t('desktop.rules.removeCond')} onClick={() => save(s.pageAuto.filter((o) => o.id !== r.id))}>
+            <Icon name="x" size={16} />
+          </button>
+        </div>
+      ))}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <button className="btn sm gh" onClick={() => add('time')}>
+          <Icon name="clock" size={16} />
+          {t('desktop.auto.addTime')}
+        </button>
+        <button className="btn sm gh" disabled={!state.native} onClick={() => add('app')}>
+          <Icon name="plus" size={16} />
+          {t('desktop.auto.addApp')}
+        </button>
+      </div>
     </div>
   );
 }
@@ -299,12 +440,6 @@ export function DesktopSettingsPanel(): ReactNode {
         disabled={!state.native}
         onChange={(v) => set({ hideNativeIcons: v })}
       />
-      <RegLigne titre={t('desktop.set.opacity')} sous={t('desktop.set.opacitySub')} htmlFor="bz-op">
-        <input id="bz-op" type="range" min={40} max={100} step={5} value={s.opacity} onChange={(e) => set({ opacity: Number(e.target.value) })} />
-        <span className="mono" style={{ width: 44, textAlign: 'right' }}>
-          {s.opacity} %
-        </span>
-      </RegLigne>
       <RegSwitch titre={t('desktop.set.snap')} sous={t('desktop.set.snapSub')} checked={s.snap} onChange={(v) => set({ snap: v })} />
       <RegLigne titre={t('desktop.set.gap')} htmlFor="bz-gap">
         <input id="bz-gap" type="range" min={0} max={40} step={2} value={s.gap} disabled={!s.snap} onChange={(e) => set({ gap: Number(e.target.value) })} />
@@ -389,6 +524,54 @@ export function DesktopSettingsPanel(): ReactNode {
           ))}
         </select>
       </RegLigne>
+
+      <div className="lbl-mono" style={{ margin: '18px 0 6px' }}>
+        {t('desktop.set.secPages')}
+      </div>
+      <RegSwitch titre={t('desktop.set.pageWheel')} sous={t('desktop.set.pageWheelSub')} checked={s.pageWheel} disabled={!state.native} onChange={(v) => set({ pageWheel: v })} />
+      <RegSwitch titre={t('desktop.set.pageIndicator')} sous={t('desktop.set.pageIndicatorSub')} checked={s.pageIndicator} onChange={(v) => set({ pageIndicator: v })} />
+      <RegLigne titre={t('desktop.set.pageKeys')} sous={t('desktop.set.peekShortcutSub')}>
+        <span className="kbd">{keyLabel(s.pagePrevShortcut)}</span>
+        <span className="kbd">{keyLabel(s.pageNextShortcut)}</span>
+      </RegLigne>
+      <PageAutoEditor state={state} />
+
+      <div className="lbl-mono" style={{ margin: '18px 0 6px' }}>
+        {t('desktop.set.secStyle')}
+      </div>
+      <p className="muted petit" style={{ margin: '0 0 6px' }}>
+        {t('desktop.set.styleSub')}
+      </p>
+      <StyleEditor
+        idPrefix="bz-def"
+        full={effectiveStyle({ style: {} }, s)}
+        saved={s.savedStyles}
+        onChange={(patch) => set({ defaultStyle: { ...s.defaultStyle, ...patch } })}
+        onPick={(field) => void window.api.desktop.pickColor(null, field)}
+        onReset={() => set({ defaultStyle: defaultZoneStyle(), opacity: 90 })}
+        onSaveStyle={() => void saveStyleAs(t, s.defaultStyle)}
+      />
+      {s.savedStyles.length > 0 && (
+        <RegLigne titre={t('desktop.style.savedList')}>
+          <div className="chips">
+            {s.savedStyles.map((st) => (
+              <button
+                key={st.id}
+                className="chip"
+                title={t('desktop.style.deleteSaved')}
+                onClick={async () => {
+                  if (await ui.confirmer(t('desktop.style.deleteConfirm', { name: st.name }), { ok: t('desktop.menu.delete'), danger: true })) {
+                    set({ savedStyles: s.savedStyles.filter((o) => o.id !== st.id) });
+                  }
+                }}
+              >
+                {st.name}
+                <Icon name="x" size={12} />
+              </button>
+            ))}
+          </div>
+        </RegLigne>
+      )}
     </div>
   );
 }

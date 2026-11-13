@@ -149,6 +149,8 @@ export function createColorPickerMainModule(): MainToolModule {
             ...getHistory().filter((c) => c.hex !== entry.hex)
           ].slice(0, HISTORY_MAX);
           kvSet(HISTORY_KEY, JSON.stringify(history));
+          // d'autres modules peuvent attendre une couleur (Bureau : couleur prise sur le fond d'écran)
+          ctx.events.emit('colorpicker:picked', entry);
           ctx.notify(ctx.i18n.t('colorpicker.copied', { code: payload.formatted }));
           ctx.broadcast('colorpicker:historyChanged');
         }

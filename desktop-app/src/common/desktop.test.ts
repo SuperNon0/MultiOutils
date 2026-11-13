@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
   assignItems,
+  applyLayout,
+  autoPage,
   clampToArea,
   detachTab,
+  effectiveStyle,
+  layoutOf,
+  nextPage,
+  onActivePage,
+  parseBundle,
+  pruneDaily,
+  screensKey,
+  swapScreens,
   displayName,
   firstZoneRule,
   groupOf,
@@ -233,5 +243,79 @@ describe('règles', () => {
     expect(r.conditions).toEqual([{ field: 'age', op: 'gt', value: '3' }]);
     expect(r.action).toEqual({ type: 'zone', zoneId: '' });
     expect(r.mode).toBe('continuous');
+  });
+});
+
+describe('apparence', () => {
+  it('le style de la zone complète le style par défaut', () => {
+    const settings = normalizeSettings({ opacity: 80, defaultStyle: { radius: 4, stripe: true } as never });
+    const z = normalizeZone({ id: 'a', style: { stripe: false, bg: '#FFAA00', titleSize: 99, iconTint: 'rouge' } as never });
+    const st = effectiveStyle(z, settings);
+    expect(st).toMatchObject({ radius: 4, stripe: false, bg: '#ffaa00', titleSize: 22, iconTint: null, opacity: 80 });
+  });
+});
+
+describe('pages', () => {
+  const settings = normalizeSettings({ pages: [{ id: 'w', name: 'Travail' }, { id: 'p', name: 'Perso' }], activePage: 'p' });
+  it('une zone sans page appartient à la première ; « toutes les pages » passe partout', () => {
+    expect(onActivePage({ pageId: '', allPages: false }, settings)).toBe(false);
+    expect(onActivePage({ pageId: 'p', allPages: false }, settings)).toBe(true);
+    expect(onActivePage({ pageId: 'w', allPages: true }, settings)).toBe(true);
+  });
+  it('fait le tour des pages', () => {
+    expect(nextPage(settings, 1)).toBe('w');
+    expect(nextPage(settings, -1)).toBe('w');
+  });
+  it('page automatique selon l’heure, les jours et le programme', () => {
+    const rules = [
+      { id: '1', pageId: 'p', type: 'app' as const, exe: 'steam.exe' },
+      { id: '2', pageId: 'w', type: 'time' as const, from: '09:00', to: '18:00', days: [1, 2, 3, 4, 5] }
+    ];
+    const lundi10h = new Date(2026, 10, 9, 10, 0);
+    const samedi10h = new Date(2026, 10, 14, 10, 0);
+    expect(autoPage(rules, { now: lundi10h, exe: 'C:\\Steam\\Steam.exe' }, settings.pages)).toBe('p');
+    expect(autoPage(rules, { now: lundi10h, exe: 'code.exe' }, settings.pages)).toBe('w');
+    expect(autoPage(rules, { now: samedi10h, exe: null }, settings.pages)).toBeNull();
+    const nuit = [{ id: '3', pageId: 'p', type: 'time' as const, from: '22:00', to: '02:00', days: [] }];
+    expect(autoPage(nuit, { now: new Date(2026, 10, 9, 23, 30), exe: null }, settings.pages)).toBe('p');
+  });
+  it('les réglages gardent une page valide', () => {
+    expect(normalizeSettings({ pages: [], activePage: 'x' }).activePage).toBe('p1');
+  });
+});
+
+describe('dispositions', () => {
+  const zones = [newZone('a', 'shortcuts', 'A', { displayId: '1', x: 100, y: 50, width: 300, height: 200 })];
+  it('la clé ne dépend pas de l’ordre des écrans', () => {
+    const d1 = { id: '1', bounds: { x: 0, y: 0, width: 1920, height: 1080 } };
+    const d2 = { id: '2', bounds: { x: 1920, y: 0, width: 2560, height: 1440 } };
+    expect(screensKey([d1, d2])).toBe(screensKey([d2, d1]));
+  });
+  it('rétablit une disposition enregistrée', () => {
+    const layout = layoutOf(zones);
+    const moved = [{ ...zones[0], bounds: { ...zones[0].bounds, x: 900 } }];
+    expect(applyLayout(moved, layout)[0].bounds.x).toBe(100);
+  });
+  it('échange les écrans en gardant la place en proportion', () => {
+    const displays = [
+      { id: '1', workArea: { width: 1000, height: 1000 } },
+      { id: '2', workArea: { width: 2000, height: 2000 } }
+    ];
+    const z = swapScreens(zones, displays)[0];
+    expect(z.bounds).toMatchObject({ displayId: '2', x: 200, y: 100, width: 300 });
+  });
+  it('refuse un fichier qui ne vient pas de MultiOutils et lit un export', () => {
+    expect(parseBundle({ zones: [] })).toBeNull();
+    const b = parseBundle({ app: 'MultiOutils', kind: 'desktop-layout', version: 1, zones: [{ id: 'z', title: 'Z' }], pages: [] });
+    expect(b!.zones[0].title).toBe('Z');
+    expect(b!.pages.length).toBe(1);
+  });
+  it('garde 7 jours de sauvegardes et tous les instantanés', () => {
+    const bundle = { app: 'MultiOutils' as const, kind: 'desktop-layout' as const, version: 1 as const, at: 0, zones: [], pages: [] };
+    const day = 86_400_000;
+    const list = Array.from({ length: 10 }, (_, i) => ({ id: `d${i}`, name: '', at: Date.UTC(2026, 10, 1) + i * day, type: 'daily' as const, bundle }));
+    const kept = pruneDaily([...list, { id: 'm', name: 'x', at: 0, type: 'manual', bundle }], 7);
+    expect(kept.filter((s) => s.type === 'daily').map((s) => s.id)).toEqual(['d3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9']);
+    expect(kept.some((s) => s.id === 'm')).toBe(true);
   });
 });

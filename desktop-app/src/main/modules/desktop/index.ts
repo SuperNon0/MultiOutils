@@ -6,6 +6,10 @@
  * vrai dossier, navigation), zone « À trier », dessin d'une zone sur l'écran,
  * déplacement / redimensionnement aimantés, glisser-déposer, menus.
  *
+ * Étape 3 : apparence par zone, pages (molette, raccourcis, page automatique),
+ * une disposition par configuration d'écrans, instantanés, sauvegarde
+ * quotidienne, export / import, repositionnement au réveil.
+ *
  * Étape 2 : onglets (groupes de zones), repli sur la barre de titre,
  * masquage du bureau (double-clic, automatique, bords d'écran), aperçu
  * au-dessus des fenêtres (raccourci, coin actif) et règles de rangement.
@@ -18,6 +22,7 @@ import {
   ipcMain,
   Menu,
   nativeImage,
+  powerMonitor,
   screen,
   shell,
   type IpcMainEvent,
@@ -34,9 +39,14 @@ import {
   distribute,
   freeSpot,
   groupOf,
+  autoPage,
   hostIdOf,
   mergeTab,
   moveTab,
+  nextPage,
+  normalizeStyle,
+  onActivePage,
+  swapScreens,
   newZone,
   normalizeSettings,
   normalizeZone,
@@ -45,6 +55,7 @@ import {
   sortEntries,
   ZONE_COLORS,
   ZONE_TITLE_HEIGHT,
+  type DesktopBundle,
   type DesktopEntry,
   type DesktopSettings,
   type DesktopState,
@@ -53,6 +64,7 @@ import {
   type Rule,
   type Zone,
   type ZoneContent,
+  type ZoneStyle,
   type ZoneIconSize,
   type ZoneKind,
   type ZoneSort,
@@ -62,14 +74,21 @@ import {
 } from '../../../common/desktop';
 import type { MainHostContext, MainToolModule } from '../../module-registry';
 import { desktopDirs, listDesktop, listDir, transfer, watchDirs } from './files';
+import { createLayoutStore, type LayoutStore } from './layouts';
 import { createRulesEngine, type RulesEngine } from './rules';
-import { ensureWin32, isKeyDown, setNativeIconsVisible, vkOfAccelerator, watchDesktopClicks, win32Error } from './win32';
-import { absoluteBounds, displayFor, DrawOverlays, PeekOverlays, ZoneWindow } from './windows';
+import { ensureWin32, foregroundExe, isKeyDown, setNativeIconsVisible, vkOfAccelerator, watchDesktopClicks, win32Error } from './win32';
+import { absoluteBounds, displayFor, DrawOverlays, PageIndicator, PeekOverlays, ZoneWindow } from './windows';
 
 const SETTINGS_KEY = 'desktop.settings';
 const ZONES_KEY = 'desktop.zones';
 const OPENS_KEY = 'desktop.opens';
-const PEEK_SHORTCUT_ID = 'desktop.peek';
+/** Raccourcis globaux du module et réglage qui porte chacun. */
+const SHORTCUTS = {
+  'desktop.peek': 'peekShortcut',
+  'desktop.pageNext': 'pageNextShortcut',
+  'desktop.pagePrev': 'pagePrevShortcut'
+} as const;
+type ShortcutId = keyof typeof SHORTCUTS;
 /** Petite image de secours pour un glisser natif (Windows exige une icône). */
 const DOT_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
@@ -104,6 +123,15 @@ export function createDesktopMainModule(): MainToolModule {
   let stopClicks: (() => void) | null = null;
   let cornerArmed = true;
   let mergeTarget: string | null = null;
+  let layouts: LayoutStore;
+  const pageIndicator = new PageIndicator();
+  /** Dernière page voulue par les règles automatiques (déclenchement sur changement). */
+  let lastAutoPage: string | null = null;
+  let autoTick = 0;
+  let wheelAt = 0;
+  let dailyTimer: ReturnType<typeof setInterval> | null = null;
+  /** Couleur demandée à la Pipette pour une zone (ou le style par défaut). */
+  let pendingColor: { zoneId: string | null; field: 'bg' | 'titleColor' | 'iconTint' | 'color'; at: number } | null = null;
 
   /* ---------------------------------------------------------- stockage */
   const kvGet = <T>(key: string, fallback: T): T => {
@@ -119,7 +147,10 @@ export function createDesktopMainModule(): MainToolModule {
       .prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
       .run(key, JSON.stringify(value));
   };
-  const saveZones = (): void => kvSet(ZONES_KEY, zones);
+  const saveZones = (): void => {
+    kvSet(ZONES_KEY, zones);
+    if (settings.layoutPerScreens) layouts?.remember(zones);
+  };
   const t = (key: string, vars?: Record<string, string | number>): string => ctx.i18n.t(key, vars);
 
   /* ------------------------------------------------------------ état */
@@ -277,7 +308,9 @@ export function createDesktopMainModule(): MainToolModule {
 
   /* ------------------------------------------------------- fenêtres */
   const syncWindows = (): void => {
-    const wanted = new Set(settings.enabled ? zones.filter((z) => z.enabled && isHost(z)).map((z) => z.id) : []);
+    const wanted = new Set(
+      settings.enabled ? zones.filter((z) => z.enabled && isHost(z) && onActivePage(z, settings)).map((z) => z.id) : []
+    );
     for (const [id, w] of windows) {
       if (!wanted.has(id)) {
         w.destroy();
@@ -315,7 +348,7 @@ export function createDesktopMainModule(): MainToolModule {
   /* ---------------------------------------------------- géométrie */
   const othersOn = (z: Zone): Rect[] =>
     zones
-      .filter((o) => o.id !== z.id && o.enabled && isHost(o) && o.bounds.displayId === z.bounds.displayId)
+      .filter((o) => o.id !== z.id && o.enabled && isHost(o) && onActivePage(o, settings) && o.bounds.displayId === z.bounds.displayId)
       .map((o) => windowBounds(o));
 
   /** Rectangle absolu → bornes relatives à l'écran le plus proche de son centre. */
@@ -337,7 +370,7 @@ export function createDesktopMainModule(): MainToolModule {
     const d = displayFor(displayId);
     const others = list.filter((o) => o.bounds.displayId === String(d.id)).map((o) => absoluteBounds(o));
     const r = freeSpot({ width: 320, height: 220 }, others, d.workArea, Math.max(settings.gap, 12));
-    const inbox = newZone(randomUUID(), 'shortcuts', t('desktop.zone.inbox'), toRelative(r), { inbox: true });
+    const inbox = newZone(randomUUID(), 'shortcuts', t('desktop.zone.inbox'), toRelative(r), { inbox: true, pageId: settings.activePage });
     return [...list, inbox];
   };
 
@@ -356,7 +389,7 @@ export function createDesktopMainModule(): MainToolModule {
     const title =
       opts.title ?? (kind === 'folder' && folder ? path.basename(folder) || folder : t('desktop.zone.newTitle', { n: zones.length + 1 }));
     const color = ZONE_COLORS[zones.length % ZONE_COLORS.length];
-    const zone = newZone(randomUUID(), kind, title, b, { folder, color });
+    const zone = newZone(randomUUID(), kind, title, b, { folder, color, pageId: settings.activePage });
     let next = [...zones, zone];
     if (kind === 'shortcuts') next = ensureInbox(next, b.displayId);
     setZones(next);
@@ -384,7 +417,8 @@ export function createDesktopMainModule(): MainToolModule {
       next.push(
         newZone(randomUUID(), 'shortcuts', t(key), toRelative(r), {
           items,
-          color: ZONE_COLORS[next.length % ZONE_COLORS.length]
+          color: ZONE_COLORS[next.length % ZONE_COLORS.length],
+          pageId: settings.activePage
         })
       );
     }
@@ -703,21 +737,105 @@ export function createDesktopMainModule(): MainToolModule {
     pushState();
   };
 
-  /** Raccourci gardé aussi dans AppSettings.shortcuts (Réglages → Raccourcis). */
-  const hostPeekShortcut = (): string | undefined =>
-    (ctx.settings.get().shortcuts as Record<string, string | undefined>)[PEEK_SHORTCUT_ID];
-  const syncHostShortcut = (): void => {
-    if (hostPeekShortcut() === settings.peekShortcut) return;
-    const shortcuts = { ...ctx.settings.get().shortcuts, [PEEK_SHORTCUT_ID]: settings.peekShortcut };
-    ctx.settings.set({ shortcuts: shortcuts as ReturnType<typeof ctx.settings.get>['shortcuts'] });
+  /** Raccourcis gardés aussi dans AppSettings.shortcuts (Réglages → Raccourcis). */
+  const hostShortcuts = (): Record<string, string | undefined> => ctx.settings.get().shortcuts as Record<string, string | undefined>;
+  const syncHostShortcuts = (): void => {
+    const host = hostShortcuts();
+    const ids = (Object.keys(SHORTCUTS) as ShortcutId[]).filter((id) => ctx.shortcuts.status().some((st) => st.id === id));
+    if (ids.every((id) => host[id] === settings[SHORTCUTS[id]])) return;
+    const next: Record<string, string | undefined> = { ...host };
+    for (const id of ids) next[id] = settings[SHORTCUTS[id]];
+    ctx.settings.set({ shortcuts: next as ReturnType<typeof ctx.settings.get>['shortcuts'] });
   };
 
-  const registerPeekShortcut = (): void => {
-    if (settings.enabled && settings.peekShortcut) {
-      ctx.shortcuts.register({ id: PEEK_SHORTCUT_ID, accelerator: settings.peekShortcut, run: () => startPeek(settings.peekMode) });
-    } else {
-      ctx.shortcuts.unregister(PEEK_SHORTCUT_ID);
+  const registerShortcuts = (): void => {
+    const runs: Record<ShortcutId, () => void> = {
+      'desktop.peek': () => startPeek(settings.peekMode),
+      'desktop.pageNext': () => switchPage(nextPage(settings, 1)),
+      'desktop.pagePrev': () => switchPage(nextPage(settings, -1))
+    };
+    for (const id of Object.keys(SHORTCUTS) as ShortcutId[]) {
+      const accel = settings[SHORTCUTS[id]];
+      const wanted = settings.enabled && !!accel && (id === 'desktop.peek' || settings.pages.length > 1);
+      if (wanted) ctx.shortcuts.register({ id, accelerator: accel, run: runs[id] });
+      else ctx.shortcuts.unregister(id);
     }
+  };
+
+  /* ---------------------------------------------------------- pages */
+  const saveSettings = (): void => kvSet(SETTINGS_KEY, settings);
+  const switchPage = (id: string, opts: { indicator?: boolean } = {}): void => {
+    if (!settings.pages.some((p) => p.id === id)) return;
+    if (id === settings.activePage) return;
+    settings = { ...settings, activePage: id };
+    saveSettings();
+    expanded.clear();
+    syncWindows();
+    scheduleRefresh(0);
+    pushState();
+    if (settings.pageIndicator && opts.indicator !== false) {
+      const i = settings.pages.findIndex((p) => p.id === id);
+      pageIndicator.show({ index: i, count: settings.pages.length, name: settings.pages[i]?.name ?? '' });
+    }
+  };
+  const onWheel = (delta: number): void => {
+    if (!settings.pageWheel || settings.pages.length < 2 || peek) return;
+    const now = Date.now();
+    if (now - wheelAt < 450) return;
+    wheelAt = now;
+    switchPage(nextPage(settings, delta < 0 ? 1 : -1));
+  };
+  /** Page automatique : appliquée seulement quand la page voulue change. */
+  const checkAutoPage = (): void => {
+    if (settings.pageAuto.length === 0) return;
+    const needsApp = settings.pageAuto.some((r) => r.type === 'app');
+    const want = autoPage(settings.pageAuto, { now: new Date(), exe: needsApp ? foregroundExe() : null }, settings.pages);
+    if (want === lastAutoPage) return;
+    lastAutoPage = want;
+    if (want) switchPage(want);
+  };
+
+  /* ---------------------------------------------------- apparence */
+  const applyPickedColor = (hex: string): void => {
+    const p = pendingColor;
+    pendingColor = null;
+    if (!p || Date.now() - p.at > 120_000 || !/^#[0-9a-f]{6}$/i.test(hex)) return;
+    const color = hex.toLowerCase();
+    if (p.field === 'color') {
+      if (p.zoneId) patchZone(p.zoneId, { color });
+      return;
+    }
+    if (p.zoneId) {
+      const z = zoneById(p.zoneId);
+      if (z) patchZone(z.id, { style: { ...z.style, [p.field]: color } });
+    } else {
+      settings = { ...settings, defaultStyle: { ...settings.defaultStyle, [p.field]: color } };
+      saveSettings();
+      sendAll();
+      pushState();
+    }
+  };
+
+  /* ------------------------------------------------- dispositions */
+  const restoreBundle = (b: DesktopBundle): void => {
+    const pages = b.pages.length > 0 ? b.pages : settings.pages;
+    settings = { ...settings, pages, activePage: pages.some((p) => p.id === settings.activePage) ? settings.activePage : pages[0].id };
+    saveSettings();
+    nav.clear();
+    expanded.clear();
+    if (b.rules) rules.setRules(b.rules);
+    setZones(b.zones.map((z) => normalizeZone(z)).map((z) => (z.pageId ? z : { ...z, pageId: pages[0].id })));
+  };
+  const displayLikes = () => screen.getAllDisplays().map((d) => ({ id: String(d.id), bounds: d.bounds, scaleFactor: d.scaleFactor }));
+  /** Après une veille ou un changement d'écran : tout est remis en place. */
+  const reposition = (): void => {
+    for (const [id, w] of windows) {
+      const host = zoneById(id);
+      if (!host) continue;
+      w.setBounds(windowBounds(host));
+      if (!peek) w.lower();
+    }
+    scheduleRefresh(0);
   };
 
   const showDesktop = (): void => {
@@ -730,6 +848,7 @@ export function createDesktopMainModule(): MainToolModule {
   /** Surveillance légère (250 ms) : touche maintenue, coin actif, bords, inactivité. */
   const poll = (): void => {
     if (!settings.enabled) return;
+    if (++autoTick % 8 === 0) checkAutoPage();
     const pt = screen.getCursorScreenPoint();
     const d = screen.getDisplayNearestPoint(pt);
     const b = d.bounds;
@@ -773,7 +892,8 @@ export function createDesktopMainModule(): MainToolModule {
     if (!settings.enabled) return;
     pollTimer = setInterval(poll, 250);
     // Le crochet souris n'est posé que si une fonction en a besoin.
-    if (native && (settings.dblClickHide || settings.autoHideSec > 0 || settings.edgeReveal)) {
+    const wheel = settings.pageWheel && settings.pages.length > 1;
+    if (native && (settings.dblClickHide || settings.autoHideSec > 0 || settings.edgeReveal || wheel)) {
       stopClicks = watchDesktopClicks(
         () => {
           touch();
@@ -784,7 +904,8 @@ export function createDesktopMainModule(): MainToolModule {
           // double-clic sur le bureau vide : seulement si les icônes Windows sont masquées
           // (sinon c'est le double-clic d'ouverture d'une icône Windows).
           if (settings.dblClickHide && iconsHidden && !peek) setHiddenState(!hidden);
-        }
+        },
+        wheel ? onWheel : undefined
       );
     }
   };
@@ -802,6 +923,8 @@ export function createDesktopMainModule(): MainToolModule {
     restoreNativeIcons();
     rules.start();
     startBehaviours();
+    layouts.daily();
+    dailyTimer = setInterval(() => layouts.daily(), 3_600_000);
     rewatch();
     syncWindows();
     await refresh();
@@ -815,7 +938,9 @@ export function createDesktopMainModule(): MainToolModule {
       settings = normalizeSettings(kvGet<Partial<DesktopSettings> | null>(SETTINGS_KEY, null));
       zones = kvGet<Array<Partial<Zone> & { id: string }>>(ZONES_KEY, [])
         .filter((z) => z && typeof z.id === 'string')
-        .map(normalizeZone);
+        .map(normalizeZone)
+        // zones d'avant les pages : rattachées à la première page
+        .map((z) => (z.pageId ? z : { ...z, pageId: settings.pages[0].id }));
       opens = kvGet<Record<string, number>>(OPENS_KEY, {});
       rules = createRulesEngine({
         kvGet,
@@ -827,17 +952,34 @@ export function createDesktopMainModule(): MainToolModule {
         notify: (title, body) => ctx.notify(title, body),
         t
       });
-      registerPeekShortcut();
-      syncHostShortcut();
+      layouts = createLayoutStore({
+        kvGet,
+        kvSet,
+        zones: () => zones,
+        pages: () => settings.pages,
+        rules: () => rules.rules(),
+        restore: (b) => restoreBundle(b)
+      });
+      layouts.setScreens(displayLikes());
+      registerShortcuts();
+      syncHostShortcuts();
       ctx.events.on('settings-changed', () => {
         // raccourci modifié depuis Réglages → Raccourcis : on l'adopte
-        const fromHost = hostPeekShortcut();
-        if (fromHost === undefined || fromHost === settings.peekShortcut) return;
-        settings = normalizeSettings({ ...settings, peekShortcut: fromHost });
-        kvSet(SETTINGS_KEY, settings);
-        registerPeekShortcut();
+        const host = hostShortcuts();
+        const patch: Partial<DesktopSettings> = {};
+        for (const id of Object.keys(SHORTCUTS) as ShortcutId[]) {
+          const v = host[id];
+          if (v !== undefined && v !== settings[SHORTCUTS[id]]) patch[SHORTCUTS[id]] = v;
+        }
+        if (Object.keys(patch).length === 0) return;
+        settings = normalizeSettings({ ...settings, ...patch });
+        saveSettings();
+        registerShortcuts();
         ctx.shortcuts.applyAll();
         pushState();
+      });
+      ctx.events.on('colorpicker:picked', (c: { hex?: string }) => {
+        if (pendingColor && c && typeof c.hex === 'string') applyPickedColor(c.hex);
       });
 
       ipcMain.handle('desktop:getState', () => state());
@@ -845,7 +987,86 @@ export function createDesktopMainModule(): MainToolModule {
       ipcMain.on('desktop:peek:stop', () => stopPeek());
       ipcMain.handle('desktop:toggleHide', () => setHiddenState(!hidden));
       ipcMain.handle('desktop:showDesktop', () => showDesktop());
-      ipcMain.handle('desktop:shortcutStatus', () => ctx.shortcuts.status().find((x) => x.id === PEEK_SHORTCUT_ID) ?? null);
+      ipcMain.handle('desktop:shortcutStatus', () => ctx.shortcuts.status().filter((x) => x.id in SHORTCUTS));
+
+      // ---- Pages
+      ipcMain.handle('desktop:page:switch', (_e, id: string) => switchPage(String(id)));
+      ipcMain.handle('desktop:page:add', (_e, name: string) => {
+        const page = { id: randomUUID().slice(0, 8), name: String(name ?? '').trim().slice(0, 40) || t('desktop.page.default', { n: settings.pages.length + 1 }) };
+        settings = { ...settings, pages: [...settings.pages, page] };
+        saveSettings();
+        registerShortcuts();
+        ctx.shortcuts.applyAll();
+        syncHostShortcuts();
+        startBehaviours();
+        switchPage(page.id);
+        pushState();
+        return page;
+      });
+      ipcMain.handle('desktop:page:rename', (_e, id: string, name: string) => {
+        const clean = String(name ?? '').trim().slice(0, 40);
+        if (!clean) return;
+        settings = { ...settings, pages: settings.pages.map((p) => (p.id === id ? { ...p, name: clean } : p)) };
+        saveSettings();
+        pushState();
+      });
+      ipcMain.handle('desktop:page:move', (_e, id: string, dir: number) => {
+        const i = settings.pages.findIndex((p) => p.id === id);
+        const j = i + (dir < 0 ? -1 : 1);
+        if (i < 0 || j < 0 || j >= settings.pages.length) return;
+        const pages = [...settings.pages];
+        [pages[i], pages[j]] = [pages[j], pages[i]];
+        settings = { ...settings, pages };
+        saveSettings();
+        pushState();
+      });
+      ipcMain.handle('desktop:page:delete', (_e, id: string) => {
+        if (settings.pages.length < 2 || !settings.pages.some((p) => p.id === id)) return;
+        const pages = settings.pages.filter((p) => p.id !== id);
+        const fallback = pages[0].id;
+        // Les zones de la page supprimée rejoignent la première page (rien n'est perdu).
+        zones = zones.map((z) => (z.pageId === id || (!z.pageId && settings.pages[0].id === id) ? { ...z, pageId: fallback } : z));
+        settings = {
+          ...settings,
+          pages,
+          activePage: settings.activePage === id ? fallback : settings.activePage,
+          pageAuto: settings.pageAuto.filter((r) => r.pageId !== id)
+        };
+        saveSettings();
+        registerShortcuts();
+        ctx.shortcuts.applyAll();
+        startBehaviours();
+        setZones(zones);
+      });
+
+      // ---- Apparence
+      ipcMain.handle('desktop:pickColor', (_e, zoneId: string | null, field: 'bg' | 'titleColor' | 'iconTint' | 'color') => {
+        if (!['bg', 'titleColor', 'iconTint', 'color'].includes(field)) return false;
+        pendingColor = { zoneId: typeof zoneId === 'string' ? zoneId : null, field, at: Date.now() };
+        if (!ctx.runLocalCommand) return false;
+        void ctx.runLocalCommand('colorpicker.start');
+        return true;
+      });
+      ipcMain.handle('desktop:style:save', (_e, name: string, style: Partial<ZoneStyle>) => {
+        const saved = { id: randomUUID().slice(0, 8), name: String(name ?? '').trim().slice(0, 40) || 'Style', style: normalizeStyle(style) };
+        settings = { ...settings, savedStyles: [...settings.savedStyles, saved] };
+        saveSettings();
+        pushState();
+        return saved;
+      });
+
+      // ---- Dispositions
+      ipcMain.handle('desktop:layout:swapScreens', () => {
+        setZones(swapScreens(zones, displaysInfo()));
+      });
+      ipcMain.handle('desktop:layout:list', () => layouts.list());
+      ipcMain.handle('desktop:layout:save', (_e, name: string) => layouts.save(String(name ?? '')));
+      ipcMain.handle('desktop:layout:rename', (_e, id: string, name: string) => layouts.rename(String(id), String(name ?? '')));
+      ipcMain.handle('desktop:layout:delete', (_e, id: string) => layouts.remove(String(id)));
+      ipcMain.handle('desktop:layout:restore', (_e, id: string) => layouts.restore(String(id)));
+      ipcMain.handle('desktop:layout:undo', () => layouts.undo());
+      ipcMain.handle('desktop:layout:export', (_e, withRules: boolean) => layouts.exportFile(Boolean(withRules)));
+      ipcMain.handle('desktop:layout:import', () => layouts.importFile());
 
       // ---- Règles
       ipcMain.handle('desktop:rules:get', () => ({ rules: rules.rules(), log: rules.log() }));
@@ -879,16 +1100,22 @@ export function createDesktopMainModule(): MainToolModule {
           stopPeek();
           hidden = false;
         }
-        if (before.peekShortcut !== settings.peekShortcut || before.enabled !== settings.enabled) {
-          registerPeekShortcut();
-          syncHostShortcut();
+        if (
+          before.enabled !== settings.enabled ||
+          (Object.values(SHORTCUTS) as Array<keyof DesktopSettings>).some((k) => before[k] !== settings[k])
+        ) {
+          registerShortcuts();
           ctx.shortcuts.applyAll();
+          syncHostShortcuts();
         }
+        if (before.activePage !== settings.activePage) expanded.clear();
+        if (settings.layoutPerScreens && !before.layoutPerScreens) layouts.remember(zones);
         if (
           before.enabled !== settings.enabled ||
           before.dblClickHide !== settings.dblClickHide ||
           before.autoHideSec !== settings.autoHideSec ||
-          before.edgeReveal !== settings.edgeReveal
+          before.edgeReveal !== settings.edgeReveal ||
+          before.pageWheel !== settings.pageWheel
         ) {
           startBehaviours();
         }
@@ -1067,9 +1294,19 @@ export function createDesktopMainModule(): MainToolModule {
       ipcMain.on('desktop:draw:cancel', () => draw.close());
 
       const onDisplays = (): void => {
+        const moved = settings.layoutPerScreens ? layouts.screensChanged(displayLikes(), zones) : null;
+        if (!settings.layoutPerScreens) layouts.setScreens(displayLikes());
+        if (moved) {
+          zones = moved;
+          kvSet(ZONES_KEY, zones);
+        }
         syncWindows();
         pushState();
+        // les écrans mettent parfois un instant à se stabiliser
+        setTimeout(reposition, 1500);
       };
+      powerMonitor.on('resume', () => setTimeout(reposition, 1500));
+      powerMonitor.on('unlock-screen', () => setTimeout(reposition, 800));
       screen.on('display-added', onDisplays);
       screen.on('display-removed', onDisplays);
       screen.on('display-metrics-changed', onDisplays);
@@ -1081,6 +1318,8 @@ export function createDesktopMainModule(): MainToolModule {
         await sortNow();
       });
       hostCtx.registerLocalCommand('desktop.showDesktop', () => showDesktop());
+      hostCtx.registerLocalCommand('desktop.pageNext', () => switchPage(nextPage(settings, 1)));
+      hostCtx.registerLocalCommand('desktop.pagePrev', () => switchPage(nextPage(settings, -1)));
       app.on('before-quit', restoreNativeIcons);
 
       await start();
@@ -1101,6 +1340,8 @@ export function createDesktopMainModule(): MainToolModule {
     },
 
     deactivate(): void {
+      pageIndicator.close();
+      if (dailyTimer) clearInterval(dailyTimer);
       stopBehaviours();
       stopPeek();
       rules?.stop();

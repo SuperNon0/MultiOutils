@@ -52,6 +52,14 @@ let koffiRef: {
 let enumProto: unknown = null;
 let mouseProto: unknown = null;
 let getModuleHandle: ((name: string | null) => Hwnd) | null = null;
+let procApi: {
+  GetForegroundWindow(): Hwnd;
+  GetWindowThreadProcessId(h: Hwnd, pid: number[]): number;
+  OpenProcess(access: number, inherit: boolean, pid: number): Hwnd;
+  QueryFullProcessImageNameW(h: Hwnd, flags: number, buf: Buffer, size: number[]): boolean;
+  CloseHandle(h: Hwnd): boolean;
+} | null = null;
+
 let initPromise: Promise<void> | null = null;
 let initError: string | null = null;
 
@@ -77,6 +85,18 @@ async function init(): Promise<void> {
     mouseProto = koffi.proto('intptr __stdcall MoLowLevelMouseProc(int nCode, uintptr wParam, MO_MSLLHOOKSTRUCT *lParam)');
     const kernel32 = koffi.load('kernel32.dll');
     getModuleHandle = kernel32.func('intptr __stdcall GetModuleHandleW(str16 name)') as (n: string | null) => Hwnd;
+    procApi = {
+      GetForegroundWindow: lib.func('intptr __stdcall GetForegroundWindow()') as () => Hwnd,
+      GetWindowThreadProcessId: lib.func('uint32 __stdcall GetWindowThreadProcessId(intptr hwnd, _Out_ uint32 *pid)') as (
+        h: Hwnd,
+        pid: number[]
+      ) => number,
+      OpenProcess: kernel32.func('intptr __stdcall OpenProcess(uint32 access, bool inherit, uint32 pid)') as (a: number, i: boolean, p: number) => Hwnd,
+      QueryFullProcessImageNameW: kernel32.func(
+        'bool __stdcall QueryFullProcessImageNameW(intptr h, uint32 flags, void *buf, _Inout_ uint32 *size)'
+      ) as (h: Hwnd, f: number, buf: Buffer, size: number[]) => boolean,
+      CloseHandle: kernel32.func('bool __stdcall CloseHandle(intptr h)') as (h: Hwnd) => boolean
+    };
     user32 = {
       FindWindowW: lib.func('intptr __stdcall FindWindowW(str16 cls, str16 title)') as User32['FindWindowW'],
       FindWindowExW: lib.func(
@@ -242,7 +262,34 @@ export function isDesktopAt(x: number, y: number): boolean {
  * `onClick` reçoit chaque clic, `onDouble` les doubles-clics. Le travail est
  * reporté (setImmediate) pour rendre la main à Windows immédiatement.
  */
-export function watchDesktopClicks(onClick: () => void, onDouble: () => void): () => void {
+/** Programme (nom du .exe) de la fenêtre au premier plan, ou null. */
+export function foregroundExe(): string | null {
+  if (!procApi) return null;
+  try {
+    const h = big(procApi.GetForegroundWindow());
+    if (!h) return null;
+    const pid = [0];
+    procApi.GetWindowThreadProcessId(h, pid);
+    if (!pid[0]) return null;
+    const proc = big(procApi.OpenProcess(0x1000 /* QUERY_LIMITED_INFORMATION */, false, pid[0]));
+    if (!proc) return null;
+    try {
+      const buf = Buffer.alloc(1040);
+      const size = [520];
+      if (!procApi.QueryFullProcessImageNameW(proc, 0, buf, size)) return null;
+      const full = buf.toString('utf16le', 0, size[0] * 2);
+      return full.split(/[\\/]/).pop() ?? null;
+    } finally {
+      procApi.CloseHandle(proc);
+    }
+  } catch {
+    return null;
+  }
+}
+
+const WM_MOUSEWHEEL = 0x020a;
+
+export function watchDesktopClicks(onClick: () => void, onDouble: () => void, onWheel?: (delta: number) => void): () => void {
   if (!user32 || !koffiRef || !getModuleHandle || hook) return () => undefined;
   const u = user32;
   const dbl = Number(u.GetDoubleClickTime()) || 500;
@@ -250,6 +297,11 @@ export function watchDesktopClicks(onClick: () => void, onDouble: () => void): (
   hookCb = koffiRef.register(
     ((code: number, wParam: unknown, info: { pt: { x: number; y: number } }) => {
       try {
+        if (code >= 0 && onWheel && Number(wParam) === WM_MOUSEWHEEL && info && isDesktopAt(info.pt.x, info.pt.y)) {
+          const raw = (Number((info as { mouseData?: number }).mouseData) >>> 16) & 0xffff;
+          const delta = raw > 0x7fff ? raw - 0x10000 : raw;
+          setImmediate(() => onWheel(delta));
+        }
         if (code >= 0 && Number(wParam) === WM_LBUTTONDOWN && info) {
           const { x, y } = info.pt;
           const now = Date.now();

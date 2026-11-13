@@ -36,6 +36,26 @@ const api: PreloadApi = {
     showDesktop: () => ipcRenderer.invoke('desktop:showDesktop'),
     shortcutStatus: () => ipcRenderer.invoke('desktop:shortcutStatus'),
     pickFolder: () => ipcRenderer.invoke('desktop:pickFolder'),
+    page: {
+      switch: (id) => ipcRenderer.invoke('desktop:page:switch', id),
+      add: (name) => ipcRenderer.invoke('desktop:page:add', name),
+      rename: (id, name) => ipcRenderer.invoke('desktop:page:rename', id, name),
+      move: (id, dir) => ipcRenderer.invoke('desktop:page:move', id, dir),
+      delete: (id) => ipcRenderer.invoke('desktop:page:delete', id)
+    },
+    pickColor: (zoneId, field) => ipcRenderer.invoke('desktop:pickColor', zoneId, field),
+    saveStyle: (name, style) => ipcRenderer.invoke('desktop:style:save', name, style),
+    layout: {
+      swapScreens: () => ipcRenderer.invoke('desktop:layout:swapScreens'),
+      list: () => ipcRenderer.invoke('desktop:layout:list'),
+      save: (name) => ipcRenderer.invoke('desktop:layout:save', name),
+      rename: (id, name) => ipcRenderer.invoke('desktop:layout:rename', id, name),
+      delete: (id) => ipcRenderer.invoke('desktop:layout:delete', id),
+      restore: (id) => ipcRenderer.invoke('desktop:layout:restore', id),
+      undo: () => ipcRenderer.invoke('desktop:layout:undo'),
+      exportFile: (withRules) => ipcRenderer.invoke('desktop:layout:export', withRules),
+      importFile: () => ipcRenderer.invoke('desktop:layout:import')
+    },
     rules: {
       get: () => ipcRenderer.invoke('desktop:rules:get'),
       set: (rules) => ipcRenderer.invoke('desktop:rules:set', rules),

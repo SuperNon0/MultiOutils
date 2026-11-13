@@ -54,7 +54,52 @@ export interface Zone {
   tabOrder: number;
   /** Reste visible quand on masque le bureau (double-clic). */
   keepOnHide: boolean;
+  /** Apparence propre à la zone (complète le style par défaut des réglages). */
+  style: Partial<ZoneStyle>;
+  /** Page où vit la zone ('' = première page). */
+  pageId: string;
+  /** Présente sur toutes les pages. */
+  allPages: boolean;
 }
+
+/** Apparence d'une zone (étape 3). */
+export interface ZoneStyle {
+  /** Couleur de fond ; null = fond du thème de MultiOutils (verre). */
+  bg: string | null;
+  /** Opacité du fond (%), null = réglage général. */
+  opacity: number | null;
+  /** Cadre et fond visibles seulement au survol. */
+  invisible: boolean;
+  /** Arrondi des coins (px), 0 = carré. */
+  radius: number;
+  titleBar: 'visible' | 'hover' | 'hidden';
+  titleLook: 'flat' | 'bold';
+  titleFont: 'ui' | 'mono' | 'serif';
+  titleSize: number;
+  titleColor: string | null;
+  /** Teinte appliquée à toutes les icônes. */
+  iconTint: string | null;
+  /** Icônes fondues dans le fond d'écran, nettes au survol. */
+  iconFade: boolean;
+  /** Liseré de couleur à gauche. */
+  stripe: boolean;
+}
+
+export interface SavedStyle {
+  id: string;
+  name: string;
+  style: Partial<ZoneStyle>;
+}
+
+export interface DesktopPage {
+  id: string;
+  name: string;
+}
+
+/** Page automatique : selon l'heure ou l'application au premier plan. */
+export type PageAutoRule =
+  | { id: string; pageId: string; type: 'time'; from: string; to: string; days: number[] }
+  | { id: string; pageId: string; type: 'app'; exe: string };
 
 export interface DesktopSettings {
   /** Interrupteur général du module. */
@@ -86,6 +131,20 @@ export interface DesktopSettings {
   hotCorner: 'off' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
   /** Style des onglets d'un groupe. */
   tabStyle: 'tabs' | 'segments' | 'menu';
+  /** Apparence par défaut de toutes les zones. */
+  defaultStyle: ZoneStyle;
+  savedStyles: SavedStyle[];
+  pages: DesktopPage[];
+  activePage: string;
+  /** Molette sur le bureau vide : page suivante / précédente. */
+  pageWheel: boolean;
+  /** Pastille avec les points de page au changement de page. */
+  pageIndicator: boolean;
+  pageNextShortcut: string;
+  pagePrevShortcut: string;
+  pageAuto: PageAutoRule[];
+  /** Une disposition par configuration d'écrans, rétablie au branchement. */
+  layoutPerScreens: boolean;
 }
 
 export type EntryKind =
@@ -183,8 +242,247 @@ export function defaultDesktopSettings(): DesktopSettings {
     peekShortcut: 'Control+Alt+Space',
     peekMode: 'hold',
     hotCorner: 'off',
-    tabStyle: 'tabs'
+    tabStyle: 'tabs',
+    defaultStyle: defaultZoneStyle(),
+    savedStyles: [],
+    pages: [{ id: 'p1', name: 'Bureau' }],
+    activePage: 'p1',
+    pageWheel: true,
+    pageIndicator: true,
+    pageNextShortcut: 'Control+Alt+PageDown',
+    pagePrevShortcut: 'Control+Alt+PageUp',
+    pageAuto: [],
+    layoutPerScreens: true
   };
+}
+
+export function defaultZoneStyle(): ZoneStyle {
+  return {
+    bg: null,
+    opacity: null,
+    invisible: false,
+    radius: 14,
+    titleBar: 'visible',
+    titleLook: 'flat',
+    titleFont: 'ui',
+    titleSize: 13.5,
+    titleColor: null,
+    iconTint: null,
+    iconFade: false,
+    stripe: false
+  };
+}
+
+const HEX = /^#[0-9a-f]{6}$/i;
+const hexOrNull = (v: unknown): string | null => (typeof v === 'string' && HEX.test(v) ? v.toLowerCase() : null);
+
+/** Ne garde que les champs de style valides (pour une zone : rien d'imposé). */
+export function normalizeStyle(raw: unknown): Partial<ZoneStyle> {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const out: Partial<ZoneStyle> = {};
+  if ('bg' in r) out.bg = hexOrNull(r.bg);
+  if ('opacity' in r) out.opacity = r.opacity === null ? null : clamp(Math.round(Number(r.opacity) || 0), 0, 100);
+  if ('invisible' in r) out.invisible = Boolean(r.invisible);
+  if ('radius' in r) out.radius = clamp(Math.round(Number(r.radius) || 0), 0, 24);
+  if ('titleBar' in r) out.titleBar = oneOf(r.titleBar, ['visible', 'hover', 'hidden'] as const, 'visible');
+  if ('titleLook' in r) out.titleLook = oneOf(r.titleLook, ['flat', 'bold'] as const, 'flat');
+  if ('titleFont' in r) out.titleFont = oneOf(r.titleFont, ['ui', 'mono', 'serif'] as const, 'ui');
+  if ('titleSize' in r) out.titleSize = clamp(Number(r.titleSize) || 13.5, 10, 22);
+  if ('titleColor' in r) out.titleColor = hexOrNull(r.titleColor);
+  if ('iconTint' in r) out.iconTint = hexOrNull(r.iconTint);
+  if ('iconFade' in r) out.iconFade = Boolean(r.iconFade);
+  if ('stripe' in r) out.stripe = Boolean(r.stripe);
+  return out;
+}
+
+/** Style complet d'une zone : défaut des réglages, puis ses propres choix. */
+export function effectiveStyle(zone: Pick<Zone, 'style'>, settings: Pick<DesktopSettings, 'defaultStyle' | 'opacity'>): ZoneStyle & { opacity: number } {
+  const s = { ...defaultZoneStyle(), ...settings.defaultStyle, ...zone.style };
+  return { ...s, opacity: s.opacity ?? settings.opacity };
+}
+
+/* ------------------------------------------------------------- pages */
+/** Page effective d'une zone ('' ou page disparue = première page). */
+export function pageOf(zone: Pick<Zone, 'pageId'>, pages: DesktopPage[]): string {
+  return pages.some((p) => p.id === zone.pageId) ? zone.pageId : (pages[0]?.id ?? '');
+}
+
+export function onActivePage(zone: Pick<Zone, 'pageId' | 'allPages'>, settings: Pick<DesktopSettings, 'pages' | 'activePage'>): boolean {
+  return zone.allPages || pageOf(zone, settings.pages) === settings.activePage;
+}
+
+/** Page voisine (boucle aux extrémités). */
+export function nextPage(settings: Pick<DesktopSettings, 'pages' | 'activePage'>, dir: 1 | -1): string {
+  const i = settings.pages.findIndex((p) => p.id === settings.activePage);
+  const n = settings.pages.length;
+  if (n === 0) return settings.activePage;
+  return settings.pages[(((i < 0 ? 0 : i) + dir) % n + n) % n].id;
+}
+
+const minutes = (hhmm: string): number | null => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mi = Number(m[2]);
+  return h < 24 && mi < 60 ? h * 60 + mi : null;
+};
+
+/** Page voulue par les règles automatiques (la première qui s'applique), ou null. */
+export function autoPage(rules: PageAutoRule[], ctx: { now: Date; exe: string | null }, pages: DesktopPage[]): string | null {
+  for (const r of rules) {
+    if (!pages.some((p) => p.id === r.pageId)) continue;
+    if (r.type === 'app') {
+      const want = r.exe.trim().toLowerCase().replace(/^.*[\\/]/, '');
+      if (want && ctx.exe && ctx.exe.toLowerCase().replace(/^.*[\\/]/, '') === want) return r.pageId;
+      continue;
+    }
+    const from = minutes(r.from);
+    const to = minutes(r.to);
+    if (from === null || to === null) continue;
+    if (r.days.length > 0 && !r.days.includes(ctx.now.getDay())) continue;
+    const cur = ctx.now.getHours() * 60 + ctx.now.getMinutes();
+    const inside = from <= to ? cur >= from && cur < to : cur >= from || cur < to;
+    if (inside) return r.pageId;
+  }
+  return null;
+}
+
+function normalizePages(raw: unknown, fallback: DesktopPage[]): DesktopPage[] {
+  const list = (Array.isArray(raw) ? raw : [])
+    .filter((p): p is DesktopPage => !!p && typeof p.id === 'string' && p.id !== '')
+    .map((p) => ({ id: p.id, name: String(p.name ?? '').slice(0, 40) || 'Page' }));
+  const seen = new Set<string>();
+  const unique = list.filter((p) => (seen.has(p.id) ? false : (seen.add(p.id), true)));
+  return unique.length > 0 ? unique : fallback;
+}
+
+function normalizePageAuto(raw: unknown): PageAutoRule[] {
+  return (Array.isArray(raw) ? raw : [])
+    .filter((r) => r && typeof r.id === 'string' && typeof r.pageId === 'string')
+    .map((r): PageAutoRule =>
+      r.type === 'app'
+        ? { id: r.id, pageId: r.pageId, type: 'app', exe: String(r.exe ?? '') }
+        : {
+            id: r.id,
+            pageId: r.pageId,
+            type: 'time',
+            from: String(r.from ?? '09:00'),
+            to: String(r.to ?? '18:00'),
+            days: (Array.isArray(r.days) ? r.days : []).map(Number).filter((d: number) => d >= 0 && d <= 6)
+          }
+    );
+}
+
+/* ---------------------------------------------------------- dispositions */
+export interface DisplayLike {
+  id: string;
+  bounds: { x: number; y: number; width: number; height: number };
+  scaleFactor?: number;
+}
+
+/** Clé d'une configuration d'écrans (taille et place de chacun). */
+export function screensKey(displays: DisplayLike[]): string {
+  return displays
+    .map((d) => `${d.bounds.width}x${d.bounds.height}@${d.bounds.x},${d.bounds.y}`)
+    .sort()
+    .join('|');
+}
+
+export type LayoutEntry = Pick<Zone, 'bounds' | 'rolled' | 'enabled'>;
+export type Layout = Record<string, LayoutEntry>;
+
+export function layoutOf(zones: Zone[]): Layout {
+  const out: Layout = {};
+  for (const z of zones) out[z.id] = { bounds: { ...z.bounds }, rolled: z.rolled, enabled: z.enabled };
+  return out;
+}
+
+/** Remet chaque zone connue de la disposition à sa place. */
+export function applyLayout(zones: Zone[], layout: Layout): Zone[] {
+  return zones.map((z) => {
+    const l = layout[z.id];
+    return l ? { ...z, bounds: { ...l.bounds }, rolled: l.rolled } : z;
+  });
+}
+
+/**
+ * Échange les écrans : chaque zone passe sur l'écran suivant, à la même place
+ * en proportion (utile quand une station d'accueil inverse les écrans).
+ */
+export function swapScreens(
+  zones: Zone[],
+  displays: Array<{ id: string; workArea: { width: number; height: number } }>
+): Zone[] {
+  if (displays.length < 2) return zones;
+  const idx = new Map(displays.map((d, i) => [d.id, i]));
+  return zones.map((z) => {
+    const i = idx.get(z.bounds.displayId) ?? 0;
+    const from = displays[i];
+    const to = displays[(i + 1) % displays.length];
+    const fx = from.workArea.width ? to.workArea.width / from.workArea.width : 1;
+    const fy = from.workArea.height ? to.workArea.height / from.workArea.height : 1;
+    const width = Math.min(z.bounds.width, to.workArea.width);
+    const height = Math.min(z.bounds.height, to.workArea.height);
+    return {
+      ...z,
+      bounds: {
+        displayId: to.id,
+        x: Math.round(Math.min(z.bounds.x * fx, to.workArea.width - width)),
+        y: Math.round(Math.min(z.bounds.y * fy, to.workArea.height - height)),
+        width,
+        height
+      }
+    };
+  });
+}
+
+/** Fichier d'export d'une disposition (i6) et contenu d'un instantané (i4, i5). */
+export interface DesktopBundle {
+  app: 'MultiOutils';
+  kind: 'desktop-layout';
+  version: 1;
+  at: number;
+  zones: Zone[];
+  pages: DesktopPage[];
+  rules?: Rule[];
+}
+
+export interface Snapshot {
+  id: string;
+  name: string;
+  at: number;
+  /** 'manual' : instantané ; 'daily' : sauvegarde quotidienne automatique. */
+  type: 'manual' | 'daily';
+  bundle: DesktopBundle;
+}
+
+/** Lit un fichier d'export ; null s'il ne vient pas de MultiOutils. */
+export function parseBundle(raw: unknown): DesktopBundle | null {
+  const b = raw as Partial<DesktopBundle> | null;
+  if (!b || b.app !== 'MultiOutils' || b.kind !== 'desktop-layout' || !Array.isArray(b.zones)) return null;
+  return {
+    app: 'MultiOutils',
+    kind: 'desktop-layout',
+    version: 1,
+    at: Number(b.at) || Date.now(),
+    zones: b.zones.filter((z) => z && typeof z.id === 'string').map(normalizeZone),
+    pages: normalizePages(b.pages, defaultDesktopSettings().pages),
+    rules: Array.isArray(b.rules) ? b.rules.filter((r) => r && typeof r.id === 'string').map(normalizeRule) : undefined
+  };
+}
+
+/** Garde les `keep` dernières sauvegardes quotidiennes (une par jour) et tous les instantanés. */
+export function pruneDaily(list: Snapshot[], keep = 7): Snapshot[] {
+  const daily = list.filter((s) => s.type === 'daily').sort((a, b) => b.at - a.at);
+  const days = new Set<string>();
+  const kept = new Set<string>();
+  for (const s of daily) {
+    const day = new Date(s.at).toISOString().slice(0, 10);
+    if (days.has(day) || days.size >= keep) continue;
+    days.add(day);
+    kept.add(s.id);
+  }
+  return list.filter((s) => s.type === 'manual' || kept.has(s.id));
 }
 
 function oneOf<T extends string>(v: unknown, list: readonly T[], fallback: T): T {
@@ -209,7 +507,21 @@ export function normalizeSettings(raw: Partial<DesktopSettings> | null | undefin
     peekShortcut: typeof s.peekShortcut === 'string' ? s.peekShortcut : d.peekShortcut,
     peekMode: oneOf(s.peekMode, ['hold', 'toggle'] as const, d.peekMode),
     hotCorner: oneOf(s.hotCorner, ['off', 'top-left', 'top-right', 'bottom-left', 'bottom-right'] as const, d.hotCorner),
-    tabStyle: oneOf(s.tabStyle, ['tabs', 'segments', 'menu'] as const, d.tabStyle)
+    tabStyle: oneOf(s.tabStyle, ['tabs', 'segments', 'menu'] as const, d.tabStyle),
+    defaultStyle: { ...defaultZoneStyle(), ...normalizeStyle(s.defaultStyle) },
+    savedStyles: (Array.isArray(s.savedStyles) ? s.savedStyles : [])
+      .filter((x) => x && typeof x.id === 'string')
+      .map((x) => ({ id: x.id, name: String(x.name ?? '').slice(0, 40), style: normalizeStyle(x.style) })),
+    ...(() => {
+      const pages = normalizePages(s.pages, d.pages);
+      return { pages, activePage: pages.some((p) => p.id === s.activePage) ? s.activePage : pages[0].id };
+    })(),
+    pageWheel: Boolean(s.pageWheel),
+    pageIndicator: Boolean(s.pageIndicator),
+    pageNextShortcut: typeof s.pageNextShortcut === 'string' ? s.pageNextShortcut : d.pageNextShortcut,
+    pagePrevShortcut: typeof s.pagePrevShortcut === 'string' ? s.pagePrevShortcut : d.pagePrevShortcut,
+    pageAuto: normalizePageAuto(s.pageAuto),
+    layoutPerScreens: Boolean(s.layoutPerScreens)
   };
 }
 
@@ -471,6 +783,9 @@ export function newZone(
     activeTab: null,
     tabOrder: 0,
     keepOnHide: false,
+    style: {},
+    pageId: '',
+    allPages: false,
     ...extra
   };
 }
@@ -507,7 +822,10 @@ export function normalizeZone(raw: Partial<Zone> & { id: string }): Zone {
     tabOf: typeof raw.tabOf === 'string' && raw.tabOf !== raw.id ? raw.tabOf : null,
     activeTab: typeof raw.activeTab === 'string' ? raw.activeTab : null,
     tabOrder: Number(raw.tabOrder) || 0,
-    keepOnHide: Boolean(raw.keepOnHide)
+    keepOnHide: Boolean(raw.keepOnHide),
+    style: normalizeStyle(raw.style),
+    pageId: typeof raw.pageId === 'string' ? raw.pageId : '',
+    allPages: Boolean(raw.allPages)
   };
 }
 
