@@ -1240,6 +1240,18 @@ export function createDesktopMainModule(): MainToolModule {
           ctx.notify(t('desktop.dropFailed'), err instanceof Error ? err.message : String(err));
         }
       });
+      // Dépôt dans une zone depuis la page Fichiers.
+      ipcMain.handle('desktop:dropToZone', async (_e, zoneId: string, paths: string[], copy: boolean) => {
+        const z = typeof zoneId === 'string' ? zoneById(zoneId) : undefined;
+        if (!z || !Array.isArray(paths)) return false;
+        try {
+          await dropInto(z, paths, Boolean(copy));
+          return true;
+        } catch (err) {
+          ctx.notify(t('desktop.dropFailed'), err instanceof Error ? err.message : String(err));
+          return false;
+        }
+      });
       ipcMain.handle('desktop:zone:rename', (e, title: string, tabId?: string) => {
         const z = groupZone(e, tabId);
         if (z && typeof title === 'string' && title.trim()) patchZone(z.id, { title: title.trim().slice(0, 80) });

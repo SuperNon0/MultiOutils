@@ -24,6 +24,42 @@ import type {
 export type Unsubscribe = () => void;
 
 export interface PreloadApi {
+  /** Module Fichiers : gestionnaire de fichiers (common/files.ts). */
+  fm: {
+    places(): Promise<{ places: import('./files').FilePlace[]; zones: import('./files').FilePlace[] }>;
+    setFavorites(paths: string[]): Promise<void>;
+    list(dir: string): Promise<import('./files').FolderListing>;
+    children(dir: string): Promise<import('./files').FileEntry[]>;
+    open(path: string): Promise<string | null>;
+    reveal(path: string): Promise<void>;
+    copyPaths(paths: string[]): Promise<void>;
+    rename(path: string, name: string): Promise<boolean>;
+    batchRename(paths: string[], names: string[]): Promise<boolean[]>;
+    mkdir(dir: string, name: string): Promise<string | null>;
+    trash(paths: string[]): Promise<number>;
+    transfer(paths: string[], dest: string, copy: boolean): Promise<string>;
+    jobs(): Promise<import('./files').FileJob[]>;
+    job(id: string, action: 'pause' | 'resume' | 'cancel' | 'clear'): Promise<void>;
+    onJobs(cb: (jobs: import('./files').FileJob[]) => void): Unsubscribe;
+    search(text: string, scope: string | null): Promise<import('./files').FileEntry[]>;
+    preview(path: string): Promise<{ kind: 'image' | 'text' | 'thumb' | 'none'; data: string | null; text: string | null; truncated: boolean }>;
+    ocr(path: string): Promise<{ ok: boolean; text?: string; error?: string }>;
+    tags(): Promise<Record<string, string[]>>;
+    setTag(paths: string[], color: string, on: boolean): Promise<Record<string, string[]>>;
+    duplicates(root: string): Promise<import('./files').DupGroup[]>;
+    usage(root: string): Promise<import('./files').UsageItem[]>;
+    stopScan(): Promise<void>;
+    onProgress(cb: (p: { task: 'dups' | 'usage'; done: number; total: number; phase?: 'scan' | 'hash' }) => void): Unsubscribe;
+    trashList(): Promise<Array<{ id: string; name: string; from: string; size: number; deletedAt: string }>>;
+    trashRestore(ids: string[]): Promise<boolean>;
+    emptyTrash(): Promise<boolean>;
+    action(kind: 'zip' | 'unzip' | 'terminal' | 'png' | 'jpg', paths: string[], extra?: string): Promise<{ ok: boolean; path?: string; error?: string }>;
+    startDrag(paths: string[]): void;
+    cleanGet(): Promise<{ rules: import('./files').CleanRule[]; last: number }>;
+    cleanSet(rules: import('./files').CleanRule[]): Promise<import('./files').CleanRule[]>;
+    cleanPreview(rule: import('./files').CleanRule): Promise<string[]>;
+    cleanRun(id?: string): Promise<number>;
+  };
   /** Module Bureau : zones sur le bureau Windows (common/desktop.ts). */
   desktop: {
     getState(): Promise<import('./desktop').DesktopState>;
@@ -70,6 +106,7 @@ export interface PreloadApi {
       importFile(): Promise<'ok' | 'cancel' | 'invalid'>;
     };
     pickFolder(): Promise<string | null>;
+    dropToZone(zoneId: string, paths: string[], copy: boolean): Promise<boolean>;
     /** Règles de rangement et journal. */
     rules: {
       get(): Promise<{ rules: import('./desktop').Rule[]; log: import('./desktop').RuleLogEntry[] }>;
