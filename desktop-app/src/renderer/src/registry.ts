@@ -8,6 +8,7 @@ import { autoclickerModule } from './modules/autoclicker';
 import { clipboardModule } from './modules/clipboard';
 import { colorPickerModule } from './modules/color-picker';
 import { desktopModule } from './modules/desktop';
+import { filesModule } from './modules/files';
 import { launcherModule } from './modules/launcher';
 import { screenshotModule } from './modules/screenshot';
 
@@ -17,5 +18,6 @@ export const modules: ToolModule[] = [
   clipboardModule,
   autoclickerModule,
   launcherModule,
-  desktopModule
+  desktopModule,
+  filesModule
 ].sort((a, b) => a.order - b.order);
