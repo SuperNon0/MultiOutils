@@ -4,6 +4,7 @@ import { ui } from '../../encre/ui';
 import { Icon } from '../../host/Icon';
 import { RegLigne, RegSwitch } from '../../host/reglages';
 import { useI18n } from '../../i18n';
+import { LogTab, RulesTab } from './RulesPanel';
 import './desktop.css';
 
 /** État partagé du module (page et réglages). */
@@ -92,6 +93,17 @@ function ZoneDetail({ zone }: { zone: Zone }): ReactNode {
         </div>
       </RegLigne>
       <RegSwitch titre={t('desktop.menu.lock')} sous={t('desktop.detail.lockSub')} checked={zone.locked} onChange={(v) => up({ locked: v })} />
+      {!zone.tabOf && (
+        <>
+          <RegSwitch titre={t('desktop.menu.roll')} sous={t('desktop.detail.rollSub')} checked={zone.rolled} onChange={(v) => up({ rolled: v })} />
+          <RegSwitch
+            titre={t('desktop.menu.keepOnHide')}
+            sous={t('desktop.detail.keepOnHideSub')}
+            checked={zone.keepOnHide}
+            onChange={(v) => up({ keepOnHide: v })}
+          />
+        </>
+      )}
       {zone.kind === 'folder' ? (
         <RegSwitch titre={t('desktop.menu.navigate')} sous={zone.folder ?? ''} checked={zone.navigate} onChange={(v) => up({ navigate: v })} />
       ) : (
@@ -106,6 +118,7 @@ export function DesktopPanel(): ReactNode {
   const { t } = useI18n();
   const [state] = useDesktopState();
   const [selected, setSelected] = useState<string | null>(null);
+  const [section, setSection] = useState<'zones' | 'rules' | 'log'>('zones');
 
   useEffect(
     () =>
@@ -141,6 +154,8 @@ export function DesktopPanel(): ReactNode {
   };
 
   const sub = (z: Zone): string => {
+    const host = z.tabOf ? state.zones.find((o) => o.id === z.tabOf) : undefined;
+    if (host) return t('desktop.sub.tabOf', { name: host.title });
     if (z.kind === 'folder') return t('desktop.sub.folder', { path: z.folder ?? '—' });
     if (z.inbox) return t('desktop.sub.inbox');
     return t('desktop.sub.shortcuts', { n: z.items.length });
@@ -151,6 +166,10 @@ export function DesktopPanel(): ReactNode {
     <div>
       <div className="page-h">
         <h1 className="page-t">{t('desktop.title')}</h1>
+        <button className="btn sm" title={t('desktop.peek.button')} onClick={() => void window.api.desktop.peek()}>
+          <Icon name="eye" size={16} />
+          {t('desktop.peek.button')}
+        </button>
         <button className="btn sm" onClick={() => void window.api.desktop.createZone('folder')}>
           <Icon name="folderopen" size={16} />
           {t('desktop.newFolderZone')}
@@ -180,7 +199,19 @@ export function DesktopPanel(): ReactNode {
         </div>
       )}
 
-      {state.zones.length === 0 ? (
+      <div className="chips" role="tablist" style={{ marginBottom: 14 }}>
+        {(['zones', 'rules', 'log'] as const).map((k) => (
+          <button key={k} role="tab" aria-selected={section === k} className={`chip${section === k ? ' on' : ''}`} onClick={() => setSection(k)}>
+            {t(`desktop.section.${k}`)}
+          </button>
+        ))}
+      </div>
+
+      {section === 'rules' ? (
+        <RulesTab state={state} />
+      ) : section === 'log' ? (
+        <LogTab state={state} />
+      ) : state.zones.length === 0 ? (
         <div className="carte bz-vide">
           <h2 className="sec-t">{t('desktop.empty.title')}</h2>
           <p>{t('desktop.empty.text')}</p>
@@ -253,7 +284,7 @@ export function DesktopPanel(): ReactNode {
 
 /** Section « Bureau » des Réglages. */
 export function DesktopSettingsPanel(): ReactNode {
-  const { t } = useI18n();
+  const { t, lang } = useI18n();
   const [state] = useDesktopState();
   if (!state) return null;
   const s = state.settings;
@@ -280,6 +311,83 @@ export function DesktopSettingsPanel(): ReactNode {
         <span className="mono" style={{ width: 44, textAlign: 'right' }}>
           {s.gap} px
         </span>
+      </RegLigne>
+
+      <div className="lbl-mono" style={{ margin: '18px 0 6px' }}>
+        {t('desktop.set.secRoll')}
+      </div>
+      <RegLigne titre={t('desktop.set.rollOpen')} sous={t('desktop.set.rollOpenSub')}>
+        <div className="seg">
+          {(['hover', 'delay', 'click'] as const).map((v) => (
+            <button key={v} className={s.rollOpen === v ? 'on' : ''} onClick={() => set({ rollOpen: v })}>
+              {t(`desktop.set.rollOpen.${v}`)}
+            </button>
+          ))}
+        </div>
+      </RegLigne>
+      {s.rollOpen === 'delay' && (
+        <RegLigne titre={t('desktop.set.rollDelay')} htmlFor="bz-rd">
+          <input id="bz-rd" type="range" min={100} max={2000} step={100} value={s.rollDelay} onChange={(e) => set({ rollDelay: Number(e.target.value) })} />
+          <span className="mono" style={{ width: 60, textAlign: 'right' }}>
+            {s.rollDelay} ms
+          </span>
+        </RegLigne>
+      )}
+      <RegSwitch titre={t('desktop.set.autoRollEdge')} sous={t('desktop.set.autoRollEdgeSub')} checked={s.autoRollEdge} onChange={(v) => set({ autoRollEdge: v })} />
+      <RegLigne titre={t('desktop.set.tabStyle')}>
+        <div className="seg">
+          {(['tabs', 'segments', 'menu'] as const).map((v) => (
+            <button key={v} className={s.tabStyle === v ? 'on' : ''} onClick={() => set({ tabStyle: v })}>
+              {t(`desktop.set.tabStyle.${v}`)}
+            </button>
+          ))}
+        </div>
+      </RegLigne>
+
+      <div className="lbl-mono" style={{ margin: '18px 0 6px' }}>
+        {t('desktop.set.secHide')}
+      </div>
+      <RegSwitch
+        titre={t('desktop.set.dblClickHide')}
+        sous={t(state.native ? 'desktop.set.dblClickHideSub' : 'desktop.native.off')}
+        checked={s.dblClickHide}
+        disabled={!state.native}
+        onChange={(v) => set({ dblClickHide: v })}
+      />
+      <RegLigne titre={t('desktop.set.autoHide')} sous={t('desktop.set.autoHideSub')} htmlFor="bz-ah">
+        <select id="bz-ah" className="select sm" style={{ width: 150 }} value={s.autoHideSec} onChange={(e) => set({ autoHideSec: Number(e.target.value) })}>
+          {[0, 30, 60, 120, 300, 600].map((v) => (
+            <option key={v} value={v}>
+              {v === 0 ? t('desktop.set.never') : v < 60 ? `${v} s` : `${v / 60} min`}
+            </option>
+          ))}
+        </select>
+      </RegLigne>
+      <RegSwitch titre={t('desktop.set.edgeReveal')} sous={t('desktop.set.edgeRevealSub')} checked={s.edgeReveal} onChange={(v) => set({ edgeReveal: v })} />
+
+      <div className="lbl-mono" style={{ margin: '18px 0 6px' }}>
+        {t('desktop.set.secPeek')}
+      </div>
+      <RegLigne titre={t('desktop.set.peekShortcut')} sous={t('desktop.set.peekShortcutSub')}>
+        <span className="kbd">{s.peekShortcut.replace(/\+/g, ' + ').replace('Control', 'Ctrl').replace('Space', lang === 'fr' ? 'Espace' : 'Space')}</span>
+      </RegLigne>
+      <RegLigne titre={t('desktop.set.peekMode')}>
+        <div className="seg">
+          {(['hold', 'toggle'] as const).map((v) => (
+            <button key={v} className={s.peekMode === v ? 'on' : ''} onClick={() => set({ peekMode: v })}>
+              {t(`desktop.set.peekMode.${v}`)}
+            </button>
+          ))}
+        </div>
+      </RegLigne>
+      <RegLigne titre={t('desktop.set.hotCorner')} sous={t('desktop.set.hotCornerSub')} htmlFor="bz-hc">
+        <select id="bz-hc" className="select sm" style={{ width: 150 }} value={s.hotCorner} onChange={(e) => set({ hotCorner: e.target.value as typeof s.hotCorner })}>
+          {(['off', 'top-left', 'top-right', 'bottom-left', 'bottom-right'] as const).map((v) => (
+            <option key={v} value={v}>
+              {t(`desktop.set.hotCorner.${v}`)}
+            </option>
+          ))}
+        </select>
       </RegLigne>
     </div>
   );

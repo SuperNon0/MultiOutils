@@ -7,7 +7,10 @@ body[data-fenetre='zone'],
 body[data-fenetre='zone'] #root,
 html:has(> body[data-fenetre='zone-draw']),
 body[data-fenetre='zone-draw'],
-body[data-fenetre='zone-draw'] #root {
+body[data-fenetre='zone-draw'] #root,
+html:has(> body[data-fenetre='zone-peek']),
+body[data-fenetre='zone-peek'],
+body[data-fenetre='zone-peek'] #root {
   background: transparent;
   height: 100%;
   min-height: 0;
@@ -28,6 +31,25 @@ body[data-fenetre='zone-draw'] #root {
   overflow: hidden;
   color: var(--text);
   font-size: 13px;
+  transition: opacity 0.18s ease;
+}
+.zw.fade {
+  opacity: 0;
+}
+.zw.rolled .zw-h {
+  border-bottom-color: transparent;
+}
+.zw.rolled .zw-body,
+.zw.rolled .zw-crumb {
+  display: none;
+}
+.zw.merge .zw-h {
+  background: var(--acc-dim);
+  box-shadow: inset 0 0 0 2px var(--acc-line);
+}
+.zw.peek {
+  border-color: var(--acc-line);
+  box-shadow: 0 0 0 1px var(--acc-dim);
 }
 .zw.drop {
   border-color: var(--acc-line);
@@ -408,4 +430,211 @@ body[data-fenetre='zone-draw'] #root {
 }
 .bz-det .reg-l:first-of-type {
   border-top: 0;
+}
+
+/* ------------------------------------------------ onglets d'un groupe */
+.zw-tabs {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 2px;
+  overflow: hidden;
+}
+.zw-tabs button {
+  --tc: var(--accent);
+  min-width: 0;
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: 600 12.5px var(--f-ui, inherit);
+  cursor: pointer;
+}
+.zw-tabs button .tl {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.zw-tabs button .tn {
+  font: 500 10.5px var(--f-mono);
+  opacity: 0.75;
+}
+.zw-tabs button:hover {
+  color: var(--text);
+  background: var(--hover, var(--acc-dim));
+}
+.zw-tabs.tabs button.on {
+  color: var(--text);
+  box-shadow: inset 0 -2px 0 var(--tc);
+  border-radius: 7px 7px 0 0;
+}
+.zw-tabs.segments {
+  flex: 0 1 auto;
+  padding: 2px;
+  border-radius: 9px;
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+.zw-tabs.segments button {
+  height: 22px;
+}
+.zw-tabs.segments button.on {
+  color: var(--text);
+  background: var(--pop);
+  box-shadow: 0 0 0 1px var(--line2);
+}
+.zw-tabs input {
+  width: 110px;
+  height: 22px;
+  border-radius: 6px;
+  border: 1px solid var(--acc-line);
+  background: var(--card);
+  padding: 0 6px;
+  font: inherit;
+  color: var(--text);
+}
+.zw-tsel {
+  flex: 1;
+  min-width: 0;
+  height: 26px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  font: 600 13px var(--f-ui, inherit);
+  padding: 0 6px;
+}
+
+/* ------------------------------------------------ voile de l'aperçu */
+.zp {
+  position: fixed;
+  inset: 0;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 28px;
+  animation: zp-in 0.16s ease;
+}
+.zp-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--pop);
+  border: 1px solid var(--line2);
+  color: var(--text);
+  font-size: 13px;
+}
+@keyframes zp-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ------------------------------------------------ règles de rangement */
+.br-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.br-sub {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.br-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.li.br-undone {
+  opacity: 0.6;
+}
+.br-ed {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 2px 2px;
+}
+.br-l {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+.br-seg {
+  min-width: 240px;
+}
+.br-cond {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  gap: 6px;
+  align-items: center;
+}
+.br-cond .select {
+  width: 100%;
+}
+.br-val {
+  height: 34px;
+}
+.br-move {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.br-move .btn {
+  max-width: 100%;
+  min-width: 0;
+}
+.br-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 260px;
+}
+.br-prev {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--acc-dim);
+  color: var(--text);
+  font-size: 13px;
+}
+.br-act {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+@media (max-width: 560px) {
+  .br-cond {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  }
+  .br-cond .br-val,
+  .br-cond > .select:nth-child(3) {
+    grid-column: 1 / 3;
+  }
+}
+.zw-tabs button.on {
+  flex-shrink: 0;
+  max-width: 60%;
 }

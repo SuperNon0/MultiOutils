@@ -15,6 +15,7 @@ import {
   type DesktopEntry,
   type Rect,
   type ZoneIconSize,
+  type ZoneTab,
   type ZoneWindowMsg
 } from '../../../../common/desktop';
 import { Icon } from '../../host/Icon';
@@ -86,21 +87,36 @@ export function ZoneWindow(): ReactNode {
   const [dropOn, setDropOn] = useState(false);
   const [before, setBefore] = useState<string | null>(null);
   const [lasso, setLasso] = useState<Rect | null>(null);
+  const [editTab, setEditTab] = useState<string | null>(null);
+  const [fade, setFade] = useState(false);
+  const [mergeHint, setMergeHint] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const dragDepth = useRef(0);
+  const rollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tabTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     void window.api.desktop.zone.hello().then((m) => m && setMsg(m));
-    const off1 = window.api.desktop.zone.onUpdate(setMsg);
-    const off2 = window.api.desktop.zone.onEdit((e) => {
-      if (e.type === 'title') setEditTitle(true);
-      else if (e.path) setEditItem(e.path);
-    });
-    return () => {
-      off1();
-      off2();
-    };
+    const offs = [
+      window.api.desktop.zone.onUpdate(setMsg),
+      window.api.desktop.zone.onEdit((e) => {
+        if (e.type === 'title') setEditTitle(true);
+        else if (e.type === 'tab' && e.id) setEditTab(e.id);
+        else if (e.path) setEditItem(e.path);
+      }),
+      window.api.desktop.zone.onFade(setFade),
+      window.api.desktop.zone.onMergeHint(setMergeHint)
+    ];
+    return () => offs.forEach((off) => off());
   }, []);
+
+  useEffect(
+    () => () => {
+      if (rollTimer.current) clearTimeout(rollTimer.current);
+      if (tabTimer.current) clearTimeout(tabTimer.current);
+    },
+    []
+  );
 
   // La sélection ne garde que ce qui existe encore.
   useEffect(() => {
@@ -115,8 +131,8 @@ export function ZoneWindow(): ReactNode {
   /* ----------------------------------------- déplacer / redimensionner */
   const startGeom = useCallback(
     (mode: 'move' | 'resize', edges: { e?: boolean; s?: boolean }) => (ev: ReactPointerEvent<HTMLElement>) => {
-      if (ev.button !== 0 || !msg || msg.zone.locked) return;
-      if ((ev.target as HTMLElement).closest('button,input')) return;
+      if (ev.button !== 0 || !msg || msg.host.locked) return;
+      if ((ev.target as HTMLElement).closest('button,input,select')) return;
       ev.preventDefault();
       const el = ev.currentTarget;
       el.setPointerCapture(ev.pointerId);
@@ -159,9 +175,27 @@ export function ZoneWindow(): ReactNode {
   );
 
   if (!msg) return null;
-  const { zone, content, settings } = msg;
+  const { zone, host, tabs, content, settings } = msg;
   const entries = content.entries;
   const order = entries.map((e) => e.path);
+  const collapsed = host.rolled && !msg.expanded && !msg.peek;
+
+  /* ------------------------------------------------------------ repli */
+  const clearRoll = (): void => {
+    if (rollTimer.current) clearTimeout(rollTimer.current);
+    rollTimer.current = null;
+  };
+  const enter = (): void => {
+    clearRoll();
+    if (!host.rolled || msg.expanded || settings.rollOpen === 'click') return;
+    if (settings.rollOpen === 'hover') window.api.desktop.zone.expand(true);
+    else rollTimer.current = setTimeout(() => window.api.desktop.zone.expand(true), settings.rollDelay);
+  };
+  const leave = (): void => {
+    clearRoll();
+    if (!host.rolled || !msg.expanded) return;
+    rollTimer.current = setTimeout(() => window.api.desktop.zone.expand(false), 350);
+  };
 
   /* --------------------------------------------------------- sélection */
   const clickEntry = (e: ReactPointerEvent | React.MouseEvent, p: string): void => {
@@ -188,7 +222,11 @@ export function ZoneWindow(): ReactNode {
   };
 
   const onKey = (e: ReactKeyboardEvent): void => {
-    if (editItem || editTitle) return;
+    if (editItem || editTitle || editTab) return;
+    if (e.key === 'Escape' && msg.peek) {
+      window.api.desktop.peekStop();
+      return;
+    }
     if (e.key === 'Enter' && sel.size > 0) [...sel].forEach(open);
     else if (e.key === 'F2' && sel.size === 1) setEditItem([...sel][0]);
     else if (e.key === 'a' && e.ctrlKey) {
@@ -249,6 +287,7 @@ export function ZoneWindow(): ReactNode {
     if (!e.dataTransfer.types.includes('Files')) return;
     dragDepth.current++;
     setDropOn(true);
+    if (collapsed) window.api.desktop.zone.expand(true);
   };
   const dragLeave = (): void => {
     dragDepth.current = Math.max(0, dragDepth.current - 1);
@@ -363,20 +402,88 @@ export function ZoneWindow(): ReactNode {
     );
   }
 
-  return (
-    <div
-      className={`zw${zone.locked ? '' : ' unlocked'}${dropOn ? ' drop' : ''}`}
-      style={style}
-      tabIndex={-1}
-      onKeyDown={onKey}
-      onDragEnter={dragEnter}
-      onDragOver={dragOver}
-      onDragLeave={dragLeave}
-      onDrop={drop}
-    >
-      <div className="zw-h" onPointerDown={startGeom('move', {})} onContextMenu={(e) => menuAt(e)}>
-        {zone.kind === 'folder' ? <Icon name="folderopen" size={16} /> : <span className="zw-dot" />}
-        <span className="zw-t" onDoubleClick={() => setEditTitle(true)}>
+  /* ------------------------------------------------------------ onglets */
+  const tabDrop = (e: ReactDragEvent, id: string): void => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragDepth.current = 0;
+    setDropOn(false);
+    if (tabTimer.current) clearTimeout(tabTimer.current);
+    const paths = window.api.files.pathsFor([...e.dataTransfer.files]);
+    if (paths.length) void window.api.desktop.zone.drop(paths, e.ctrlKey, undefined, id);
+  };
+  const tabHover = (id: string): void => {
+    if (tabTimer.current) clearTimeout(tabTimer.current);
+    if (id !== zone.id) tabTimer.current = setTimeout(() => window.api.desktop.zone.tab(id), 600);
+  };
+  const tabLabel = (tb: ZoneTab): ReactNode =>
+    editTab === tb.id ? (
+      <RenameInput
+        value={tb.title}
+        onDone={(v) => {
+          setEditTab(null);
+          if (v && v.trim()) void window.api.desktop.zone.rename(v, tb.id);
+        }}
+      />
+    ) : (
+      tb.title
+    );
+  const grouped = tabs.length > 1;
+  let heading: ReactNode;
+  if (grouped && settings.tabStyle === 'menu') {
+    heading = (
+      <select
+        className="zw-tsel"
+        value={zone.id}
+        aria-label={t('desktop.tab.pick')}
+        onChange={(e) => window.api.desktop.zone.tab(e.target.value)}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          window.api.desktop.zone.tabMenu(zone.id);
+        }}
+      >
+        {tabs.map((tb) => (
+          <option key={tb.id} value={tb.id}>
+            {tb.title} ({tb.count})
+          </option>
+        ))}
+      </select>
+    );
+  } else if (grouped) {
+    heading = (
+      <div className={`zw-tabs ${settings.tabStyle}`} role="tablist">
+        {tabs.map((tb) => (
+          <button
+            key={tb.id}
+            role="tab"
+            aria-selected={tb.id === zone.id}
+            className={tb.id === zone.id ? 'on' : ''}
+            style={{ '--tc': tb.color ?? 'var(--accent)' } as CSSProperties}
+            onClick={() => window.api.desktop.zone.tab(tb.id)}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              window.api.desktop.zone.tabMenu(tb.id);
+            }}
+            onDragOver={(e) => {
+              if (!e.dataTransfer.types.includes('Files')) return;
+              e.preventDefault();
+              e.dataTransfer.dropEffect = e.ctrlKey ? 'copy' : 'move';
+            }}
+            onDragEnter={() => tabHover(tb.id)}
+            onDrop={(e) => tabDrop(e, tb.id)}
+          >
+            <span className="tl">{tabLabel(tb)}</span>
+            <span className="tn">{tb.count}</span>
+          </button>
+        ))}
+      </div>
+    );
+  } else {
+    heading = (
+      <>
+        <span className="zw-t">
           {editTitle ? (
             <RenameInput
               value={zone.title}
@@ -390,7 +497,41 @@ export function ZoneWindow(): ReactNode {
           )}
         </span>
         <span className="zw-n">{entries.length}</span>
-        {zone.locked && <Icon name="lock" size={14} />}
+      </>
+    );
+  }
+
+  return (
+    <div
+      className={`zw${host.locked ? '' : ' unlocked'}${dropOn ? ' drop' : ''}${collapsed ? ' rolled' : ''}${fade ? ' fade' : ''}${
+        mergeHint ? ' merge' : ''
+      }${msg.peek ? ' peek' : ''}`}
+      style={style}
+      tabIndex={-1}
+      onKeyDown={onKey}
+      onPointerEnter={enter}
+      onPointerLeave={leave}
+      onDragEnter={dragEnter}
+      onDragOver={dragOver}
+      onDragLeave={dragLeave}
+      onDrop={drop}
+    >
+      <div
+        className="zw-h"
+        onPointerDown={startGeom('move', {})}
+        onContextMenu={(e) => menuAt(e)}
+        onClick={(e) => {
+          if (collapsed && settings.rollOpen === 'click' && !(e.target as HTMLElement).closest('button,input,select')) {
+            window.api.desktop.zone.expand(true);
+          }
+        }}
+        onDoubleClick={(e) => {
+          if (!(e.target as HTMLElement).closest('button,input,select')) window.api.desktop.zone.roll();
+        }}
+      >
+        {zone.kind === 'folder' ? <Icon name="folderopen" size={16} /> : <span className="zw-dot" />}
+        {heading}
+        {host.locked && <Icon name="lock" size={14} />}
         <button className="zw-ib" title={t('desktop.zone.menu')} onClick={(e) => menuAt(e)}>
           <Icon name="dots" size={16} />
         </button>
@@ -413,7 +554,7 @@ export function ZoneWindow(): ReactNode {
         {body}
         {lasso && <div className="zw-lasso" style={{ left: lasso.x, top: lasso.y, width: lasso.width, height: lasso.height }} />}
       </div>
-      {!zone.locked && (
+      {!host.locked && !collapsed && (
         <>
           <div className="zw-grip e" onPointerDown={startGeom('resize', { e: true })} />
           <div className="zw-grip s" onPointerDown={startGeom('resize', { s: true })} />

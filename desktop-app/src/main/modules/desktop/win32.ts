@@ -23,6 +23,14 @@ interface User32 {
   SetWindowPos(hwnd: Hwnd, after: Hwnd, x: number, y: number, cx: number, cy: number, flags: number): boolean;
   SetWindowLongPtrW(hwnd: Hwnd, index: number, value: Hwnd): Hwnd;
   EnumWindows(cb: unknown, lParam: number): boolean;
+  WindowFromPoint(pt: { x: number; y: number }): Hwnd;
+  GetAncestor(hwnd: Hwnd, flags: number): Hwnd;
+  GetClassNameW(hwnd: Hwnd, buf: Buffer, max: number): number;
+  GetAsyncKeyState(vk: number): number;
+  GetDoubleClickTime(): number;
+  SetWindowsHookExW(id: number, cb: unknown, mod: Hwnd, thread: number): Hwnd;
+  CallNextHookEx(hook: Hwnd, code: number, w: bigint | number, l: unknown): Hwnd;
+  UnhookWindowsHookEx(hook: Hwnd): boolean;
 }
 
 const SW_HIDE = 0;
@@ -42,6 +50,8 @@ let koffiRef: {
   proto(sig: string): unknown;
 } | null = null;
 let enumProto: unknown = null;
+let mouseProto: unknown = null;
+let getModuleHandle: ((name: string | null) => Hwnd) | null = null;
 let initPromise: Promise<void> | null = null;
 let initError: string | null = null;
 
@@ -61,6 +71,12 @@ async function init(): Promise<void> {
     };
     const lib = koffi.load('user32.dll');
     enumProto = koffi.proto('bool __stdcall MoEnumWindowsProc(intptr hwnd, intptr lParam)');
+    const k = koffi as unknown as { struct(name: string, def: Record<string, unknown>): unknown };
+    k.struct('MO_POINT', { x: 'long', y: 'long' });
+    k.struct('MO_MSLLHOOKSTRUCT', { pt: 'MO_POINT', mouseData: 'uint32', flags: 'uint32', time: 'uint32', extra: 'uintptr' });
+    mouseProto = koffi.proto('intptr __stdcall MoLowLevelMouseProc(int nCode, uintptr wParam, MO_MSLLHOOKSTRUCT *lParam)');
+    const kernel32 = koffi.load('kernel32.dll');
+    getModuleHandle = kernel32.func('intptr __stdcall GetModuleHandleW(str16 name)') as (n: string | null) => Hwnd;
     user32 = {
       FindWindowW: lib.func('intptr __stdcall FindWindowW(str16 cls, str16 title)') as User32['FindWindowW'],
       FindWindowExW: lib.func(
@@ -76,7 +92,19 @@ async function init(): Promise<void> {
       ) as User32['SetWindowLongPtrW'],
       EnumWindows: lib.func(
         'bool __stdcall EnumWindows(MoEnumWindowsProc *cb, intptr lParam)'
-      ) as User32['EnumWindows']
+      ) as User32['EnumWindows'],
+      WindowFromPoint: lib.func('intptr __stdcall WindowFromPoint(MO_POINT pt)') as User32['WindowFromPoint'],
+      GetAncestor: lib.func('intptr __stdcall GetAncestor(intptr hwnd, uint32 flags)') as User32['GetAncestor'],
+      GetClassNameW: lib.func('int __stdcall GetClassNameW(intptr hwnd, void *buf, int max)') as User32['GetClassNameW'],
+      GetAsyncKeyState: lib.func('int16 __stdcall GetAsyncKeyState(int vk)') as User32['GetAsyncKeyState'],
+      GetDoubleClickTime: lib.func('uint32 __stdcall GetDoubleClickTime()') as User32['GetDoubleClickTime'],
+      SetWindowsHookExW: lib.func(
+        'intptr __stdcall SetWindowsHookExW(int id, MoLowLevelMouseProc *cb, intptr mod, uint32 thread)'
+      ) as User32['SetWindowsHookExW'],
+      CallNextHookEx: lib.func(
+        'intptr __stdcall CallNextHookEx(intptr hook, int code, uintptr w, MO_MSLLHOOKSTRUCT *l)'
+      ) as User32['CallNextHookEx'],
+      UnhookWindowsHookEx: lib.func('bool __stdcall UnhookWindowsHookEx(intptr hook)') as User32['UnhookWindowsHookEx']
     };
     koffiRef = koffi;
   } catch (err) {
@@ -151,6 +179,13 @@ export function pinToDesktop(hwnd: Hwnd): boolean {
   return sendToBottom(hwnd);
 }
 
+/** Détache la fenêtre du bureau (aperçu au-dessus des autres fenêtres). */
+export function unpinFromDesktop(hwnd: Hwnd): boolean {
+  if (!user32) return false;
+  user32.SetWindowLongPtrW(hwnd, GWLP_HWNDPARENT, 0n);
+  return true;
+}
+
 export function sendToBottom(hwnd: Hwnd): boolean {
   if (!user32) return false;
   return user32.SetWindowPos(
@@ -172,4 +207,94 @@ export function setNativeIconsVisible(visible: boolean): boolean {
   if (Boolean(user32.IsWindowVisible(lv)) === visible) return true;
   user32.ShowWindow(lv, visible ? SW_SHOW : SW_HIDE);
   return true;
+}
+
+/* -------------------------------------------- clics sur le bureau vide */
+const WH_MOUSE_LL = 14;
+const WM_LBUTTONDOWN = 0x0201;
+const GA_ROOT = 2;
+let hook: Hwnd = 0n;
+let hookCb: unknown = null;
+
+function classOf(hwnd: Hwnd): string {
+  if (!user32 || !hwnd) return '';
+  const buf = Buffer.alloc(512);
+  const n = user32.GetClassNameW(hwnd, buf, 256);
+  return n > 0 ? buf.toString('utf16le', 0, n * 2) : '';
+}
+
+/**
+ * Le point est-il sur le bureau vide ? Vrai pour le fond (Progman / WorkerW)
+ * et pour la liste d'icônes quand elle est masquée par le module.
+ */
+export function isDesktopAt(x: number, y: number): boolean {
+  if (!user32) return false;
+  const w = big(user32.WindowFromPoint({ x, y }));
+  if (!w) return false;
+  const cls = classOf(w);
+  const root = classOf(big(user32.GetAncestor(w, GA_ROOT)));
+  if (cls === 'SysListView32') return false; // icônes Windows visibles : impossible de savoir si on clique une icône
+  return root === 'Progman' || root === 'WorkerW';
+}
+
+/**
+ * Surveille les clics gauches sur le bureau vide (crochet souris bas niveau).
+ * `onClick` reçoit chaque clic, `onDouble` les doubles-clics. Le travail est
+ * reporté (setImmediate) pour rendre la main à Windows immédiatement.
+ */
+export function watchDesktopClicks(onClick: () => void, onDouble: () => void): () => void {
+  if (!user32 || !koffiRef || !getModuleHandle || hook) return () => undefined;
+  const u = user32;
+  const dbl = Number(u.GetDoubleClickTime()) || 500;
+  let last = { t: 0, x: 0, y: 0 };
+  hookCb = koffiRef.register(
+    ((code: number, wParam: unknown, info: { pt: { x: number; y: number } }) => {
+      try {
+        if (code >= 0 && Number(wParam) === WM_LBUTTONDOWN && info) {
+          const { x, y } = info.pt;
+          const now = Date.now();
+          if (isDesktopAt(x, y)) {
+            const isDouble = now - last.t <= dbl && Math.abs(x - last.x) <= 4 && Math.abs(y - last.y) <= 4;
+            last = isDouble ? { t: 0, x: 0, y: 0 } : { t: now, x, y };
+            setImmediate(isDouble ? onDouble : onClick);
+          } else {
+            last = { t: 0, x: 0, y: 0 };
+          }
+        }
+      } catch {
+        // ne jamais bloquer la souris
+      }
+      return u.CallNextHookEx(0n, code, BigInt(Number(wParam) || 0), info);
+    }) as (...a: unknown[]) => unknown,
+    koffiRef.pointer(mouseProto)
+  );
+  hook = big(u.SetWindowsHookExW(WH_MOUSE_LL, hookCb, big(getModuleHandle(null)), 0));
+  if (!hook) {
+    koffiRef.unregister(hookCb);
+    hookCb = null;
+    return () => undefined;
+  }
+  return () => {
+    if (hook) u.UnhookWindowsHookEx(hook);
+    hook = 0n;
+    if (hookCb && koffiRef) koffiRef.unregister(hookCb);
+    hookCb = null;
+  };
+}
+
+/** Touche enfoncée ? (pour l'aperçu en mode « maintenir »). */
+export function isKeyDown(vk: number): boolean {
+  if (!user32) return false;
+  return (Number(user32.GetAsyncKeyState(vk)) & 0x8000) !== 0;
+}
+
+/** Code de touche virtuelle de la dernière touche d'un raccourci Electron. */
+export function vkOfAccelerator(accel: string): number | null {
+  const key = accel.split('+').pop()?.trim() ?? '';
+  if (/^[A-Z]$/i.test(key)) return key.toUpperCase().charCodeAt(0);
+  if (/^[0-9]$/.test(key)) return key.charCodeAt(0);
+  const f = /^F([1-9]|1[0-9]|2[0-4])$/i.exec(key);
+  if (f) return 0x6f + Number(f[1]);
+  const named: Record<string, number> = { Space: 0x20, Tab: 0x09, Enter: 0x0d, Return: 0x0d, Escape: 0x1b, Backspace: 0x08 };
+  return named[key] ?? null;
 }

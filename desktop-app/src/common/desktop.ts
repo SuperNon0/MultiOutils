@@ -44,6 +44,16 @@ export interface Zone {
   locked: boolean;
   enabled: boolean;
   createdAt: number;
+  /** Repliée : seule la barre de titre reste visible (se déplie au survol ou au clic). */
+  rolled: boolean;
+  /** Onglet : id de la zone qui l'héberge (null = zone indépendante). */
+  tabOf: string | null;
+  /** Zone hôte d'un groupe d'onglets : onglet affiché (null = elle-même). */
+  activeTab: string | null;
+  /** Ordre de l'onglet dans son groupe. */
+  tabOrder: number;
+  /** Reste visible quand on masque le bureau (double-clic). */
+  keepOnHide: boolean;
 }
 
 export interface DesktopSettings {
@@ -57,6 +67,25 @@ export interface DesktopSettings {
   snap: boolean;
   /** Espace laissé entre deux zones aimantées (px). */
   gap: number;
+  /** Ouverture d'une zone repliée : au survol, après un délai, ou au clic. */
+  rollOpen: 'hover' | 'delay' | 'click';
+  /** Délai de survol avant ouverture (ms), pour rollOpen = 'delay'. */
+  rollDelay: number;
+  /** Une zone collée au bord haut de l'écran se replie toute seule. */
+  autoRollEdge: boolean;
+  /** Double-clic sur le bureau vide : masquer / réafficher les zones. */
+  dblClickHide: boolean;
+  /** Masquage automatique après N secondes sans utiliser le bureau (0 = jamais). */
+  autoHideSec: number;
+  /** Zones masquées : les réafficher quand la souris touche un bord d'écran. */
+  edgeReveal: boolean;
+  /** Aperçu au-dessus des fenêtres : raccourci et mode. */
+  peekShortcut: string;
+  peekMode: 'hold' | 'toggle';
+  /** Coin actif qui lance l'aperçu. */
+  hotCorner: 'off' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+  /** Style des onglets d'un groupe. */
+  tabStyle: 'tabs' | 'segments' | 'menu';
 }
 
 export type EntryKind =
@@ -108,11 +137,28 @@ export interface DesktopState {
   displays: Array<{ id: string; label: string; workArea: { x: number; y: number; width: number; height: number }; primary: boolean }>;
 }
 
-/** Message envoyé à la fenêtre d'une zone. */
+export interface ZoneTab {
+  id: string;
+  title: string;
+  color: string | null;
+  kind: ZoneKind;
+  count: number;
+}
+
+/** Message envoyé à la fenêtre d'une zone (ou d'un groupe d'onglets). */
 export interface ZoneWindowMsg {
+  /** Zone affichée (l'onglet actif d'un groupe). */
   zone: Zone;
+  /** Zone qui porte la fenêtre (position, repli). */
+  host: Zone;
+  /** Onglets du groupe (une seule entrée = zone simple). */
+  tabs: ZoneTab[];
   content: ZoneContent;
   settings: DesktopSettings;
+  /** La zone est-elle dépliée temporairement (survol d'une zone repliée) ? */
+  expanded: boolean;
+  /** Aperçu au-dessus des fenêtres en cours. */
+  peek: boolean;
 }
 
 export const ZONE_MIN_WIDTH = 160;
@@ -122,7 +168,27 @@ export const ZONE_TITLE_HEIGHT = 36;
 export const ZONE_COLORS = ['#a99bff', '#e0a33a', '#2fae95', '#e46a52', '#5b7be0', '#b25fd6', '#2f9e5a', '#d9534f'];
 
 export function defaultDesktopSettings(): DesktopSettings {
-  return { enabled: true, hideNativeIcons: true, opacity: 90, snap: true, gap: 12 };
+  return {
+    enabled: true,
+    hideNativeIcons: true,
+    opacity: 90,
+    snap: true,
+    gap: 12,
+    rollOpen: 'delay',
+    rollDelay: 400,
+    autoRollEdge: false,
+    dblClickHide: true,
+    autoHideSec: 0,
+    edgeReveal: false,
+    peekShortcut: 'Control+Alt+Space',
+    peekMode: 'hold',
+    hotCorner: 'off',
+    tabStyle: 'tabs'
+  };
+}
+
+function oneOf<T extends string>(v: unknown, list: readonly T[], fallback: T): T {
+  return list.includes(v as T) ? (v as T) : fallback;
 }
 
 export function normalizeSettings(raw: Partial<DesktopSettings> | null | undefined): DesktopSettings {
@@ -133,7 +199,17 @@ export function normalizeSettings(raw: Partial<DesktopSettings> | null | undefin
     hideNativeIcons: Boolean(s.hideNativeIcons),
     opacity: clamp(Math.round(Number(s.opacity) || d.opacity), 40, 100),
     snap: Boolean(s.snap),
-    gap: clamp(Math.round(Number(s.gap) || 0), 0, 64)
+    gap: clamp(Math.round(Number(s.gap) || 0), 0, 64),
+    rollOpen: oneOf(s.rollOpen, ['hover', 'delay', 'click'] as const, d.rollOpen),
+    rollDelay: clamp(Math.round(Number(s.rollDelay) || 0), 0, 3000),
+    autoRollEdge: Boolean(s.autoRollEdge),
+    dblClickHide: Boolean(s.dblClickHide),
+    autoHideSec: clamp(Math.round(Number(s.autoHideSec) || 0), 0, 3600),
+    edgeReveal: Boolean(s.edgeReveal),
+    peekShortcut: typeof s.peekShortcut === 'string' ? s.peekShortcut : d.peekShortcut,
+    peekMode: oneOf(s.peekMode, ['hold', 'toggle'] as const, d.peekMode),
+    hotCorner: oneOf(s.hotCorner, ['off', 'top-left', 'top-right', 'bottom-left', 'bottom-right'] as const, d.hotCorner),
+    tabStyle: oneOf(s.tabStyle, ['tabs', 'segments', 'menu'] as const, d.tabStyle)
   };
 }
 
@@ -390,6 +466,11 @@ export function newZone(
     locked: false,
     enabled: true,
     createdAt: Date.now(),
+    rolled: false,
+    tabOf: null,
+    activeTab: null,
+    tabOrder: 0,
+    keepOnHide: false,
     ...extra
   };
 }
@@ -421,7 +502,12 @@ export function normalizeZone(raw: Partial<Zone> & { id: string }): Zone {
     navigate: raw.navigate !== false,
     locked: Boolean(raw.locked),
     enabled: raw.enabled !== false,
-    createdAt: Number(raw.createdAt) || Date.now()
+    createdAt: Number(raw.createdAt) || Date.now(),
+    rolled: Boolean(raw.rolled),
+    tabOf: typeof raw.tabOf === 'string' && raw.tabOf !== raw.id ? raw.tabOf : null,
+    activeTab: typeof raw.activeTab === 'string' ? raw.activeTab : null,
+    tabOrder: Number(raw.tabOrder) || 0,
+    keepOnHide: Boolean(raw.keepOnHide)
   };
 }
 
@@ -437,4 +523,225 @@ export function formatSize(bytes: number, lang = 'fr'): string {
   }
   const n = v >= 100 ? Math.round(v).toString() : v.toFixed(1);
   return `${lang === 'fr' ? n.replace('.', ',') : n} ${units[i]}`;
+}
+
+/* ---------------------------------------------------------- onglets */
+/** Membres d'un groupe : l'hôte puis ses onglets, dans l'ordre. */
+export function groupOf(zones: Zone[], hostId: string): Zone[] {
+  const host = zones.find((z) => z.id === hostId);
+  if (!host) return [];
+  const members = zones.filter((z) => z.tabOf === hostId).sort((a, b) => a.tabOrder - b.tabOrder);
+  return [host, ...members];
+}
+
+/** Hôte de la fenêtre qui affiche une zone (elle-même si indépendante). */
+export function hostIdOf(zones: Zone[], id: string): string {
+  const z = zones.find((o) => o.id === id);
+  return z?.tabOf && zones.some((o) => o.id === z.tabOf) ? z.tabOf : id;
+}
+
+/** Ajoute `zoneId` (et ses propres onglets) au groupe de `targetId`, et l'affiche. */
+export function mergeTab(zones: Zone[], zoneId: string, targetId: string): Zone[] {
+  const hostId = hostIdOf(zones, targetId);
+  if (hostIdOf(zones, zoneId) === hostId) return zones;
+  const moving = new Set([zoneId, ...zones.filter((z) => z.tabOf === zoneId).map((z) => z.id)]);
+  let order = Math.max(0, ...zones.filter((z) => z.tabOf === hostId).map((z) => z.tabOrder));
+  return zones.map((z) => {
+    if (moving.has(z.id)) return { ...z, tabOf: hostId, activeTab: null, rolled: false, tabOrder: ++order };
+    if (z.id === hostId) return { ...z, activeTab: zoneId };
+    return z;
+  });
+}
+
+/** Sort un onglet de son groupe ; si c'est l'hôte, le suivant prend sa place. */
+export function detachTab(zones: Zone[], zoneId: string, bounds: ZoneBounds): Zone[] {
+  const z = zones.find((o) => o.id === zoneId);
+  if (!z) return zones;
+  if (z.tabOf) {
+    const hostId = z.tabOf;
+    return zones.map((o) =>
+      o.id === zoneId
+        ? { ...o, tabOf: null, activeTab: null, bounds }
+        : o.id === hostId && o.activeTab === zoneId
+          ? { ...o, activeTab: null }
+          : o
+    );
+  }
+  const members = groupOf(zones, zoneId).slice(1);
+  if (members.length === 0) return zones;
+  const heir = members[0];
+  return zones.map((o) => {
+    if (o.id === zoneId) return { ...o, activeTab: null, bounds };
+    if (o.id === heir.id) return { ...o, tabOf: null, activeTab: null, bounds: z.bounds, rolled: z.rolled };
+    if (o.tabOf === zoneId) return { ...o, tabOf: heir.id };
+    return o;
+  });
+}
+
+/** Décale un onglet d'un cran (-1 à gauche, +1 à droite) dans son groupe. */
+export function moveTab(zones: Zone[], zoneId: string, dir: -1 | 1): Zone[] {
+  const hostId = hostIdOf(zones, zoneId);
+  const members = groupOf(zones, hostId).slice(1);
+  const i = members.findIndex((m) => m.id === zoneId);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= members.length) return zones;
+  const order = new Map(members.map((m, k) => [m.id, k]));
+  order.set(members[i].id, j);
+  order.set(members[j].id, i);
+  return zones.map((o) => (order.has(o.id) ? { ...o, tabOrder: order.get(o.id)! } : o));
+}
+
+/* ------------------------------------------------------------ règles */
+export type RuleField = 'kind' | 'ext' | 'name' | 'target' | 'age' | 'size';
+export type RuleOp = 'is' | 'isNot' | 'contains' | 'startsWith' | 'endsWith' | 'equals' | 'regex' | 'gt' | 'lt';
+
+export interface RuleCondition {
+  field: RuleField;
+  op: RuleOp;
+  value: string;
+}
+
+export type RuleAction =
+  /** Ranger dans une zone (les fichiers restent sur le Bureau). */
+  | { type: 'zone'; zoneId: string }
+  /** Déplacer vraiment les fichiers d'un dossier vers un autre. */
+  | { type: 'move'; source: string; dest: string };
+
+export interface Rule {
+  id: string;
+  name: string;
+  enabled: boolean;
+  match: 'all' | 'any';
+  conditions: RuleCondition[];
+  action: RuleAction;
+  /** 'continuous' : surveille les nouveaux fichiers ; 'once' : seulement à la demande. */
+  mode: 'once' | 'continuous';
+}
+
+export interface RuleLogEntry {
+  id: string;
+  at: number;
+  ruleId: string;
+  ruleName: string;
+  name: string;
+  action: 'zone' | 'move';
+  /** zone : zone d'arrivée ; move : chemins d'origine et d'arrivée. */
+  zoneId?: string;
+  from?: string;
+  to?: string;
+  undone?: boolean;
+}
+
+/** Champs pour lesquels chaque opérateur a un sens. */
+export const RULE_OPS: Record<RuleField, RuleOp[]> = {
+  kind: ['is', 'isNot'],
+  ext: ['is', 'isNot'],
+  name: ['contains', 'startsWith', 'endsWith', 'equals', 'regex'],
+  target: ['contains', 'startsWith', 'endsWith', 'equals', 'regex'],
+  age: ['gt', 'lt'],
+  size: ['gt', 'lt']
+};
+
+const DAY = 86_400_000;
+
+function textTest(op: RuleOp, hay: string, needle: string): boolean {
+  const h = hay.toLowerCase();
+  const n = needle.toLowerCase();
+  switch (op) {
+    case 'contains':
+      return h.includes(n);
+    case 'startsWith':
+      return h.startsWith(n);
+    case 'endsWith':
+      return h.endsWith(n);
+    case 'equals':
+      return h === n;
+    case 'regex':
+      try {
+        return new RegExp(needle, 'i').test(hay);
+      } catch {
+        return false;
+      }
+    default:
+      return false;
+  }
+}
+
+/** Une condition est-elle vraie pour cet élément ? (`target` : cible d'un raccourci) */
+export function matchCondition(c: RuleCondition, e: DesktopEntry & { target?: string | null }, now: number): boolean {
+  const v = c.value.trim();
+  switch (c.field) {
+    case 'kind': {
+      const ok = e.kind === v || (v === 'shortcut' && e.kind === 'app' && e.ext === 'url');
+      return c.op === 'isNot' ? !ok : ok;
+    }
+    case 'ext': {
+      const list = v.split(/[\s,;]+/).map((x) => x.replace(/^\./, '').toLowerCase()).filter(Boolean);
+      const ok = list.includes(e.ext);
+      return c.op === 'isNot' ? !ok : ok;
+    }
+    case 'name':
+      return v !== '' && textTest(c.op, e.name, v);
+    case 'target':
+      return v !== '' && !!e.target && textTest(c.op, e.target, v);
+    case 'age': {
+      const days = (now - e.mtime) / DAY;
+      const n = Number(v.replace(',', '.'));
+      if (!Number.isFinite(n)) return false;
+      return c.op === 'gt' ? days > n : days < n;
+    }
+    case 'size': {
+      if (e.isDir) return false;
+      const mo = e.size / (1024 * 1024);
+      const n = Number(v.replace(',', '.'));
+      if (!Number.isFinite(n)) return false;
+      return c.op === 'gt' ? mo > n : mo < n;
+    }
+    default:
+      return false;
+  }
+}
+
+export function matchRule(rule: Rule, e: DesktopEntry & { target?: string | null }, now: number): boolean {
+  if (rule.conditions.length === 0) return false;
+  return rule.match === 'any'
+    ? rule.conditions.some((c) => matchCondition(c, e, now))
+    : rule.conditions.every((c) => matchCondition(c, e, now));
+}
+
+/** Première règle active (dans l'ordre de priorité) qui range cet élément dans une zone. */
+export function firstZoneRule(
+  rules: Rule[],
+  e: DesktopEntry & { target?: string | null },
+  now: number,
+  opts: { continuousOnly?: boolean } = {}
+): Rule | undefined {
+  return rules.find(
+    (r) => r.enabled && r.action.type === 'zone' && (!opts.continuousOnly || r.mode === 'continuous') && matchRule(r, e, now)
+  );
+}
+
+export function normalizeRule(raw: Partial<Rule> & { id: string }): Rule {
+  const fields = Object.keys(RULE_OPS) as RuleField[];
+  const conditions = (Array.isArray(raw.conditions) ? raw.conditions : [])
+    .filter((c) => c && fields.includes(c.field))
+    .map((c) => ({
+      field: c.field,
+      op: RULE_OPS[c.field].includes(c.op) ? c.op : RULE_OPS[c.field][0],
+      value: String(c.value ?? '')
+    }));
+  const a = raw.action;
+  const action: RuleAction =
+    a && a.type === 'move'
+      ? { type: 'move', source: String(a.source ?? ''), dest: String(a.dest ?? '') }
+      : { type: 'zone', zoneId: String((a as { zoneId?: string } | undefined)?.zoneId ?? '') };
+  return {
+    id: raw.id,
+    name: String(raw.name ?? '').slice(0, 80),
+    enabled: raw.enabled !== false,
+    match: raw.match === 'any' ? 'any' : 'all',
+    conditions,
+    action,
+    mode: raw.mode === 'once' ? 'once' : 'continuous'
+  };
 }
