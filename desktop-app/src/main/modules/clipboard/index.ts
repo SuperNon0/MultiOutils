@@ -579,7 +579,9 @@ export function createClipboardMainModule(): MainToolModule {
 
       ipcMain.handle('clips:list', (): ClipItem[] => {
         const rows = ctx.db
-          .prepare('SELECT * FROM clips ORDER BY pinned DESC, created_at DESC LIMIT 500')
+          // Les filtres et la recherche portent sur cette liste côté renderer :
+          // ne pas masquer l'historique au-delà d'un nombre arbitraire de clips.
+          .prepare('SELECT * FROM clips ORDER BY pinned DESC, created_at DESC')
           .all() as ClipRow[];
         return rows.map(rowToItem);
       });
