@@ -18,6 +18,35 @@ function subscribe<T>(channel: string, cb: (payload: T) => void): Unsubscribe {
 }
 
 const api: PreloadApi = {
+  desktop: {
+    getState: () => ipcRenderer.invoke('desktop:getState'),
+    setSettings: (patch) => ipcRenderer.invoke('desktop:setSettings', patch),
+    createZone: (kind) => ipcRenderer.invoke('desktop:createZone', kind),
+    draw: () => ipcRenderer.invoke('desktop:draw'),
+    starter: () => ipcRenderer.invoke('desktop:starter'),
+    updateZone: (id, patch) => ipcRenderer.invoke('desktop:updateZone', id, patch),
+    deleteZone: (id) => ipcRenderer.invoke('desktop:deleteZone', id),
+    restoreZone: (zone) => ipcRenderer.invoke('desktop:restoreZone', zone),
+    icon: (p, size) => ipcRenderer.invoke('desktop:icon', p, size),
+    onState: (cb) => subscribe('desktop:state', cb),
+    onZoneDeleted: (cb) => subscribe('desktop:zoneDeleted', cb),
+    zone: {
+      hello: () => ipcRenderer.invoke('desktop:zone:hello'),
+      onUpdate: (cb) => subscribe('desktop:zone', cb),
+      onEdit: (cb) => subscribe('desktop:zone:edit', cb),
+      bounds: (rect, final, mode) => ipcRenderer.send('desktop:zone:bounds', rect, final, mode),
+      open: (p) => ipcRenderer.invoke('desktop:zone:open', p),
+      up: () => ipcRenderer.invoke('desktop:zone:up'),
+      home: () => ipcRenderer.invoke('desktop:zone:home'),
+      drop: (paths, copy, before) => ipcRenderer.invoke('desktop:zone:drop', paths, copy, before),
+      rename: (title) => ipcRenderer.invoke('desktop:zone:rename', title),
+      renameItem: (p, name) => ipcRenderer.invoke('desktop:zone:renameItem', p, name),
+      startDrag: (paths) => ipcRenderer.send('desktop:zone:startDrag', paths),
+      menu: (target) => ipcRenderer.send('desktop:zone:menu', target)
+    },
+    drawDone: (payload) => ipcRenderer.send('desktop:draw:done', payload),
+    drawCancel: () => ipcRenderer.send('desktop:draw:cancel')
+  },
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
     set: (patch: Partial<AppSettings>) => ipcRenderer.invoke('settings:set', patch),
