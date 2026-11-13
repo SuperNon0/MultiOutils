@@ -5,6 +5,10 @@
  * dossier Bureau, les fichiers ne bougent pas), zones-dossier (contenu d'un
  * vrai dossier, navigation), zone « À trier », dessin d'une zone sur l'écran,
  * déplacement / redimensionnement aimantés, glisser-déposer, menus.
+ *
+ * Étape 2 : onglets (groupes de zones), repli sur la barre de titre,
+ * masquage du bureau (double-clic, automatique, bords d'écran), aperçu
+ * au-dessus des fenêtres (raccourci, coin actif) et règles de rangement.
  */
 import {
   app,
@@ -19,14 +23,20 @@ import {
   type IpcMainEvent,
   type MenuItemConstructorOptions
 } from 'electron';
+import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
   assignItems,
   clampToArea,
+  detachTab,
   distribute,
   freeSpot,
+  groupOf,
+  hostIdOf,
+  mergeTab,
+  moveTab,
   newZone,
   normalizeSettings,
   normalizeZone,
@@ -34,26 +44,32 @@ import {
   snapRect,
   sortEntries,
   ZONE_COLORS,
+  ZONE_TITLE_HEIGHT,
   type DesktopEntry,
   type DesktopSettings,
   type DesktopState,
   type EntryKind,
   type Rect,
+  type Rule,
   type Zone,
   type ZoneContent,
   type ZoneIconSize,
   type ZoneKind,
   type ZoneSort,
-  type ZoneView
+  type ZoneTab,
+  type ZoneView,
+  type ZoneWindowMsg
 } from '../../../common/desktop';
 import type { MainHostContext, MainToolModule } from '../../module-registry';
 import { desktopDirs, listDesktop, listDir, transfer, watchDirs } from './files';
-import { ensureWin32, setNativeIconsVisible, win32Error } from './win32';
-import { absoluteBounds, displayFor, DrawOverlays, ZoneWindow } from './windows';
+import { createRulesEngine, type RulesEngine } from './rules';
+import { ensureWin32, isKeyDown, setNativeIconsVisible, vkOfAccelerator, watchDesktopClicks, win32Error } from './win32';
+import { absoluteBounds, displayFor, DrawOverlays, PeekOverlays, ZoneWindow } from './windows';
 
 const SETTINGS_KEY = 'desktop.settings';
 const ZONES_KEY = 'desktop.zones';
 const OPENS_KEY = 'desktop.opens';
+const PEEK_SHORTCUT_ID = 'desktop.peek';
 /** Petite image de secours pour un glisser natif (Windows exige une icône). */
 const DOT_PNG =
   'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
@@ -74,6 +90,20 @@ export function createDesktopMainModule(): MainToolModule {
   let stopWatch: (() => void) | null = null;
   let refreshTimer: ReturnType<typeof setTimeout> | null = null;
   let iconsHidden = false;
+  let rules: RulesEngine;
+  /** Zones repliées dépliées pour un moment (survol). */
+  const expanded = new Set<string>();
+  /** Bureau masqué (double-clic ou masquage automatique). */
+  let hidden = false;
+  let peek: { mode: 'hold' | 'toggle'; vk: number | null; since: number } | null = null;
+  const peekOverlays = new PeekOverlays();
+  let lastActivity = Date.now();
+  let pollTimer: ReturnType<typeof setInterval> | null = null;
+  /** Aperçu « tant que je maintiens » : vérifie la touche toutes les 60 ms. */
+  let holdTimer: ReturnType<typeof setInterval> | null = null;
+  let stopClicks: (() => void) | null = null;
+  let cornerArmed = true;
+  let mergeTarget: string | null = null;
 
   /* ---------------------------------------------------------- stockage */
   const kvGet = <T>(key: string, fallback: T): T => {
@@ -116,10 +146,32 @@ export function createDesktopMainModule(): MainToolModule {
     for (const w of windows.values()) if (w.isSender(senderId)) return w;
     return undefined;
   };
-  const zoneOfSender = (e: IpcMainEvent | Electron.IpcMainInvokeEvent): Zone | undefined => {
+  /** Onglet affiché par une zone hôte (elle-même si pas d'onglet actif valide). */
+  const activeOf = (host: Zone): Zone => {
+    const a = host.activeTab ? zoneById(host.activeTab) : undefined;
+    return a && a.tabOf === host.id ? a : host;
+  };
+  /** Zone hôte de la fenêtre qui a envoyé le message. */
+  const hostOfSender = (e: IpcMainEvent | Electron.IpcMainInvokeEvent): Zone | undefined => {
     const w = windowFor(e.sender.id);
     return w ? zoneById(w.zoneId) : undefined;
   };
+  /** Zone affichée (onglet actif) dans la fenêtre qui a envoyé le message. */
+  const zoneOfSender = (e: IpcMainEvent | Electron.IpcMainInvokeEvent): Zone | undefined => {
+    const host = hostOfSender(e);
+    return host ? activeOf(host) : undefined;
+  };
+  /** Zone du même groupe que la fenêtre émettrice (ou l'onglet actif par défaut). */
+  const groupZone = (e: IpcMainEvent | Electron.IpcMainInvokeEvent, id?: unknown): Zone | undefined => {
+    const host = hostOfSender(e);
+    if (!host) return undefined;
+    if (typeof id === 'string') return groupOf(zones, host.id).find((z) => z.id === id);
+    return activeOf(host);
+  };
+  const isHost = (z: Zone): boolean => hostIdOf(zones, z.id) === z.id;
+  /** Hauteur de fenêtre : barre de titre seule quand la zone est repliée. */
+  const windowBounds = (host: Zone): Rect =>
+    absoluteBounds(host, host.rolled && !expanded.has(host.id) && !peek ? ZONE_TITLE_HEIGHT : undefined);
 
   const setZones = (next: Zone[], opts: { persist?: boolean } = {}): void => {
     zones = next;
@@ -158,8 +210,42 @@ export function createDesktopMainModule(): MainToolModule {
     }
   };
 
+  const tabsOf = (host: Zone, dist: Map<string, DesktopEntry[]>): ZoneTab[] =>
+    groupOf(zones, host.id).map((z) => ({
+      id: z.id,
+      title: z.title,
+      color: z.color,
+      kind: z.kind,
+      count: z.kind === 'shortcuts' ? (dist.get(z.id)?.length ?? 0) : (folderCache.get(folderPath(z) ?? '')?.entries.length ?? 0)
+    }));
+
+  let lastDist = new Map<string, DesktopEntry[]>();
+  const sendAll = (dist = lastDist): void => {
+    for (const [id, w] of windows) {
+      const host = zoneById(id);
+      if (!host) continue;
+      const zone = activeOf(host);
+      const msg: ZoneWindowMsg = {
+        zone,
+        host,
+        tabs: tabsOf(host, dist),
+        content: contentFor(zone, dist),
+        settings,
+        expanded: expanded.has(host.id),
+        peek: !!peek
+      };
+      w.send(msg);
+    }
+  };
+
   const refresh = async (): Promise<void> => {
     desktop = await listDesktop();
+    const swept = rules.sweepZones(zones, desktop);
+    if (swept) {
+      zones = swept;
+      saveZones();
+      pushState();
+    }
     await Promise.all(
       zones
         .filter((z) => z.kind === 'folder' && z.enabled)
@@ -167,11 +253,8 @@ export function createDesktopMainModule(): MainToolModule {
         .filter((p): p is string => !!p)
         .map((p) => readFolder(p))
     );
-    const dist = distribute(zones, desktop);
-    for (const [id, w] of windows) {
-      const z = zoneById(id);
-      if (z) w.send({ zone: z, content: contentFor(z, dist), settings });
-    }
+    lastDist = distribute(zones, desktop);
+    sendAll(lastDist);
     applyNativeIcons();
   };
   const scheduleRefresh = (delay = 120): void => {
@@ -194,7 +277,7 @@ export function createDesktopMainModule(): MainToolModule {
 
   /* ------------------------------------------------------- fenêtres */
   const syncWindows = (): void => {
-    const wanted = new Set(settings.enabled ? zones.filter((z) => z.enabled).map((z) => z.id) : []);
+    const wanted = new Set(settings.enabled ? zones.filter((z) => z.enabled && isHost(z)).map((z) => z.id) : []);
     for (const [id, w] of windows) {
       if (!wanted.has(id)) {
         w.destroy();
@@ -203,10 +286,15 @@ export function createDesktopMainModule(): MainToolModule {
     }
     for (const z of zones) {
       if (!wanted.has(z.id)) continue;
-      const bounds = absoluteBounds(z);
-      const w = windows.get(z.id);
+      const bounds = windowBounds(z);
+      let w = windows.get(z.id);
       if (w) w.setBounds(bounds);
-      else windows.set(z.id, new ZoneWindow(z.id, bounds, () => native));
+      else {
+        w = new ZoneWindow(z.id, bounds, () => native);
+        windows.set(z.id, w);
+      }
+      if (peek) w.raise();
+      else w.setHidden(hidden && !z.keepOnHide);
     }
   };
 
@@ -226,7 +314,9 @@ export function createDesktopMainModule(): MainToolModule {
 
   /* ---------------------------------------------------- géométrie */
   const othersOn = (z: Zone): Rect[] =>
-    zones.filter((o) => o.id !== z.id && o.enabled && o.bounds.displayId === z.bounds.displayId).map((o) => absoluteBounds(o));
+    zones
+      .filter((o) => o.id !== z.id && o.enabled && isHost(o) && o.bounds.displayId === z.bounds.displayId)
+      .map((o) => windowBounds(o));
 
   /** Rectangle absolu → bornes relatives à l'écran le plus proche de son centre. */
   const toRelative = (r: Rect): Zone['bounds'] => {
@@ -360,7 +450,7 @@ export function createDesktopMainModule(): MainToolModule {
     if (err) ctx.notify(t('desktop.openFailed'), err);
   };
 
-  const zoneMenu = (z: Zone, win: BrowserWindow, sendEdit: () => void): MenuItemConstructorOptions[] => {
+  const zoneMenu = (z: Zone, host: Zone, win: BrowserWindow, sendEdit: () => void): MenuItemConstructorOptions[] => {
     const radio = <T extends string>(labelKey: string, current: T, values: T[], field: keyof Zone): MenuItemConstructorOptions => ({
       label: t(labelKey),
       submenu: values.map((v) => ({
@@ -401,7 +491,19 @@ export function createDesktopMainModule(): MainToolModule {
       },
       { type: 'separator' },
       { label: t('desktop.menu.rename'), click: sendEdit },
-      { label: t('desktop.menu.lock'), type: 'checkbox', checked: z.locked, click: () => patchZone(z.id, { locked: !z.locked }) }
+      { label: t('desktop.menu.lock'), type: 'checkbox', checked: z.locked, click: () => patchZone(z.id, { locked: !z.locked }) },
+      {
+        label: t('desktop.menu.roll'),
+        type: 'checkbox',
+        checked: host.rolled,
+        click: () => setRolled(host.id, !host.rolled)
+      },
+      {
+        label: t('desktop.menu.keepOnHide'),
+        type: 'checkbox',
+        checked: host.keepOnHide,
+        click: () => patchZone(host.id, { keepOnHide: !host.keepOnHide })
+      }
     ];
     if (z.kind === 'shortcuts') {
       items.push({
@@ -425,8 +527,17 @@ export function createDesktopMainModule(): MainToolModule {
         }
       );
     }
+    const tabs = groupOf(zones, host.id);
+    const others = zones.filter((o) => o.enabled && isHost(o) && o.id !== host.id);
+    items.push({ type: 'separator' });
+    if (tabs.length > 1) items.push({ label: t('desktop.tab.detach'), click: () => detach(z.id) });
+    if (others.length > 0) {
+      items.push({
+        label: t('desktop.menu.mergeInto'),
+        submenu: others.map((o) => ({ label: o.title, click: () => setZones(mergeTab(zones, host.id, o.id)) }))
+      });
+    }
     items.push(
-      { type: 'separator' },
       { label: t('desktop.menu.newZone'), click: () => draw.open() },
       { label: t('desktop.menu.settings'), click: () => ctx.showMainWindow({ view: 'tool', toolId: 'desktop' }) },
       { type: 'separator' },
@@ -455,7 +566,16 @@ export function createDesktopMainModule(): MainToolModule {
       }
     ];
     if (z.kind === 'shortcuts' && !z.inbox && z.items.includes(path.basename(p))) {
-      items.push({ type: 'separator' }, { label: t('desktop.item.removeFromZone'), click: () => setZones(renameItem(zones, path.basename(p), null)) });
+      items.push(
+        { type: 'separator' },
+        {
+          label: t('desktop.item.removeFromZone'),
+          click: () => {
+            rules.forget(path.basename(p));
+            setZones(renameItem(zones, path.basename(p), null));
+          }
+        }
+      );
     }
     return items;
   };
@@ -464,9 +584,215 @@ export function createDesktopMainModule(): MainToolModule {
     const z = zoneById(id);
     if (!z) return;
     nav.delete(id);
+    expanded.delete(id);
+    // Un hôte d'onglets passe la main à l'onglet suivant avant de disparaître.
+    const base = groupOf(zones, id).length > 1 && !z.tabOf ? detachTab(zones, id, z.bounds) : zones;
     // Les icônes d'une zone supprimée retournent dans « À trier » (rien n'est effacé).
-    setZones(zones.filter((o) => o.id !== id));
-    ctx.broadcast('desktop:zoneDeleted', z);
+    setZones(base.filter((o) => o.id !== id).map((o) => (o.activeTab === id ? { ...o, activeTab: null } : o)));
+    ctx.broadcast('desktop:zoneDeleted', zoneById(id) ?? z);
+  };
+
+  /* ------------------------------------------------------ onglets */
+  const detach = (id: string): void => {
+    const z = zoneById(id);
+    if (!z) return;
+    const host = zoneById(hostIdOf(zones, id));
+    const near = host ? windowBounds(host) : null;
+    const d = near ? screen.getDisplayNearestPoint({ x: near.x, y: near.y }) : screen.getPrimaryDisplay();
+    const others = zones.filter((o) => o.enabled && isHost(o) && o.id !== id).map((o) => windowBounds(o));
+    const size = { width: host?.bounds.width ?? 320, height: host?.bounds.height ?? 240 };
+    const bounds = toRelative(freeSpot(size, others, d.workArea, Math.max(settings.gap, 12)));
+    setZones(detachTab(zones, id, bounds));
+  };
+
+  const showTab = (hostId: string, id: string): void => {
+    const host = zoneById(hostId);
+    if (!host) return;
+    patchZone(hostId, { activeTab: id === hostId ? null : id });
+  };
+
+  /** Zone hôte dont la barre de titre est sous ce point (hors `except`). */
+  const headerAt = (pt: { x: number; y: number }, except: string): string | null => {
+    for (const [id, w] of windows) {
+      if (id === except) continue;
+      const b = w.bounds();
+      if (pt.x >= b.x && pt.x < b.x + b.width && pt.y >= b.y && pt.y < b.y + ZONE_TITLE_HEIGHT) return id;
+    }
+    return null;
+  };
+  const setMergeTarget = (id: string | null): void => {
+    if (id === mergeTarget) return;
+    if (mergeTarget) windows.get(mergeTarget)?.emit('desktop:zone:mergeHint', false);
+    mergeTarget = id;
+    if (id) windows.get(id)?.emit('desktop:zone:mergeHint', true);
+  };
+
+  /* ------------------------------------------------------- repli */
+  const setRolled = (hostId: string, rolled: boolean): void => {
+    expanded.delete(hostId);
+    patchZone(hostId, { rolled });
+  };
+  const setExpanded = (hostId: string, on: boolean): void => {
+    const host = zoneById(hostId);
+    if (!host || !host.rolled || expanded.has(hostId) === on) return;
+    if (on) expanded.add(hostId);
+    else expanded.delete(hostId);
+    windows.get(hostId)?.setBounds(windowBounds(host));
+    sendAll();
+  };
+
+  /* --------------------------------------------- masquer / aperçu */
+  const touch = (): void => {
+    lastActivity = Date.now();
+  };
+  const applyHidden = (): void => {
+    for (const [id, w] of windows) {
+      const z = zoneById(id);
+      if (peek) continue;
+      w.setHidden(hidden && !z?.keepOnHide);
+    }
+  };
+  const setHiddenState = (next: boolean): void => {
+    touch();
+    if (next === hidden) return;
+    hidden = next;
+    for (const [id, w] of windows) if (!zoneById(id)?.keepOnHide) w.emit('desktop:zone:fade', next);
+    // petit fondu côté page avant de cacher les fenêtres
+    setTimeout(applyHidden, next ? 180 : 0);
+    if (!next) setTimeout(() => windows.forEach((w) => w.emit('desktop:zone:fade', false)), 30);
+    pushState();
+  };
+
+  const startPeek = (mode: 'hold' | 'toggle'): void => {
+    if (!settings.enabled) return;
+    if (peek) {
+      // raccourci répété (touche maintenue) : on ignore ; en bascule, on referme
+      if (peek.mode === 'toggle' && Date.now() - peek.since > 350) stopPeek();
+      return;
+    }
+    const vk = mode === 'hold' ? vkOfAccelerator(settings.peekShortcut) : null;
+    peek = { mode: mode === 'hold' && vk !== null && native ? 'hold' : 'toggle', vk, since: Date.now() };
+    peekOverlays.open(peek.mode === 'toggle');
+    if (peek.mode === 'hold' && peek.vk !== null) {
+      const { vk, since } = peek;
+      holdTimer = setInterval(() => {
+        if (Date.now() - since > 150 && !isKeyDown(vk)) stopPeek();
+      }, 60);
+    }
+    for (const [id, w] of windows) {
+      const host = zoneById(id);
+      if (host) w.setBounds(windowBounds(host));
+      w.raise();
+    }
+    sendAll();
+    pushState();
+  };
+  const stopPeek = (): void => {
+    if (holdTimer) clearInterval(holdTimer);
+    holdTimer = null;
+    if (!peek) return;
+    peek = null;
+    peekOverlays.close();
+    for (const [id, w] of windows) {
+      w.lower();
+      const host = zoneById(id);
+      if (host) w.setBounds(windowBounds(host));
+    }
+    applyHidden();
+    sendAll();
+    pushState();
+  };
+
+  /** Raccourci gardé aussi dans AppSettings.shortcuts (Réglages → Raccourcis). */
+  const hostPeekShortcut = (): string | undefined =>
+    (ctx.settings.get().shortcuts as Record<string, string | undefined>)[PEEK_SHORTCUT_ID];
+  const syncHostShortcut = (): void => {
+    if (hostPeekShortcut() === settings.peekShortcut) return;
+    const shortcuts = { ...ctx.settings.get().shortcuts, [PEEK_SHORTCUT_ID]: settings.peekShortcut };
+    ctx.settings.set({ shortcuts: shortcuts as ReturnType<typeof ctx.settings.get>['shortcuts'] });
+  };
+
+  const registerPeekShortcut = (): void => {
+    if (settings.enabled && settings.peekShortcut) {
+      ctx.shortcuts.register({ id: PEEK_SHORTCUT_ID, accelerator: settings.peekShortcut, run: () => startPeek(settings.peekMode) });
+    } else {
+      ctx.shortcuts.unregister(PEEK_SHORTCUT_ID);
+    }
+  };
+
+  const showDesktop = (): void => {
+    if (process.platform !== 'win32') return;
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', '(New-Object -ComObject Shell.Application).ToggleDesktop()'], {
+      windowsHide: true
+    }, () => undefined);
+  };
+
+  /** Surveillance légère (250 ms) : touche maintenue, coin actif, bords, inactivité. */
+  const poll = (): void => {
+    if (!settings.enabled) return;
+    const pt = screen.getCursorScreenPoint();
+    const d = screen.getDisplayNearestPoint(pt);
+    const b = d.bounds;
+    // souris sur une zone = activité
+    for (const w of windows.values()) {
+      const r = w.bounds();
+      if (pt.x >= r.x && pt.x < r.x + r.width && pt.y >= r.y && pt.y < r.y + r.height) {
+        touch();
+        break;
+      }
+    }
+    if (settings.hotCorner !== 'off') {
+      const right = settings.hotCorner.endsWith('right');
+      const bottom = settings.hotCorner.startsWith('bottom');
+      const cx = right ? b.x + b.width - 1 : b.x;
+      const cy = bottom ? b.y + b.height - 1 : b.y;
+      const inCorner = Math.abs(pt.x - cx) <= 2 && Math.abs(pt.y - cy) <= 2;
+      if (inCorner && cornerArmed) {
+        cornerArmed = false;
+        if (peek) stopPeek();
+        else startPeek('toggle');
+      } else if (!inCorner) cornerArmed = true;
+    }
+    if (hidden && settings.edgeReveal && !peek) {
+      const edge = pt.x <= b.x + 1 || pt.y <= b.y + 1 || pt.x >= b.x + b.width - 2 || pt.y >= b.y + b.height - 2;
+      if (edge) setHiddenState(false);
+    }
+    if (!hidden && !peek && settings.autoHideSec > 0 && Date.now() - lastActivity > settings.autoHideSec * 1000) setHiddenState(true);
+  };
+
+  /** « Ranger maintenant » : applique toutes les règles actives. */
+  const sortNow = async (): Promise<number> => {
+    let n = 0;
+    for (const r of rules.rules()) if (r.enabled) n += await rules.apply(r.id);
+    ctx.broadcast('desktop:rules', { rules: rules.rules(), log: rules.log() });
+    return n;
+  };
+
+  const startBehaviours = (): void => {
+    stopBehaviours();
+    if (!settings.enabled) return;
+    pollTimer = setInterval(poll, 250);
+    // Le crochet souris n'est posé que si une fonction en a besoin.
+    if (native && (settings.dblClickHide || settings.autoHideSec > 0 || settings.edgeReveal)) {
+      stopClicks = watchDesktopClicks(
+        () => {
+          touch();
+          if (peek) stopPeek();
+          else if (hidden && !settings.dblClickHide) setHiddenState(false);
+        },
+        () => {
+          // double-clic sur le bureau vide : seulement si les icônes Windows sont masquées
+          // (sinon c'est le double-clic d'ouverture d'une icône Windows).
+          if (settings.dblClickHide && iconsHidden && !peek) setHiddenState(!hidden);
+        }
+      );
+    }
+  };
+  const stopBehaviours = (): void => {
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = null;
+    stopClicks?.();
+    stopClicks = null;
   };
 
   /* ---------------------------------------------------- démarrage */
@@ -474,6 +800,8 @@ export function createDesktopMainModule(): MainToolModule {
     native = await ensureWin32();
     // Au cas où une session précédente aurait planté avec les icônes masquées.
     restoreNativeIcons();
+    rules.start();
+    startBehaviours();
     rewatch();
     syncWindows();
     await refresh();
@@ -489,12 +817,82 @@ export function createDesktopMainModule(): MainToolModule {
         .filter((z) => z && typeof z.id === 'string')
         .map(normalizeZone);
       opens = kvGet<Record<string, number>>(OPENS_KEY, {});
+      rules = createRulesEngine({
+        kvGet,
+        kvSet,
+        zones: () => zones,
+        setZones: (next) => setZones(next),
+        desktop: () => desktop,
+        onChange: () => scheduleRefresh(0),
+        notify: (title, body) => ctx.notify(title, body),
+        t
+      });
+      registerPeekShortcut();
+      syncHostShortcut();
+      ctx.events.on('settings-changed', () => {
+        // raccourci modifié depuis Réglages → Raccourcis : on l'adopte
+        const fromHost = hostPeekShortcut();
+        if (fromHost === undefined || fromHost === settings.peekShortcut) return;
+        settings = normalizeSettings({ ...settings, peekShortcut: fromHost });
+        kvSet(SETTINGS_KEY, settings);
+        registerPeekShortcut();
+        ctx.shortcuts.applyAll();
+        pushState();
+      });
 
       ipcMain.handle('desktop:getState', () => state());
+      ipcMain.handle('desktop:peek', () => startPeek('toggle'));
+      ipcMain.on('desktop:peek:stop', () => stopPeek());
+      ipcMain.handle('desktop:toggleHide', () => setHiddenState(!hidden));
+      ipcMain.handle('desktop:showDesktop', () => showDesktop());
+      ipcMain.handle('desktop:shortcutStatus', () => ctx.shortcuts.status().find((x) => x.id === PEEK_SHORTCUT_ID) ?? null);
+
+      // ---- Règles
+      ipcMain.handle('desktop:rules:get', () => ({ rules: rules.rules(), log: rules.log() }));
+      ipcMain.handle('desktop:rules:set', (_e, next: Rule[]) => rules.setRules(next));
+      ipcMain.handle('desktop:rules:preview', (_e, rule: Rule) => (rule && typeof rule.id === 'string' ? rules.preview(rule) : { count: 0, names: [] }));
+      ipcMain.handle('desktop:rules:apply', async (_e, id: string) => {
+        const n = await rules.apply(String(id));
+        ctx.broadcast('desktop:rules', { rules: rules.rules(), log: rules.log() });
+        return n;
+      });
+      ipcMain.handle('desktop:rules:applyAll', () => sortNow());
+      ipcMain.handle('desktop:rules:undo', async (_e, id: string) => {
+        const ok = await rules.undo(String(id));
+        ctx.broadcast('desktop:rules', { rules: rules.rules(), log: rules.log() });
+        return ok;
+      });
+      ipcMain.handle('desktop:rules:clearLog', () => {
+        rules.clearLog();
+        ctx.broadcast('desktop:rules', { rules: rules.rules(), log: rules.log() });
+      });
+      ipcMain.handle('desktop:pickFolder', async () => {
+        const res = await dialog.showOpenDialog({ properties: ['openDirectory'] });
+        return res.canceled ? null : (res.filePaths[0] ?? null);
+      });
       ipcMain.handle('desktop:setSettings', (_e, patch: Partial<DesktopSettings>) => {
+        const before = settings;
         settings = normalizeSettings({ ...settings, ...(patch ?? {}) });
         kvSet(SETTINGS_KEY, settings);
-        if (!settings.enabled) restoreNativeIcons();
+        if (!settings.enabled) {
+          restoreNativeIcons();
+          stopPeek();
+          hidden = false;
+        }
+        if (before.peekShortcut !== settings.peekShortcut || before.enabled !== settings.enabled) {
+          registerPeekShortcut();
+          syncHostShortcut();
+          ctx.shortcuts.applyAll();
+        }
+        if (
+          before.enabled !== settings.enabled ||
+          before.dblClickHide !== settings.dblClickHide ||
+          before.autoHideSec !== settings.autoHideSec ||
+          before.edgeReveal !== settings.edgeReveal
+        ) {
+          startBehaviours();
+        }
+        if (hidden && settings.autoHideSec === 0 && !settings.dblClickHide) setHiddenState(false);
         syncWindows();
         rewatch();
         scheduleRefresh(0);
@@ -526,11 +924,64 @@ export function createDesktopMainModule(): MainToolModule {
         const w = windowFor(e.sender.id);
         const z = w ? zoneById(w.zoneId) : undefined;
         if (!w || !z || z.locked || !r || ![r.x, r.y, r.width, r.height].every(Number.isFinite)) return;
+        touch();
+        // Glisser une zone par son titre sur le titre d'une autre : elle devient un onglet.
+        const target = mode === 'move' ? headerAt(screen.getCursorScreenPoint(), z.id) : null;
+        if (!final) setMergeTarget(target);
+        else setMergeTarget(null);
+        if (final && target) {
+          setZones(mergeTab(zones, z.id, target));
+          return;
+        }
+        const collapsed = z.rolled && !expanded.has(z.id) && !peek;
         const d = screen.getDisplayNearestPoint({ x: Math.round(r.x + r.width / 2), y: Math.round(r.y + r.height / 2) });
-        let rect = clampToArea(r, d.workArea);
+        let rect = clampToArea(collapsed ? { ...r, height: Math.max(r.height, ZONE_TITLE_HEIGHT) } : r, d.workArea);
         if (settings.snap) rect = clampToArea(snapRect(rect, othersOn(z), d.workArea, { gap: settings.gap, mode }), d.workArea);
+        if (collapsed) rect = { ...rect, height: ZONE_TITLE_HEIGHT };
         w.setBounds(rect);
-        if (final) setZones(zones.map((o) => (o.id === z.id ? { ...o, bounds: toRelative(rect) } : o)));
+        if (final) {
+          const keep = collapsed ? { ...rect, height: z.bounds.height } : rect;
+          const rolled = settings.autoRollEdge && mode === 'move' && rect.y <= d.workArea.y + 2 ? true : z.rolled;
+          setZones(zones.map((o) => (o.id === z.id ? { ...o, rolled, bounds: toRelative(keep) } : o)));
+        }
+      });
+      ipcMain.on('desktop:zone:expand', (e, on: boolean) => {
+        const host = hostOfSender(e);
+        if (host) setExpanded(host.id, Boolean(on));
+      });
+      ipcMain.on('desktop:zone:roll', (e) => {
+        const host = hostOfSender(e);
+        if (host) setRolled(host.id, !host.rolled);
+      });
+      ipcMain.on('desktop:zone:activity', () => touch());
+      ipcMain.on('desktop:zone:tab', (e, id: string) => {
+        const host = hostOfSender(e);
+        if (host && groupOf(zones, host.id).some((z) => z.id === id)) showTab(host.id, id);
+      });
+      ipcMain.on('desktop:zone:tabMenu', (e, id: string) => {
+        const w = windowFor(e.sender.id);
+        const host = hostOfSender(e);
+        const group = host ? groupOf(zones, host.id) : [];
+        const z = group.find((o) => o.id === id);
+        if (!w || !host || !z) return;
+        const i = group.indexOf(z);
+        const tpl: MenuItemConstructorOptions[] = [
+          { label: t('desktop.tab.show'), click: () => showTab(host.id, z.id) },
+          {
+            label: t('desktop.menu.rename'),
+            click: () => {
+              showTab(host.id, z.id);
+              e.sender.send('desktop:zone:edit', { type: 'tab', id: z.id });
+            }
+          },
+          { type: 'separator' },
+          { label: t('desktop.tab.left'), enabled: i > 1, click: () => setZones(moveTab(zones, z.id, -1)) },
+          { label: t('desktop.tab.right'), enabled: i > 0 && i < group.length - 1, click: () => setZones(moveTab(zones, z.id, 1)) },
+          { label: t('desktop.tab.detach'), click: () => detach(z.id) },
+          { type: 'separator' },
+          { label: t('desktop.menu.delete'), click: () => deleteZone(z.id) }
+        ];
+        Menu.buildFromTemplate(tpl).popup({ window: w.win });
       });
       ipcMain.handle('desktop:zone:open', async (e, p: string) => {
         if (typeof p === 'string') await openEntry(zoneOfSender(e), p);
@@ -552,8 +1003,9 @@ export function createDesktopMainModule(): MainToolModule {
         rewatch();
         scheduleRefresh(0);
       });
-      ipcMain.handle('desktop:zone:drop', async (e, paths: string[], copy: boolean, before?: string) => {
-        const z = zoneOfSender(e);
+      ipcMain.handle('desktop:zone:drop', async (e, paths: string[], copy: boolean, before?: string, tabId?: string) => {
+        touch();
+        const z = groupZone(e, tabId);
         if (!z || !Array.isArray(paths)) return;
         try {
           await dropInto(z, paths, Boolean(copy), typeof before === 'string' ? before : undefined);
@@ -561,8 +1013,8 @@ export function createDesktopMainModule(): MainToolModule {
           ctx.notify(t('desktop.dropFailed'), err instanceof Error ? err.message : String(err));
         }
       });
-      ipcMain.handle('desktop:zone:rename', (e, title: string) => {
-        const z = zoneOfSender(e);
+      ipcMain.handle('desktop:zone:rename', (e, title: string, tabId?: string) => {
+        const z = groupZone(e, tabId);
         if (z && typeof title === 'string' && title.trim()) patchZone(z.id, { title: title.trim().slice(0, 80) });
       });
       ipcMain.handle('desktop:zone:renameItem', async (e, p: string, name: string) => {
@@ -593,12 +1045,13 @@ export function createDesktopMainModule(): MainToolModule {
       });
       ipcMain.on('desktop:zone:menu', (e, target: { path?: string } | null) => {
         const w = windowFor(e.sender.id);
-        const z = w ? zoneById(w.zoneId) : undefined;
-        if (!w || !z) return;
+        const host = hostOfSender(e);
+        if (!w || !host) return;
+        const z = activeOf(host);
         const tpl =
           target && typeof target.path === 'string'
             ? itemMenu(z, target.path, () => e.sender.send('desktop:zone:edit', { type: 'item', path: target.path }))
-            : zoneMenu(z, w.win, () => e.sender.send('desktop:zone:edit', { type: 'title' }));
+            : zoneMenu(z, host, w.win, () => e.sender.send('desktop:zone:edit', { type: 'title' }));
         Menu.buildFromTemplate(tpl).popup({ window: w.win });
       });
 
@@ -622,16 +1075,35 @@ export function createDesktopMainModule(): MainToolModule {
       screen.on('display-metrics-changed', onDisplays);
 
       hostCtx.registerLocalCommand('desktop.newZone', () => draw.open());
+      hostCtx.registerLocalCommand('desktop.peek', () => startPeek('toggle'));
+      hostCtx.registerLocalCommand('desktop.toggleHide', () => setHiddenState(!hidden));
+      hostCtx.registerLocalCommand('desktop.sortNow', async () => {
+        await sortNow();
+      });
+      hostCtx.registerLocalCommand('desktop.showDesktop', () => showDesktop());
       app.on('before-quit', restoreNativeIcons);
 
       await start();
     },
 
     trayMenuItems(hostCtx: MainHostContext): MenuItemConstructorOptions[] {
-      return [{ label: hostCtx.i18n.t('desktop.tray.newZone'), click: () => draw.open() }];
+      return [
+        {
+          label: hostCtx.i18n.t('desktop.tray.title'),
+          submenu: [
+            { label: hostCtx.i18n.t('desktop.tray.newZone'), click: () => draw.open() },
+            { label: hostCtx.i18n.t('desktop.tray.peek'), click: () => startPeek('toggle') },
+            { label: hostCtx.i18n.t('desktop.tray.toggleHide'), click: () => setHiddenState(!hidden) },
+            { label: hostCtx.i18n.t('desktop.tray.sortNow'), click: () => void sortNow() }
+          ]
+        }
+      ];
     },
 
     deactivate(): void {
+      stopBehaviours();
+      stopPeek();
+      rules?.stop();
       stopWatch?.();
       for (const w of windows.values()) w.destroy();
       windows.clear();

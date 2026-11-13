@@ -40,17 +40,42 @@ export interface PreloadApi {
     icon(path: string, size: 'small' | 'normal' | 'large'): Promise<string | null>;
     onState(cb: (state: import('./desktop').DesktopState) => void): Unsubscribe;
     onZoneDeleted(cb: (zone: import('./desktop').Zone) => void): Unsubscribe;
+    /** Aperçu au-dessus des fenêtres, masquage, « Afficher le bureau ». */
+    peek(): Promise<void>;
+    peekStop(): void;
+    toggleHide(): Promise<void>;
+    showDesktop(): Promise<void>;
+    shortcutStatus(): Promise<{ id: string; accelerator: string; ok: boolean } | null>;
+    pickFolder(): Promise<string | null>;
+    /** Règles de rangement et journal. */
+    rules: {
+      get(): Promise<{ rules: import('./desktop').Rule[]; log: import('./desktop').RuleLogEntry[] }>;
+      set(rules: import('./desktop').Rule[]): Promise<import('./desktop').Rule[]>;
+      preview(rule: import('./desktop').Rule): Promise<{ count: number; names: string[] }>;
+      apply(id: string): Promise<number>;
+      applyAll(): Promise<number>;
+      undo(logId: string): Promise<boolean>;
+      clearLog(): Promise<void>;
+      onChange(cb: (data: { rules: import('./desktop').Rule[]; log: import('./desktop').RuleLogEntry[] }) => void): Unsubscribe;
+    };
     /** Fenêtre d'une zone. */
     zone: {
       hello(): Promise<import('./desktop').ZoneWindowMsg | null>;
       onUpdate(cb: (msg: import('./desktop').ZoneWindowMsg) => void): Unsubscribe;
-      onEdit(cb: (msg: { type: 'title' | 'item'; path?: string }) => void): Unsubscribe;
+      onEdit(cb: (msg: { type: 'title' | 'item' | 'tab'; path?: string; id?: string }) => void): Unsubscribe;
+      onFade(cb: (hidden: boolean) => void): Unsubscribe;
+      onMergeHint(cb: (on: boolean) => void): Unsubscribe;
+      expand(on: boolean): void;
+      roll(): void;
+      activity(): void;
+      tab(id: string): void;
+      tabMenu(id: string): void;
       bounds(rect: import('./desktop').Rect, final: boolean, mode: 'move' | 'resize'): void;
       open(path: string): Promise<void>;
       up(): Promise<void>;
       home(): Promise<void>;
-      drop(paths: string[], copy: boolean, before?: string): Promise<void>;
-      rename(title: string): Promise<void>;
+      drop(paths: string[], copy: boolean, before?: string, tabId?: string): Promise<void>;
+      rename(title: string, tabId?: string): Promise<void>;
       renameItem(path: string, name: string): Promise<boolean>;
       startDrag(paths: string[]): void;
       menu(target: { path?: string } | null): void;

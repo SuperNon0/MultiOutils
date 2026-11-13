@@ -7,7 +7,7 @@
 import { BrowserWindow, screen, type Display } from 'electron';
 import type { Rect, Zone, ZoneWindowMsg } from '../../../common/desktop';
 import { loadRenderer, preloadPath } from '../../windows';
-import { hwndOf, pinToDesktop, sendToBottom } from './win32';
+import { hwndOf, pinToDesktop, sendToBottom, unpinFromDesktop } from './win32';
 
 /** Écran d'une zone (celui enregistré, sinon le principal). */
 export function displayFor(displayId: string): Display {
@@ -27,6 +27,8 @@ export function absoluteBounds(zone: Zone, collapsedHeight?: number): Rect {
 export class ZoneWindow {
   readonly win: BrowserWindow;
   private ready = false;
+  /** Aperçu en cours : la fenêtre reste au-dessus des autres. */
+  private raised = false;
   private last: ZoneWindowMsg | null = null;
 
   constructor(
@@ -68,7 +70,9 @@ export class ZoneWindow {
     });
     // Un clic active la zone : on la renvoie aussitôt sous les autres fenêtres.
     win.on('focus', () => this.toBottom());
-    win.on('show', () => this.pin());
+    win.on('show', () => {
+      if (!this.raised) this.pin();
+    });
     loadRenderer(win, `zone/${zoneId}`);
   }
 
@@ -87,9 +91,44 @@ export class ZoneWindow {
   }
 
   toBottom(): void {
-    if (!this.native() || this.win.isDestroyed()) return;
+    if (this.raised || !this.native() || this.win.isDestroyed()) return;
     const h = this.hwnd();
     if (h) sendToBottom(h);
+  }
+
+  /** Aperçu : passe au-dessus de toutes les fenêtres. */
+  raise(): void {
+    if (this.win.isDestroyed()) return;
+    this.raised = true;
+    const h = this.native() ? this.hwnd() : null;
+    if (h) unpinFromDesktop(h);
+    this.win.setAlwaysOnTop(true, 'pop-up-menu');
+    if (!this.win.isVisible()) this.win.showInactive();
+    this.win.moveTop();
+  }
+
+  /** Fin de l'aperçu : retour sur le bureau. */
+  lower(): void {
+    if (this.win.isDestroyed()) return;
+    this.raised = false;
+    this.win.setAlwaysOnTop(false);
+    this.pin();
+  }
+
+  /** Masquage du bureau (double-clic, masquage automatique). */
+  setHidden(hidden: boolean): void {
+    if (this.win.isDestroyed()) return;
+    if (hidden && this.win.isVisible()) this.win.hide();
+    else if (!hidden && !this.win.isVisible()) this.win.showInactive();
+  }
+
+  /** Événement ponctuel pour la page de la zone (fondu, indice de fusion…). */
+  emit(channel: string, payload: unknown): void {
+    if (this.ready && !this.win.isDestroyed()) this.win.webContents.send(channel, payload);
+  }
+
+  bounds(): Rect {
+    return this.win.getBounds();
   }
 
   send(msg: ZoneWindowMsg): void {
@@ -148,6 +187,52 @@ export class DrawOverlays {
         win.show();
         const cursor = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
         if (cursor.id === d.id) win.focus();
+      });
+      this.wins.push(win);
+    }
+  }
+
+  isOpen(): boolean {
+    return this.wins.some((w) => !w.isDestroyed());
+  }
+
+  close(): void {
+    for (const w of this.wins) if (!w.isDestroyed()) w.destroy();
+    this.wins = [];
+  }
+}
+
+/** Voile de l'aperçu : un par écran, sous les zones relevées. */
+export class PeekOverlays {
+  private wins: BrowserWindow[] = [];
+
+  open(focus: boolean): void {
+    this.close();
+    const cursor = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    for (const d of screen.getAllDisplays()) {
+      const win = new BrowserWindow({
+        ...d.bounds,
+        show: false,
+        frame: false,
+        transparent: true,
+        backgroundColor: '#00000000',
+        resizable: false,
+        movable: false,
+        minimizable: false,
+        maximizable: false,
+        fullscreenable: false,
+        skipTaskbar: true,
+        hasShadow: false,
+        alwaysOnTop: true,
+        enableLargerThanScreen: true,
+        webPreferences: { preload: preloadPath(), contextIsolation: true, nodeIntegration: false }
+      });
+      win.setAlwaysOnTop(true, 'floating');
+      win.setBounds(d.bounds);
+      loadRenderer(win, 'zone-peek');
+      win.once('ready-to-show', () => {
+        if (focus && cursor.id === d.id) win.show();
+        else win.showInactive();
       });
       this.wins.push(win);
     }

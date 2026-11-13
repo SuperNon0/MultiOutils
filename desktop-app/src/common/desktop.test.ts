@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest';
 import {
   assignItems,
   clampToArea,
+  detachTab,
   displayName,
+  firstZoneRule,
+  groupOf,
+  hostIdOf,
+  matchCondition,
+  matchRule,
+  mergeTab,
+  moveTab,
+  normalizeRule,
   distribute,
   formatSize,
   freeSpot,
@@ -14,7 +23,8 @@ import {
   snapRect,
   sortEntries,
   ZONE_MIN_WIDTH,
-  type DesktopEntry
+  type DesktopEntry,
+  type Rule
 } from './desktop';
 
 const entry = (name: string, extra: Partial<DesktopEntry> = {}): DesktopEntry => {
@@ -147,5 +157,81 @@ describe('validation', () => {
   });
   it('borne les réglages', () => {
     expect(normalizeSettings({ opacity: 5, gap: 500 })).toMatchObject({ opacity: 40, gap: 64, enabled: true });
+  });
+});
+
+describe('onglets', () => {
+  const three = () => [
+    newZone('a', 'shortcuts', 'A', bounds),
+    newZone('b', 'shortcuts', 'B', { ...bounds, x: 400 }),
+    newZone('c', 'folder', 'C', { ...bounds, x: 800 })
+  ];
+  it('regroupe une zone sous une autre et affiche le nouvel onglet', () => {
+    const z = mergeTab(three(), 'b', 'a');
+    expect(z.find((o) => o.id === 'b')!.tabOf).toBe('a');
+    expect(z.find((o) => o.id === 'a')!.activeTab).toBe('b');
+    expect(groupOf(z, 'a').map((o) => o.id)).toEqual(['a', 'b']);
+    expect(hostIdOf(z, 'b')).toBe('a');
+  });
+  it('déposer sur un onglet rejoint l’hôte du groupe, avec ses propres onglets', () => {
+    let z = mergeTab(three(), 'b', 'a');
+    z = mergeTab(z, 'c', 'b');
+    expect(groupOf(z, 'a').map((o) => o.id)).toEqual(['a', 'b', 'c']);
+    const other = mergeTab([...three(), newZone('d', 'shortcuts', 'D', bounds)], 'b', 'a');
+    const moved = mergeTab(mergeTab(other, 'd', 'c'), 'c', 'a');
+    expect(groupOf(moved, 'a').map((o) => o.id)).toEqual(['a', 'b', 'c', 'd']);
+  });
+  it('détacher l’hôte passe la main à l’onglet suivant', () => {
+    let z = mergeTab(mergeTab(three(), 'b', 'a'), 'c', 'a');
+    z = detachTab(z, 'a', { ...bounds, y: 500 });
+    expect(z.find((o) => o.id === 'b')!.tabOf).toBeNull();
+    expect(z.find((o) => o.id === 'b')!.bounds.x).toBe(0);
+    expect(z.find((o) => o.id === 'c')!.tabOf).toBe('b');
+    expect(z.find((o) => o.id === 'a')!.bounds.y).toBe(500);
+  });
+  it('déplace un onglet à gauche', () => {
+    const z = moveTab(mergeTab(mergeTab(three(), 'b', 'a'), 'c', 'a'), 'c', -1);
+    expect(groupOf(z, 'a').map((o) => o.id)).toEqual(['a', 'c', 'b']);
+  });
+});
+
+describe('règles', () => {
+  const now = Date.UTC(2026, 10, 13);
+  const old = entry('facture.pdf', { mtime: now - 40 * 86_400_000, size: 2 * 1024 * 1024 });
+  const rule = (extra: Partial<Rule>): Rule => normalizeRule({ id: 'r', name: 'R', action: { type: 'zone', zoneId: 'z' }, ...extra });
+  it('teste le type, l’extension, le nom, l’âge et la taille', () => {
+    expect(matchCondition({ field: 'kind', op: 'is', value: 'pdf' }, old, now)).toBe(true);
+    expect(matchCondition({ field: 'ext', op: 'is', value: '.PDF, docx' }, old, now)).toBe(true);
+    expect(matchCondition({ field: 'name', op: 'startsWith', value: 'FACT' }, old, now)).toBe(true);
+    expect(matchCondition({ field: 'name', op: 'regex', value: '^fact.*\\.pdf$' }, old, now)).toBe(true);
+    expect(matchCondition({ field: 'name', op: 'regex', value: '(' }, old, now)).toBe(false);
+    expect(matchCondition({ field: 'age', op: 'gt', value: '30' }, old, now)).toBe(true);
+    expect(matchCondition({ field: 'size', op: 'lt', value: '1,5' }, old, now)).toBe(false);
+  });
+  it('lit la cible d’un raccourci', () => {
+    const lnk = { ...entry('Jeu.lnk'), target: 'C:\\Games\\steam.exe' };
+    expect(matchCondition({ field: 'target', op: 'endsWith', value: 'steam.exe' }, lnk, now)).toBe(true);
+    expect(matchCondition({ field: 'target', op: 'contains', value: 'x' }, entry('a.txt'), now)).toBe(false);
+  });
+  it('« toutes » ou « au moins une »', () => {
+    const conditions = [
+      { field: 'kind' as const, op: 'is' as const, value: 'image' },
+      { field: 'name' as const, op: 'contains' as const, value: 'facture' }
+    ];
+    expect(matchRule(rule({ conditions, match: 'all' }), old, now)).toBe(false);
+    expect(matchRule(rule({ conditions, match: 'any' }), old, now)).toBe(true);
+    expect(matchRule(rule({ conditions: [] }), old, now)).toBe(false);
+  });
+  it('la première règle active l’emporte', () => {
+    const c = [{ field: 'kind' as const, op: 'is' as const, value: 'pdf' }];
+    const rules = [rule({ id: 'off', enabled: false, conditions: c }), rule({ id: 'once', mode: 'once', conditions: c }), rule({ id: 'ok', conditions: c })];
+    expect(firstZoneRule(rules, old, now)!.id).toBe('once');
+    expect(firstZoneRule(rules, old, now, { continuousOnly: true })!.id).toBe('ok');
+  });
+  it('nettoie une règle lue en base', () => {
+    const r = normalizeRule({ id: 'x', conditions: [{ field: 'age', op: 'contains', value: 3 as never }, { field: 'bad' as never, op: 'is', value: '' }] });
+    expect(r.conditions).toEqual([{ field: 'age', op: 'gt', value: '3' }]);
+    expect(r.action).toEqual({ type: 'zone', zoneId: '' });
+    expect(r.mode).toBe('continuous');
   });
 });
