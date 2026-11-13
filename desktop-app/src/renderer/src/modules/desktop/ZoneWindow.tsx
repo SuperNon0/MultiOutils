@@ -11,6 +11,7 @@ import {
 } from 'react';
 import {
   displayName,
+  effectiveStyle,
   formatSize,
   type DesktopEntry,
   type Rect,
@@ -45,10 +46,20 @@ function useFileIcon(path: string, size: 'small' | 'normal' | 'large', mtime: nu
   return url;
 }
 
-function FileIcon({ entry, size }: { entry: DesktopEntry; size: 'small' | 'normal' | 'large' }): ReactNode {
+function FileIcon({ entry, size, tint }: { entry: DesktopEntry; size: 'small' | 'normal' | 'large'; tint?: string | null }): ReactNode {
   const url = useFileIcon(entry.path, size, entry.mtime);
-  return url ? <img src={url} alt="" draggable={false} /> : <span className="ph" />;
+  if (!url) return <span className="ph" />;
+  if (!tint) return <img src={url} alt="" draggable={false} />;
+  // Teinte : la couleur, découpée à la forme de l'icône, se fond par-dessus.
+  return (
+    <span className="zw-tint">
+      <img src={url} alt="" draggable={false} />
+      <span style={{ background: tint, WebkitMaskImage: `url(${url})`, maskImage: `url(${url})` } as CSSProperties} />
+    </span>
+  );
 }
+
+const FONTS = { ui: 'var(--f-ui, inherit)', mono: 'var(--f-mono)', serif: 'Georgia, \'Times New Roman\', serif' };
 
 function RenameInput({ value, onDone }: { value: string; onDone(v: string | null): void }): ReactNode {
   const ref = useRef<HTMLInputElement>(null);
@@ -324,9 +335,15 @@ export function ZoneWindow(): ReactNode {
     window.api.desktop.zone.menu(p ? { path: p } : null);
   };
 
+  const st = effectiveStyle(host, settings);
   const style = {
     '--zc': zone.color ?? 'var(--accent)',
-    '--zo': `${settings.opacity}%`,
+    '--zo': `${st.opacity}%`,
+    '--zbg': st.bg ?? 'var(--pop)',
+    '--zr': `${st.radius}px`,
+    '--ztf': FONTS[st.titleFont],
+    '--zts': `${st.titleSize}px`,
+    '--ztc': st.titleColor ?? 'var(--text)',
     '--ico': `${ICON_PX[zone.iconSize]}px`,
     '--cell': `${CELL_PX[zone.iconSize]}px`
   } as CSSProperties;
@@ -368,7 +385,7 @@ export function ZoneWindow(): ReactNode {
             {...itemProps(e)}
             className={`zw-fi${sel.has(e.path) ? ' sel' : ''}${before === e.name ? ' before' : ''}`}
           >
-            <FileIcon entry={e} size={iconRes} />
+            <FileIcon entry={e} size={iconRes} tint={st.iconTint} />
             <span className="lb">
               {editItem === e.path ? <RenameInput value={e.name} onDone={(v) => finishRename(e.path, v)} /> : displayName(e)}
             </span>
@@ -390,7 +407,7 @@ export function ZoneWindow(): ReactNode {
         )}
         {entries.map((e) => (
           <div key={e.path} {...itemProps(e)} className={`zw-row${sel.has(e.path) ? ' sel' : ''}${before === e.name ? ' before' : ''}`}>
-            <FileIcon entry={e} size="small" />
+            <FileIcon entry={e} size="small" tint={st.iconTint} />
             <span className="nm">
               {editItem === e.path ? <RenameInput value={e.name} onDone={(v) => finishRename(e.path, v)} /> : displayName(e)}
             </span>
@@ -505,7 +522,9 @@ export function ZoneWindow(): ReactNode {
     <div
       className={`zw${host.locked ? '' : ' unlocked'}${dropOn ? ' drop' : ''}${collapsed ? ' rolled' : ''}${fade ? ' fade' : ''}${
         mergeHint ? ' merge' : ''
-      }${msg.peek ? ' peek' : ''}`}
+      }${msg.peek ? ' peek' : ''}${st.invisible ? ' inv' : ''}${st.titleBar !== 'visible' ? ` tb-${st.titleBar}` : ''}${
+        st.titleLook === 'bold' ? ' tl-bold' : ''
+      }${st.iconFade ? ' ifade' : ''}${st.stripe ? ' stripe' : ''}`}
       style={style}
       tabIndex={-1}
       onKeyDown={onKey}
@@ -550,7 +569,10 @@ export function ZoneWindow(): ReactNode {
           <b>{crumb[crumb.length - 1] ?? content.path}</b>
         </div>
       )}
-      <div ref={bodyRef} className="zw-body" onPointerDown={startLasso} onContextMenu={(e) => menuAt(e)}>
+      <div
+        ref={bodyRef}
+        className="zw-body"
+        onPointerDown={(e) => (e.altKey ? startGeom('move', {})(e) : startLasso(e))} onContextMenu={(e) => menuAt(e)}>
         {body}
         {lasso && <div className="zw-lasso" style={{ left: lasso.x, top: lasso.y, width: lasso.width, height: lasso.height }} />}
       </div>

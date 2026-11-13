@@ -28,6 +28,7 @@ const Launcher = lazy(() => import('./windows/Launcher'));
 // Module Bureau : fenêtres des zones et calque de dessin, chargés à part.
 const ZoneWindow = lazy(() => import('./modules/desktop/ZoneWindow').then((m) => ({ default: m.ZoneWindow })));
 const ZoneDraw = lazy(() => import('./modules/desktop/ZoneDraw').then((m) => ({ default: m.ZoneDraw })));
+const ZonePages = lazy(() => import('./modules/desktop/ZonePages').then((m) => ({ default: m.ZonePages })));
 const ZonePeek = lazy(() => import('./modules/desktop/ZonePeek').then((m) => ({ default: m.ZonePeek })));
 
 /**
@@ -49,7 +50,7 @@ function Root(): ReactNode {
 
 function SatelliteOrApp(): ReactNode {
   const match = window.location.hash.match(
-    /^#\/(region|quickbar|picker|eyedropper|ha-toasts|ha-dashboard|zone|zone-draw|zone-peek)(?:\/(.+))?$/
+    /^#\/(region|quickbar|picker|eyedropper|ha-toasts|ha-dashboard|zone|zone-draw|zone-peek|zone-pages)(?:\/(.+))?$/
   );
   const [lang, setLang] = useState<Language | null>(null);
 
@@ -87,6 +88,10 @@ function SatelliteOrApp(): ReactNode {
       ) : route === 'zone-draw' && param ? (
         <Suspense fallback={null}>
           <ZoneDraw displayId={param} />
+        </Suspense>
+      ) : route === 'zone-pages' && param ? (
+        <Suspense fallback={null}>
+          <ZonePages param={param} />
         </Suspense>
       ) : route === 'zone-peek' ? (
         <Suspense fallback={null}>

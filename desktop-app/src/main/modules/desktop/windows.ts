@@ -247,3 +247,46 @@ export class PeekOverlays {
     this.wins = [];
   }
 }
+
+/** Pastille de page (points + nom), affichée un instant au changement de page. */
+export class PageIndicator {
+  private win: BrowserWindow | null = null;
+  private timer: ReturnType<typeof setTimeout> | null = null;
+
+  show(info: { index: number; count: number; name: string }): void {
+    this.close();
+    const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    const width = 280;
+    const height = 64;
+    const win = new BrowserWindow({
+      x: Math.round(d.workArea.x + (d.workArea.width - width) / 2),
+      y: Math.round(d.workArea.y + d.workArea.height - height - 40),
+      width,
+      height,
+      show: false,
+      frame: false,
+      transparent: true,
+      backgroundColor: '#00000000',
+      resizable: false,
+      movable: false,
+      focusable: false,
+      skipTaskbar: true,
+      hasShadow: false,
+      alwaysOnTop: true,
+      webPreferences: { preload: preloadPath(), contextIsolation: true, nodeIntegration: false }
+    });
+    win.setIgnoreMouseEvents(true);
+    win.setAlwaysOnTop(true, 'screen-saver');
+    loadRenderer(win, `zone-pages/${encodeURIComponent(JSON.stringify(info))}`);
+    win.once('ready-to-show', () => win.showInactive());
+    this.win = win;
+    this.timer = setTimeout(() => this.close(), 1600);
+  }
+
+  close(): void {
+    if (this.timer) clearTimeout(this.timer);
+    this.timer = null;
+    if (this.win && !this.win.isDestroyed()) this.win.destroy();
+    this.win = null;
+  }
+}

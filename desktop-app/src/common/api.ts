@@ -45,7 +45,30 @@ export interface PreloadApi {
     peekStop(): void;
     toggleHide(): Promise<void>;
     showDesktop(): Promise<void>;
-    shortcutStatus(): Promise<{ id: string; accelerator: string; ok: boolean } | null>;
+    shortcutStatus(): Promise<Array<{ id: string; accelerator: string; ok: boolean }>>;
+    /** Pages du bureau. */
+    page: {
+      switch(id: string): Promise<void>;
+      add(name: string): Promise<import('./desktop').DesktopPage>;
+      rename(id: string, name: string): Promise<void>;
+      move(id: string, dir: -1 | 1): Promise<void>;
+      delete(id: string): Promise<void>;
+    };
+    /** Pipette : couleur prise à l'écran pour une zone (null = style par défaut). */
+    pickColor(zoneId: string | null, field: 'bg' | 'titleColor' | 'iconTint' | 'color'): Promise<boolean>;
+    saveStyle(name: string, style: Partial<import('./desktop').ZoneStyle>): Promise<import('./desktop').SavedStyle>;
+    /** Dispositions : écrans, instantanés, sauvegardes, fichier. */
+    layout: {
+      swapScreens(): Promise<void>;
+      list(): Promise<Array<{ id: string; name: string; at: number; type: 'manual' | 'daily'; zones: number }>>;
+      save(name: string): Promise<{ id: string; name: string; at: number; type: 'manual' | 'daily'; zones: number }>;
+      rename(id: string, name: string): Promise<void>;
+      delete(id: string): Promise<void>;
+      restore(id: string): Promise<boolean>;
+      undo(): Promise<boolean>;
+      exportFile(withRules: boolean): Promise<string | null>;
+      importFile(): Promise<'ok' | 'cancel' | 'invalid'>;
+    };
     pickFolder(): Promise<string | null>;
     /** Règles de rangement et journal. */
     rules: {

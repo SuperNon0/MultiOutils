@@ -25,13 +25,85 @@ body[data-fenetre='zone-peek'] #root {
   flex-direction: column;
   /* Chromium ne floute pas le fond d'écran derrière une fenêtre transparente :
      verre presque opaque, comme le lanceur et les pop-ups Home Assistant. */
-  background: color-mix(in srgb, var(--pop) var(--zo, 90%), transparent);
+  background: color-mix(in srgb, var(--zbg, var(--pop)) var(--zo, 90%), transparent);
   border: 1px solid var(--line2);
-  border-radius: 14px;
+  border-radius: var(--zr, 14px);
   overflow: hidden;
   color: var(--text);
   font-size: 13px;
-  transition: opacity 0.18s ease;
+  transition:
+    opacity 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+/* Zone invisible : cadre et fond seulement au survol (h3). */
+.zw.inv:not(:hover):not(.drop):not(.peek) {
+  background: transparent;
+  border-color: transparent;
+}
+.zw.inv:not(:hover):not(.drop):not(.peek) .zw-h {
+  border-bottom-color: transparent;
+}
+/* Barre de titre au survol ou masquée (h6) ; Alt + glisser déplace la zone. */
+.zw.tb-hover:not(:hover):not(.rolled) .zw-h {
+  opacity: 0;
+}
+.zw.tb-hidden:not(.rolled) .zw-h {
+  display: none;
+}
+.zw-h {
+  transition: opacity 0.15s ease;
+}
+.zw.tl-bold .zw-h {
+  background: color-mix(in srgb, var(--zc) 18%, transparent);
+  border-bottom-color: color-mix(in srgb, var(--zc) 40%, transparent);
+}
+.zw .zw-t {
+  font-family: var(--ztf, inherit);
+  font-size: var(--zts, 13.5px);
+  color: var(--ztc, var(--text));
+}
+/* Liseré de couleur à gauche (h13). */
+.zw.stripe {
+  box-shadow: inset 3px 0 0 var(--zc);
+}
+/* Icônes fondues dans le fond d'écran, nettes au survol (h10). */
+.zw.ifade .zw-fi img,
+.zw.ifade .zw-row img,
+.zw.ifade .zw-tint {
+  opacity: 0.45;
+  filter: saturate(0.6);
+  transition:
+    opacity 0.15s ease,
+    filter 0.15s ease;
+}
+.zw.ifade:hover .zw-fi img,
+.zw.ifade:hover .zw-row img,
+.zw.ifade:hover .zw-tint {
+  opacity: 1;
+  filter: none;
+}
+/* Teinte des icônes (h8). */
+.zw-tint {
+  position: relative;
+  display: inline-block;
+  isolation: isolate;
+  flex: none;
+}
+.zw-tint > span {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: color;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+.zw-fi .zw-tint {
+  width: var(--ico);
+  height: var(--ico);
+}
+.zw-fi .zw-tint img {
+  width: 100%;
+  height: 100%;
 }
 .zw.fade {
   opacity: 0;
@@ -54,7 +126,7 @@ body[data-fenetre='zone-peek'] #root {
 .zw.drop {
   border-color: var(--acc-line);
   box-shadow: inset 0 0 0 2px var(--acc-dim);
-  background: color-mix(in srgb, var(--acc-dim) 40%, color-mix(in srgb, var(--pop) var(--zo, 90%), transparent));
+  background: color-mix(in srgb, var(--acc-dim) 40%, color-mix(in srgb, var(--zbg, var(--pop)) var(--zo, 90%), transparent));
 }
 .zw-h {
   height: 36px;
@@ -637,4 +709,142 @@ body[data-fenetre='zone-peek'] #root {
 .zw-tabs button.on {
   flex-shrink: 0;
   max-width: 60%;
+}
+
+/* ------------------------------------------------ pastille de page */
+html:has(> body[data-fenetre='zone-pages']),
+body[data-fenetre='zone-pages'],
+body[data-fenetre='zone-pages'] #root {
+  background: transparent;
+  height: 100%;
+  overflow: hidden;
+}
+.zpg {
+  position: fixed;
+  inset: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: 14px;
+  background: var(--pop);
+  border: 1px solid var(--line2);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 13px;
+  animation: zp-in 0.14s ease;
+}
+.zpg-dots {
+  display: flex;
+  gap: 6px;
+}
+.zpg-dots i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--line2);
+}
+.zpg-dots i.on {
+  background: var(--accent);
+  width: 18px;
+  border-radius: 4px;
+}
+.zw-row .zw-tint,
+.zw-row .zw-tint img {
+  width: 18px;
+  height: 18px;
+}
+.zw-tint img {
+  pointer-events: none;
+}
+
+/* ------------------------------------------------ étape 3 : pages, apparence */
+.bz-pages {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.bs {
+  margin-top: 6px;
+}
+.bs-color {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.bs-color input[type='color'] {
+  width: 34px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line2);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+.bs-slider {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.bs-slider input[type='range'] {
+  width: 120px;
+}
+.bs-num {
+  width: 82px;
+  height: 30px;
+}
+.bs-num input {
+  width: 100%;
+  font: 500 12.5px var(--f-mono);
+}
+.bs-note {
+  margin: -2px 0 6px;
+}
+.bs-act {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.bs-toggle {
+  margin-top: 8px;
+}
+.bz-auto {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.bz-auto-r {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.bz-time {
+  height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--line2);
+  background: var(--card);
+  color: var(--text);
+  padding: 0 6px;
+  font: 500 12.5px var(--f-mono);
+}
+.bz-days {
+  display: inline-flex;
+  gap: 3px;
+  flex-wrap: wrap;
+}
+.bz-days .chip {
+  padding: 0 7px;
+  height: 26px;
+  font-size: 11.5px;
+}
+@media (max-width: 560px) {
+  .bs-slider input[type='range'] {
+    width: 80px;
+  }
 }
