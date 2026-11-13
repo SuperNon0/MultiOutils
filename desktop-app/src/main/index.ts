@@ -11,6 +11,7 @@ import { MainModuleRegistry } from './module-registry';
 import { createAutoclickerMainModule } from './modules/autoclicker';
 import { createClipboardMainModule } from './modules/clipboard';
 import { createColorPickerMainModule } from './modules/color-picker';
+import { createDesktopMainModule } from './modules/desktop';
 import { createLauncherMainModule } from './modules/launcher';
 import { createAiMainModule } from './modules/ai';
 import { createOcrMainModule } from './modules/ocr';
@@ -114,6 +115,7 @@ async function bootstrap(): Promise<void> {
   registry.register(createClipboardMainModule());
   registry.register(createAutoclickerMainModule());
   registry.register(createLauncherMainModule());
+  registry.register(createDesktopMainModule());
   await registry.activateAll(ctx);
 
   registerHostIpc(ctx);

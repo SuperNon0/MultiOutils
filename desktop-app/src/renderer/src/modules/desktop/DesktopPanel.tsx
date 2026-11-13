@@ -1,0 +1,286 @@
+import { useEffect, useState, type ReactNode } from 'react';
+import type { DesktopState, Zone, ZoneIconSize, ZoneSort, ZoneView } from '../../../../common/desktop';
+import { ui } from '../../encre/ui';
+import { Icon } from '../../host/Icon';
+import { RegLigne, RegSwitch } from '../../host/reglages';
+import { useI18n } from '../../i18n';
+import './desktop.css';
+
+/** État partagé du module (page et réglages). */
+export function useDesktopState(): [DesktopState | null, (s: DesktopState) => void] {
+  const [state, setState] = useState<DesktopState | null>(null);
+  useEffect(() => {
+    void window.api.desktop.getState().then(setState);
+    return window.api.desktop.onState(setState);
+  }, []);
+  return [state, setState];
+}
+
+function kindIcon(z: Zone): string {
+  if (z.kind === 'folder') return 'folderopen';
+  if (z.inbox) return 'sparkle';
+  return 'grid';
+}
+
+/** Mini-carte : les écrans et la place de chaque zone. */
+function MiniMap({ state, selected, onSelect }: { state: DesktopState; selected: string | null; onSelect(id: string): void }): ReactNode {
+  const maxW = Math.max(...state.displays.map((d) => d.workArea.width), 1);
+  const scale = 170 / maxW;
+  return (
+    <div className="bz-mini" aria-hidden="true">
+      {state.displays.map((d) => (
+        <div key={d.id} className="bz-scr" style={{ width: d.workArea.width * scale, height: d.workArea.height * scale }}>
+          {state.zones
+            .filter((z) => z.bounds.displayId === d.id || (!state.displays.some((o) => o.id === z.bounds.displayId) && d.primary))
+            .map((z) => (
+              <button
+                key={z.id}
+                tabIndex={-1}
+                className={`${z.id === selected ? 'on' : ''}${z.enabled ? '' : ' off'}`}
+                style={{
+                  left: z.bounds.x * scale,
+                  top: z.bounds.y * scale,
+                  width: Math.max(4, z.bounds.width * scale),
+                  height: Math.max(3, z.bounds.height * scale),
+                  borderColor: z.id === selected ? undefined : (z.color ?? undefined)
+                }}
+                onClick={() => onSelect(z.id)}
+              />
+            ))}
+          <span>
+            {d.label}
+            {d.primary ? ' ★' : ''} · {Math.round(d.workArea.width)}×{Math.round(d.workArea.height)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ZoneDetail({ zone }: { zone: Zone }): ReactNode {
+  const { t } = useI18n();
+  const up = (patch: Partial<Zone>): void => void window.api.desktop.updateZone(zone.id, patch);
+  const sorts: ZoneSort[] = zone.kind === 'folder' ? ['name', 'type', 'size', 'date', 'opens'] : ['manual', 'name', 'type', 'size', 'date', 'opens'];
+  return (
+    <div className="carte bz-det">
+      <div className="lbl-mono">{zone.title}</div>
+      <RegLigne titre={t('desktop.menu.view')}>
+        <div className="seg">
+          {(['icons', 'list', 'details'] as ZoneView[]).map((v) => (
+            <button key={v} className={zone.view === v ? 'on' : ''} onClick={() => up({ view: v })}>
+              {t(`desktop.menu.view.${v}`)}
+            </button>
+          ))}
+        </div>
+      </RegLigne>
+      <RegLigne titre={t('desktop.menu.sort')} htmlFor="bz-sort">
+        <select id="bz-sort" className="select sm" style={{ width: 150 }} value={zone.sort} onChange={(e) => up({ sort: e.target.value as ZoneSort })}>
+          {sorts.map((s) => (
+            <option key={s} value={s}>
+              {t(`desktop.menu.sort.${s}`)}
+            </option>
+          ))}
+        </select>
+      </RegLigne>
+      <RegLigne titre={t('desktop.menu.iconSize')}>
+        <div className="seg">
+          {(['small', 'medium', 'large'] as ZoneIconSize[]).map((v) => (
+            <button key={v} className={zone.iconSize === v ? 'on' : ''} onClick={() => up({ iconSize: v })}>
+              {t(`desktop.menu.iconSize.${v}`)}
+            </button>
+          ))}
+        </div>
+      </RegLigne>
+      <RegSwitch titre={t('desktop.menu.lock')} sous={t('desktop.detail.lockSub')} checked={zone.locked} onChange={(v) => up({ locked: v })} />
+      {zone.kind === 'folder' ? (
+        <RegSwitch titre={t('desktop.menu.navigate')} sous={zone.folder ?? ''} checked={zone.navigate} onChange={(v) => up({ navigate: v })} />
+      ) : (
+        <RegSwitch titre={t('desktop.menu.inbox')} sous={t('desktop.detail.inboxSub')} checked={zone.inbox} onChange={(v) => up({ inbox: v })} />
+      )}
+    </div>
+  );
+}
+
+/** Page « Bureau » de la fenêtre principale. */
+export function DesktopPanel(): ReactNode {
+  const { t } = useI18n();
+  const [state] = useDesktopState();
+  const [selected, setSelected] = useState<string | null>(null);
+
+  useEffect(
+    () =>
+      window.api.desktop.onZoneDeleted((zone) => {
+        ui.toast(t('desktop.deleted', { name: zone.title }), {
+          annuler: () => window.api.desktop.restoreZone(zone)
+        });
+      }),
+    [t]
+  );
+
+  if (!state) return null;
+  const zone = state.zones.find((z) => z.id === selected) ?? null;
+
+  const zoneMenu = (z: Zone, anchor: HTMLElement): void => {
+    ui.menu(
+      anchor,
+      [
+        {
+          icone: 'edit',
+          texte: t('desktop.menu.rename'),
+          action: async () => {
+            const name = await ui.demander(t('desktop.menu.rename'), { valeur: z.title });
+            if (name && name.trim()) void window.api.desktop.updateZone(z.id, { title: name.trim() });
+          }
+        },
+        { icone: z.locked ? 'lock' : 'lock', texte: t(z.locked ? 'desktop.unlock' : 'desktop.menu.lock'), action: () => void window.api.desktop.updateZone(z.id, { locked: !z.locked }) },
+        null,
+        { icone: 'trash', texte: t('desktop.menu.delete'), danger: true, action: () => void window.api.desktop.deleteZone(z.id) }
+      ],
+      { titre: z.title }
+    );
+  };
+
+  const sub = (z: Zone): string => {
+    if (z.kind === 'folder') return t('desktop.sub.folder', { path: z.folder ?? '—' });
+    if (z.inbox) return t('desktop.sub.inbox');
+    return t('desktop.sub.shortcuts', { n: z.items.length });
+  };
+  const screenOf = (z: Zone): string => state.displays.find((d) => d.id === z.bounds.displayId)?.label ?? '1';
+
+  return (
+    <div>
+      <div className="page-h">
+        <h1 className="page-t">{t('desktop.title')}</h1>
+        <button className="btn sm" onClick={() => void window.api.desktop.createZone('folder')}>
+          <Icon name="folderopen" size={16} />
+          {t('desktop.newFolderZone')}
+        </button>
+        <button className="btn sm pri" onClick={() => void window.api.desktop.draw()}>
+          <Icon name="plus" size={16} />
+          {t('desktop.drawZone')}
+        </button>
+      </div>
+      <p className="intro-p muted" style={{ marginBottom: 14 }}>
+        {t('desktop.intro')}
+      </p>
+
+      {!state.native && (
+        <div className="bz-bandeau" role="status">
+          <Icon name="alert" size={18} />
+          {t(state.nativeError === 'platform' ? 'desktop.native.platform' : 'desktop.native.off')}
+        </div>
+      )}
+      {!state.settings.enabled && (
+        <div className="bz-bandeau" role="status">
+          <Icon name="info" size={18} />
+          <span style={{ flex: 1 }}>{t('desktop.disabled')}</span>
+          <button className="btn xs" onClick={() => void window.api.desktop.setSettings({ enabled: true })}>
+            {t('desktop.enable')}
+          </button>
+        </div>
+      )}
+
+      {state.zones.length === 0 ? (
+        <div className="carte bz-vide">
+          <h2 className="sec-t">{t('desktop.empty.title')}</h2>
+          <p>{t('desktop.empty.text')}</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button className="btn pri" onClick={() => void window.api.desktop.starter()}>
+              <Icon name="sparkle" size={16} />
+              {t('desktop.empty.starter')}
+            </button>
+            <button className="btn" onClick={() => void window.api.desktop.draw()}>
+              <Icon name="plus" size={16} />
+              {t('desktop.drawZone')}
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="bz-grid">
+          <div className="liste-r">
+            {state.zones.map((z) => (
+              <div
+                key={z.id}
+                className={`li${z.id === selected ? ' on' : ''}`}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelected(z.id === selected ? null : z.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') setSelected(z.id === selected ? null : z.id);
+                }}
+              >
+                <span className="li-ic" style={{ color: z.color ?? 'var(--accent)' }}>
+                  <Icon name={kindIcon(z)} size={18} />
+                </span>
+                <span className="tx" style={{ flex: 1, minWidth: 0 }}>
+                  <b>{z.title}</b>
+                  <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {sub(z)} · {t('desktop.sub.screen', { n: screenOf(z) })}
+                  </span>
+                </span>
+                <span className="badge">{t(z.kind === 'folder' ? 'desktop.badge.folder' : z.inbox ? 'desktop.badge.inbox' : 'desktop.badge.shortcuts')}</span>
+                <input
+                  type="checkbox"
+                  className="sw"
+                  aria-label={t('desktop.zoneVisible')}
+                  checked={z.enabled}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => void window.api.desktop.updateZone(z.id, { enabled: e.target.checked })}
+                />
+                <button
+                  className="ib"
+                  style={{ width: 32, height: 32 }}
+                  aria-label={t('desktop.zone.menu')}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    zoneMenu(z, e.currentTarget);
+                  }}
+                >
+                  <Icon name="dots" size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="bz-side">
+            <MiniMap state={state} selected={selected} onSelect={setSelected} />
+            {zone ? <ZoneDetail zone={zone} /> : <p className="muted petit">{t('desktop.pickZone')}</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Section « Bureau » des Réglages. */
+export function DesktopSettingsPanel(): ReactNode {
+  const { t } = useI18n();
+  const [state] = useDesktopState();
+  if (!state) return null;
+  const s = state.settings;
+  const set = (patch: Partial<typeof s>): void => void window.api.desktop.setSettings(patch);
+  return (
+    <div>
+      <RegSwitch titre={t('desktop.set.enabled')} sous={t('desktop.set.enabledSub')} checked={s.enabled} onChange={(v) => set({ enabled: v })} />
+      <RegSwitch
+        titre={t('desktop.set.hideNative')}
+        sous={t('desktop.set.hideNativeSub')}
+        checked={s.hideNativeIcons}
+        disabled={!state.native}
+        onChange={(v) => set({ hideNativeIcons: v })}
+      />
+      <RegLigne titre={t('desktop.set.opacity')} sous={t('desktop.set.opacitySub')} htmlFor="bz-op">
+        <input id="bz-op" type="range" min={40} max={100} step={5} value={s.opacity} onChange={(e) => set({ opacity: Number(e.target.value) })} />
+        <span className="mono" style={{ width: 44, textAlign: 'right' }}>
+          {s.opacity} %
+        </span>
+      </RegLigne>
+      <RegSwitch titre={t('desktop.set.snap')} sous={t('desktop.set.snapSub')} checked={s.snap} onChange={(v) => set({ snap: v })} />
+      <RegLigne titre={t('desktop.set.gap')} htmlFor="bz-gap">
+        <input id="bz-gap" type="range" min={0} max={40} step={2} value={s.gap} disabled={!s.snap} onChange={(e) => set({ gap: Number(e.target.value) })} />
+        <span className="mono" style={{ width: 44, textAlign: 'right' }}>
+          {s.gap} px
+        </span>
+      </RegLigne>
+    </div>
+  );
+}

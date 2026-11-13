@@ -7,6 +7,7 @@ import type { ToolModule } from './host/types';
 import { autoclickerModule } from './modules/autoclicker';
 import { clipboardModule } from './modules/clipboard';
 import { colorPickerModule } from './modules/color-picker';
+import { desktopModule } from './modules/desktop';
 import { launcherModule } from './modules/launcher';
 import { screenshotModule } from './modules/screenshot';
 
@@ -15,5 +16,6 @@ export const modules: ToolModule[] = [
   colorPickerModule,
   clipboardModule,
   autoclickerModule,
-  launcherModule
+  launcherModule,
+  desktopModule
 ].sort((a, b) => a.order - b.order);

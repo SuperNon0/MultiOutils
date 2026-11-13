@@ -25,6 +25,10 @@ const HaDashboardBar = lazy(() =>
 // Lanceur : chargé à part (son code et launcher.css ne pèsent pas sur la fenêtre principale).
 const Launcher = lazy(() => import('./windows/Launcher'));
 
+// Module Bureau : fenêtres des zones et calque de dessin, chargés à part.
+const ZoneWindow = lazy(() => import('./modules/desktop/ZoneWindow').then((m) => ({ default: m.ZoneWindow })));
+const ZoneDraw = lazy(() => import('./modules/desktop/ZoneDraw').then((m) => ({ default: m.ZoneDraw })));
+
 /**
  * Une seule entrée renderer, plusieurs fenêtres : la fenêtre principale (App)
  * et les fenêtres satellites routées par hash (#/region/…, #/quickbar/…,
@@ -44,7 +48,7 @@ function Root(): ReactNode {
 
 function SatelliteOrApp(): ReactNode {
   const match = window.location.hash.match(
-    /^#\/(region|quickbar|picker|eyedropper|ha-toasts|ha-dashboard)(?:\/(.+))?$/
+    /^#\/(region|quickbar|picker|eyedropper|ha-toasts|ha-dashboard|zone|zone-draw)(?:\/(.+))?$/
   );
   const [lang, setLang] = useState<Language | null>(null);
 
@@ -74,6 +78,14 @@ function SatelliteOrApp(): ReactNode {
       ) : route === 'ha-toasts' ? (
         <Suspense fallback={null}>
           <HaToasts />
+        </Suspense>
+      ) : route === 'zone' ? (
+        <Suspense fallback={null}>
+          <ZoneWindow />
+        </Suspense>
+      ) : route === 'zone-draw' && param ? (
+        <Suspense fallback={null}>
+          <ZoneDraw displayId={param} />
         </Suspense>
       ) : route === 'ha-dashboard' ? (
         <Suspense fallback={null}>

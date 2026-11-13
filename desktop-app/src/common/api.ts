@@ -24,6 +24,41 @@ import type {
 export type Unsubscribe = () => void;
 
 export interface PreloadApi {
+  /** Module Bureau : zones sur le bureau Windows (common/desktop.ts). */
+  desktop: {
+    getState(): Promise<import('./desktop').DesktopState>;
+    setSettings(patch: Partial<import('./desktop').DesktopSettings>): Promise<import('./desktop').DesktopState>;
+    /** Crée une zone à un emplacement libre (zone-dossier : choix du dossier). */
+    createZone(kind: import('./desktop').ZoneKind): Promise<import('./desktop').Zone | null>;
+    /** Ouvre le calque pour dessiner une zone sur l'écran. */
+    draw(): Promise<void>;
+    /** Rangement de départ (Programmes, Dossiers, Documents, Images, À trier). */
+    starter(): Promise<void>;
+    updateZone(id: string, patch: Partial<import('./desktop').Zone>): Promise<import('./desktop').DesktopState>;
+    deleteZone(id: string): Promise<void>;
+    restoreZone(zone: import('./desktop').Zone): Promise<import('./desktop').DesktopState>;
+    icon(path: string, size: 'small' | 'normal' | 'large'): Promise<string | null>;
+    onState(cb: (state: import('./desktop').DesktopState) => void): Unsubscribe;
+    onZoneDeleted(cb: (zone: import('./desktop').Zone) => void): Unsubscribe;
+    /** Fenêtre d'une zone. */
+    zone: {
+      hello(): Promise<import('./desktop').ZoneWindowMsg | null>;
+      onUpdate(cb: (msg: import('./desktop').ZoneWindowMsg) => void): Unsubscribe;
+      onEdit(cb: (msg: { type: 'title' | 'item'; path?: string }) => void): Unsubscribe;
+      bounds(rect: import('./desktop').Rect, final: boolean, mode: 'move' | 'resize'): void;
+      open(path: string): Promise<void>;
+      up(): Promise<void>;
+      home(): Promise<void>;
+      drop(paths: string[], copy: boolean, before?: string): Promise<void>;
+      rename(title: string): Promise<void>;
+      renameItem(path: string, name: string): Promise<boolean>;
+      startDrag(paths: string[]): void;
+      menu(target: { path?: string } | null): void;
+    };
+    /** Calque de dessin. */
+    drawDone(payload: { displayId: string; rect: import('./desktop').Rect; kind: import('./desktop').ZoneKind }): void;
+    drawCancel(): void;
+  };
   settings: {
     get(): Promise<AppSettings>;
     set(patch: Partial<AppSettings>): Promise<AppSettings>;
