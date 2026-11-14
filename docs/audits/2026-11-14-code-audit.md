@@ -3,7 +3,7 @@
 ## Périmètre et méthode
 
 Revue du dépôt GitHub `SuperNon0/MultiOutils` à partir de la branche `main` après publication de `v0.9.0`.
-Le dépôt contient **444 entrées** (dont **193 fichiers TypeScript/TSX**) selon l'inventaire GitHub au moment de l'audit. Les vérifications sont organisées par sujets : sauvegardes/SQLite, Electron et données sensibles, widgets/Home Assistant, notes et palette, fichiers/captures, serveur et CI.
+Le dépôt contient **444 entrées** (dont **193 fichiers TypeScript/TSX et 13 fichiers de tests `*.test.ts`**) selon l'inventaire GitHub au moment de l'audit. Les vérifications sont organisées par sujets : sauvegardes/SQLite, Electron et données sensibles, widgets/Home Assistant, notes et palette, fichiers/captures, serveur et CI.
 
 Les fichiers critiques de chaque domaine ont été inspectés, mais **il ne s'agit pas d'une vérification exhaustive ligne par ligne des 444 entrées**. Les tests automatisés Linux et Windows de la version `main` et de la branche corrective ont réussi. Aucun accès au poste Windows réel, à l'instance Home Assistant, au serveur déployé ni au plugin Stream Deck physique : les scénarios de bout en bout ne sont donc pas confirmés.
 
