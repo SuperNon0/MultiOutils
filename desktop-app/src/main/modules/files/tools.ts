@@ -235,7 +235,9 @@ export async function duplicates(root: string, onProgress: (done: number, total:
     for (const p of g.paths) {
       try {
         const h = await hashFile(p, signal);
-        byHash.set(h, [...(byHash.get(h) ?? []), p]);
+        const matches = byHash.get(h);
+        if (matches) matches.push(p);
+        else byHash.set(h, [p]);
       } catch {
         // illisible
       }
