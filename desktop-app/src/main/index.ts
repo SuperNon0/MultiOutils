@@ -1,4 +1,4 @@
-import { app, net, Notification, protocol } from 'electron';
+import { app, nativeTheme, net, Notification, protocol } from 'electron';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,6 +22,7 @@ import { CaptureRepo, originalPathFor, thumbPathFor } from './storage/captures';
 import { openDb } from './storage/db';
 import { ShortcutManager } from './shortcuts';
 import { TrayController } from './tray';
+import { streamDeckTheme } from '../common/streamdeck';
 import { setupStreamDeckPlugin } from './streamdeck-plugin';
 import { setupUpdater } from './updater';
 import {
@@ -141,6 +142,8 @@ async function bootstrap(): Promise<void> {
   registerHostIpc(ctx);
   setupUpdater(ctx);
   setupStreamDeckPlugin();
+  // Couleurs des touches Stream Deck : le plugin suit l'accent et le thème de l'app.
+  localService.registerRoute('GET', /^\/theme$/, () => streamDeckTheme(settings.get().appearance, nativeTheme.shouldUseDarkColors));
   localService.start();
 
   const statuses = shortcuts.applyAll();

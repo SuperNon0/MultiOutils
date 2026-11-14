@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MultiOutils — couleur de la touche</title>
+    <style>
+      :root {
+        --bg: #0e0f11;
+        --card: #1c1f25;
+        --border: #2a2d35;
+        --text: #f0ede6;
+        --muted: #9aa0a6;
+        --accent: #e8c547;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 14px;
+        background: var(--bg);
+        color: var(--text);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        font-size: 13px;
+      }
+      label { display: block; margin-bottom: 8px; color: var(--muted); font-size: 12px; }
+      .hint { color: var(--muted); font-size: 11px; line-height: 1.5; margin: 10px 0 0; }
+    </style>
+  </head>
+  <body>
+    <div id="color"></div>
+    <script src="key-color.js"></script>
+    <script>
+      let ws = null;
+      let piContext = null;
+      let settings = {};
+      const picker = mountKeyColor(
+        document.getElementById('color'),
+        () => settings,
+        () => {
+          if (ws && ws.readyState === 1 && piContext)
+            ws.send(JSON.stringify({ event: 'setSettings', context: piContext, payload: settings }));
+        }
+      );
+      window.connectElgatoStreamDeckSocket = function (inPort, inUUID, inRegisterEvent, inInfo, inActionInfo) {
+        piContext = inUUID;
+        try {
+          const info = JSON.parse(inActionInfo);
+          settings = (info && info.payload && info.payload.settings) || {};
+        } catch (e) {
+          settings = {};
+        }
+        picker.render();
+        ws = new WebSocket('ws://127.0.0.1:' + inPort);
+        ws.onopen = () => ws.send(JSON.stringify({ event: inRegisterEvent, uuid: inUUID }));
+        ws.onmessage = (evt) => {
+          try {
+            const msg = JSON.parse(evt.data);
+            if (msg.event === 'didReceiveSettings' && msg.payload && msg.payload.settings) {
+              settings = msg.payload.settings;
+              picker.render();
+            }
+          } catch (e) {
+            /* ignore */
+          }
+        };
+      };
+    </script>
+  </body>
+</html>
