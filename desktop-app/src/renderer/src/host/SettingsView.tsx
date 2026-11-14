@@ -953,7 +953,7 @@ function BackupSection(): ReactNode {
     setMessage('');
     try {
       const result = await window.api.backup[action]();
-      if (result.ok) setMessage(action === 'create' ? `Sauvegarde créée : ${result.path}` : 'Redémarrage pour restauration…');
+      if (result.ok) setMessage(action === 'create' ? `Sauvegarde créée : ${'path' in result ? result.path : ''}` : 'Redémarrage pour restauration…');
       else if (!result.canceled) setMessage(result.error ?? 'Opération impossible');
     } catch (e) {
       setMessage(String(e));
