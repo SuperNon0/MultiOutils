@@ -9,6 +9,7 @@ export const WIDGET_ICONS: Record<WidgetType, string> = {
   notes: 'edit',
   clips: 'clipboard',
   ha: 'home',
+  'ha-sensor': 'signal',
   search: 'search',
   cloud: 'cloud'
 };
@@ -23,6 +24,8 @@ export function WidgetBody({ zone, content }: { zone: Zone; content: ZoneContent
       return <ClipsWidget />;
     case 'ha':
       return <HaWidget zone={zone} />;
+    case 'ha-sensor':
+      return <HaSensorWidget zone={zone} />;
     case 'search':
       return <SearchWidget />;
     case 'cloud':
@@ -272,6 +275,41 @@ function CloudWidget({ content }: { content: ZoneContent }): ReactNode {
           <Icon name={c.state === 'sent' ? 'check' : c.state === 'error' ? 'alert' : 'upload'} size={14} />
           <span className="nm">{c.name}</span>
           <span className="m">{c.state === 'error' ? t('desktop.cloud.failed') : formatSize(c.size, lang)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Capteurs HA en lecture seule, style Encre avec couleur par zone. */
+function HaSensorWidget({ zone }: { zone: Zone }): ReactNode {
+  const [list, setList] = useState<HaEntity[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = async (): Promise<void> => {
+      try {
+        const result = await window.api.ha.entities();
+        if (!alive) return;
+        if (result.ok) { setList(result.list); setError(null); }
+        else setError(result.error);
+      } catch (e) {
+        if (alive) setError(String(e));
+      }
+    };
+    void load();
+    const timer = setInterval(() => void load(), 20_000);
+    return () => { alive = false; clearInterval(timer); };
+  }, []);
+  if (error) return <div className="zw-vide">{error}</div>;
+  const selected = zone.entities.map((id) => list.find((e) => e.id === id)).filter((e): e is HaEntity => !!e);
+  if (!selected.length) return <div className="zw-vide">Choisis des capteurs dans Bureau → Modifier la zone.</div>;
+  return (
+    <div className={`zw-sensors ${zone.widgetLayout}`}>
+      {selected.map((entity) => (
+        <div key={entity.id} className="zw-sensor" title={entity.id}>
+          <span className="zw-sensor-name">{entity.name}</span>
+          <span className="zw-sensor-value">{entity.state}{entity.unit ? ` ${entity.unit}` : ''}</span>
         </div>
       ))}
     </div>
