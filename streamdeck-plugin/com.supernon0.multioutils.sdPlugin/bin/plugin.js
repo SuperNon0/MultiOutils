@@ -1,13 +1,14 @@
-import require$$0$3 from 'events';
+import require$$0$4 from 'events';
 import require$$1$1 from 'https';
-import require$$2$1 from 'http';
+import require$$0 from 'http';
 import require$$3 from 'net';
-import require$$4 from 'tls';
+import require$$4 from 'querystring';
+import require$$5 from 'tls';
 import require$$1 from 'crypto';
-import require$$0$2 from 'stream';
-import require$$7 from 'url';
-import require$$0 from 'zlib';
-import require$$0$1 from 'buffer';
+import require$$0$3 from 'stream';
+import require$$8 from 'url';
+import require$$0$1 from 'zlib';
+import require$$0$2 from 'buffer';
 import require$$2 from 'util';
 import path, { join } from 'node:path';
 import { cwd } from 'node:process';
@@ -210,6 +211,8 @@ function requireBufferUtil () {
 	if (hasRequiredBufferUtil) return bufferUtil.exports;
 	hasRequiredBufferUtil = 1;
 
+	const { websocketMask, websocketUnmask } = require$$0;
+
 	const { EMPTY_BUFFER } = requireConstants();
 
 	const FastBuffer = Buffer[Symbol.species];
@@ -321,8 +324,17 @@ function requireBufferUtil () {
 	  unmask: _unmask
 	};
 
-	/* istanbul ignore else  */
-	if (!process.env.WS_NO_BUFFER_UTIL) {
+	if (websocketMask) {
+	  bufferUtil.exports.mask = function (source, mask, output, offset, length) {
+	    if (length < 24) _mask(source, mask, output, offset, length);
+	    else websocketMask(source, mask, output, offset, length);
+	  };
+
+	  bufferUtil.exports.unmask = function (buffer, mask) {
+	    if (buffer.length < 24) _unmask(buffer, mask);
+	    else websocketUnmask(buffer, mask);
+	  };
+	} /* istanbul ignore else  */ else if (!process.env.WS_NO_BUFFER_UTIL) {
 	  try {
 	    const bufferUtil$1 = require('bufferutil');
 
@@ -412,7 +424,7 @@ function requirePermessageDeflate () {
 	if (hasRequiredPermessageDeflate) return permessageDeflate;
 	hasRequiredPermessageDeflate = 1;
 
-	const zlib = require$$0;
+	const zlib = require$$0$1;
 
 	const bufferUtil = requireBufferUtil();
 	const Limiter = requireLimiter();
@@ -579,7 +591,9 @@ function requirePermessageDeflate () {
 	            (typeof opts.serverMaxWindowBits === 'number' &&
 	              opts.serverMaxWindowBits > params.server_max_window_bits))) ||
 	        (typeof opts.clientMaxWindowBits === 'number' &&
-	          !params.client_max_window_bits)
+	          (typeof params.client_max_window_bits === 'number'
+	            ? opts.clientMaxWindowBits > params.client_max_window_bits
+	            : !params.client_max_window_bits))
 	      ) {
 	        return false;
 	      }
@@ -949,7 +963,7 @@ function requireValidation () {
 	if (hasRequiredValidation) return validation.exports;
 	hasRequiredValidation = 1;
 
-	const { isUtf8 } = require$$0$1;
+	const { isUtf8 } = require$$0$2;
 
 	const { hasBlob } = requireConstants();
 
@@ -1109,7 +1123,7 @@ function requireReceiver () {
 	if (hasRequiredReceiver) return receiver;
 	hasRequiredReceiver = 1;
 
-	const { Writable } = require$$0$2;
+	const { Writable } = require$$0$3;
 
 	const PerMessageDeflate = requirePermessageDeflate();
 	const {
@@ -1186,6 +1200,7 @@ function requireReceiver () {
 
 	    this._totalPayloadLength = 0;
 	    this._messageLength = 0;
+	    this._numFragments = 0;
 	    this._fragments = [];
 
 	    this._errored = false;
@@ -1604,8 +1619,29 @@ function requireReceiver () {
 	      }
 	    }
 
+	    //
+	    // The mask is a view into the buffer the stream delivered, which is commonly
+	    // 64 KiB, and it is not needed once the payload above has been unmasked.
+	    // Leaving it set would pin that whole buffer until the next frame arrives,
+	    // which on an idle connection can be indefinitely.
+	    //
+	    this._mask = undefined;
+
 	    if (this._opcode > 0x07) {
 	      this.controlMessage(data, cb);
+	      return;
+	    }
+
+	    if (this._maxFragments > 0 && ++this._numFragments > this._maxFragments) {
+	      const error = this.createError(
+	        RangeError,
+	        'Too many message fragments',
+	        false,
+	        1008,
+	        'WS_ERR_TOO_MANY_BUFFERED_PARTS'
+	      );
+
+	      cb(error);
 	      return;
 	    }
 
@@ -1616,22 +1652,6 @@ function requireReceiver () {
 	    }
 
 	    if (data.length) {
-	      if (
-	        this._maxFragments > 0 &&
-	        this._fragments.length >= this._maxFragments
-	      ) {
-	        const error = this.createError(
-	          RangeError,
-	          'Too many message fragments',
-	          false,
-	          1008,
-	          'WS_ERR_TOO_MANY_BUFFERED_PARTS'
-	        );
-
-	        cb(error);
-	        return;
-	      }
-
 	      //
 	      // This message is not compressed so its length is the sum of the payload
 	      // length of all fragments.
@@ -1671,22 +1691,6 @@ function requireReceiver () {
 	          return;
 	        }
 
-	        if (
-	          this._maxFragments > 0 &&
-	          this._fragments.length >= this._maxFragments
-	        ) {
-	          const error = this.createError(
-	            RangeError,
-	            'Too many message fragments',
-	            false,
-	            1008,
-	            'WS_ERR_TOO_MANY_BUFFERED_PARTS'
-	          );
-
-	          cb(error);
-	          return;
-	        }
-
 	        this._fragments.push(buf);
 	      }
 
@@ -1713,6 +1717,7 @@ function requireReceiver () {
 	    this._totalPayloadLength = 0;
 	    this._messageLength = 0;
 	    this._fragmented = 0;
+	    this._numFragments = 0;
 	    this._fragments = [];
 
 	    if (this._opcode === 2) {
@@ -1879,7 +1884,7 @@ function requireSender () {
 	if (hasRequiredSender) return sender;
 	hasRequiredSender = 1;
 
-	const { Duplex } = require$$0$2;
+	const { Duplex } = require$$0$3;
 	const { randomFillSync } = require$$1;
 	const {
 	  types: { isUint8Array }
@@ -2030,7 +2035,9 @@ function requireSender () {
 	      target.writeUIntBE(dataLength, 4, 6);
 	    }
 
-	    if (!options.mask) return [target, data];
+	    if (!options.mask) {
+	      return dataLength ? [target, data] : [target];
+	    }
 
 	    target[1] |= 0x80;
 	    target[offset - 4] = mask[0];
@@ -2038,6 +2045,7 @@ function requireSender () {
 	    target[offset - 2] = mask[2];
 	    target[offset - 1] = mask[3];
 
+	    if (!dataLength) return [target];
 	    if (skipMasking) return [target, data];
 
 	    if (merge) {
@@ -3005,14 +3013,15 @@ function requireWebsocket () {
 	if (hasRequiredWebsocket) return websocket;
 	hasRequiredWebsocket = 1;
 
-	const EventEmitter = require$$0$3;
+	const EventEmitter = require$$0$4;
 	const https = require$$1$1;
-	const http = require$$2$1;
+	const http = require$$0;
 	const net = require$$3;
-	const tls = require$$4;
+	const querystring = require$$4;
+	const tls = require$$5;
 	const { randomBytes, createHash } = require$$1;
-	const { Duplex, Readable } = require$$0$2;
-	const { URL } = require$$7;
+	const { Duplex, Readable } = require$$0$3;
+	const { URL } = require$$8;
 
 	const PerMessageDeflate = requirePermessageDeflate();
 	const Receiver = requireReceiver();
@@ -3078,11 +3087,24 @@ function requireWebsocket () {
 	      this._redirects = 0;
 
 	      if (protocols === undefined) {
-	        protocols = [];
+	        if (!options || options.protocols === undefined) {
+	          protocols = [];
+	        } else if (Array.isArray(options.protocols)) {
+	          protocols = options.protocols;
+	        } else {
+	          protocols = [options.protocols];
+	        }
 	      } else if (!Array.isArray(protocols)) {
 	        if (typeof protocols === 'object' && protocols !== null) {
 	          options = protocols;
-	          protocols = [];
+
+	          if (options.protocols === undefined) {
+	            protocols = [];
+	          } else if (Array.isArray(options.protocols)) {
+	            protocols = options.protocols;
+	          } else {
+	            protocols = [options.protocols];
+	          }
 	        } else {
 	          protocols = [protocols];
 	        }
@@ -3321,7 +3343,6 @@ function requireWebsocket () {
 	      return;
 	    }
 
-	    this._readyState = WebSocket.CLOSING;
 	    this._sender.close(code, data, !this._isServer, (err) => {
 	      //
 	      // This error is handled by the `'error'` listener on the socket. We only
@@ -3339,6 +3360,7 @@ function requireWebsocket () {
 	      }
 	    });
 
+	    this._readyState = WebSocket.CLOSING;
 	    setCloseTimer(this);
 	  }
 
@@ -3649,9 +3671,9 @@ function requireWebsocket () {
 	 *     masking key
 	 * @param {Number} [options.handshakeTimeout] Timeout in milliseconds for the
 	 *     handshake request
-	 * @param {Number} [options.maxBufferedChunks=1048576] The maximum number of
+	 * @param {Number} [options.maxBufferedChunks=262144] The maximum number of
 	 *     buffered data chunks
-	 * @param {Number} [options.maxFragments=131072] The maximum number of message
+	 * @param {Number} [options.maxFragments=16384] The maximum number of message
 	 *     fragments
 	 * @param {Number} [options.maxPayload=104857600] The maximum allowed message
 	 *     size
@@ -3673,8 +3695,8 @@ function requireWebsocket () {
 	    autoPong: true,
 	    closeTimeout: CLOSE_TIMEOUT,
 	    protocolVersion: protocolVersions[1],
-	    maxBufferedChunks: 1024 * 1024,
-	    maxFragments: 128 * 1024,
+	    maxBufferedChunks: 256 * 1024,
+	    maxFragments: 16 * 1024,
 	    maxPayload: 100 * 1024 * 1024,
 	    skipUTF8Validation: false,
 	    perMessageDeflate: true,
@@ -3684,6 +3706,7 @@ function requireWebsocket () {
 	    socketPath: undefined,
 	    hostname: undefined,
 	    protocol: undefined,
+	    protocols: undefined,
 	    timeout: undefined,
 	    method: 'GET',
 	    host: undefined,
@@ -3713,10 +3736,9 @@ function requireWebsocket () {
 	    }
 	  }
 
-	  if (parsedUrl.protocol === 'http:') {
-	    parsedUrl.protocol = 'ws:';
-	  } else if (parsedUrl.protocol === 'https:') {
-	    parsedUrl.protocol = 'wss:';
+	  if (parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:') {
+	    parsedUrl = new URL(parsedUrl);
+	    parsedUrl.protocol = parsedUrl.protocol === 'http:' ? 'ws:' : 'wss:';
 	  }
 
 	  websocket._url = parsedUrl.href;
@@ -3804,14 +3826,22 @@ function requireWebsocket () {
 	    }
 	  }
 	  if (parsedUrl.username || parsedUrl.password) {
-	    opts.auth = `${parsedUrl.username}:${parsedUrl.password}`;
+	    const username = querystring.unescape(parsedUrl.username);
+	    const password = querystring.unescape(parsedUrl.password);
+
+	    opts.auth = `${username}:${password}`;
 	  }
 
 	  if (isIpcUrl) {
-	    const parts = opts.path.split(':');
+	    const i = opts.path.indexOf(':');
 
-	    opts.socketPath = parts[0];
-	    opts.path = parts[1];
+	    if (i === -1) {
+	      opts.socketPath = opts.path;
+	      opts.path = '';
+	    } else {
+	      opts.socketPath = opts.path.slice(0, i);
+	      opts.path = opts.path.slice(i + 1);
+	    }
 	  }
 
 	  let req;
@@ -4172,8 +4202,19 @@ function requireWebsocket () {
 	  const websocket = this[kWebSocket];
 
 	  websocket._closeFrameReceived = true;
-	  websocket._closeMessage = reason;
 	  websocket._closeCode = code;
+
+	  //
+	  // The reason is a view into the buffer the socket delivered. Copy it so that
+	  // the `WebSocket` does not keep that buffer alive. The copy is not pooled
+	  // because a pooled one would keep the pool alive in the same way.
+	  //
+	  if (reason.length === 0) {
+	    websocket._closeMessage = EMPTY_BUFFER;
+	  } else {
+	    websocket._closeMessage = Buffer.allocUnsafeSlow(reason.length);
+	    websocket._closeMessage.set(reason);
+	  }
 
 	  if (websocket._socket[kWebSocket] === undefined) return;
 
@@ -4421,7 +4462,7 @@ function requireStream () {
 	hasRequiredStream = 1;
 
 	requireWebsocket();
-	const { Duplex } = require$$0$2;
+	const { Duplex } = require$$0$3;
 
 	/**
 	 * Emits the `'close'` event on a stream.
@@ -4675,9 +4716,9 @@ function requireWebsocketServer () {
 	if (hasRequiredWebsocketServer) return websocketServer;
 	hasRequiredWebsocketServer = 1;
 
-	const EventEmitter = require$$0$3;
-	const http = require$$2$1;
-	const { Duplex } = require$$0$2;
+	const EventEmitter = require$$0$4;
+	const http = require$$0;
+	const { Duplex } = require$$0$3;
 	const { createHash } = require$$1;
 
 	const extension = requireExtension();
@@ -4716,9 +4757,9 @@ function requireWebsocketServer () {
 	   *     called
 	   * @param {Function} [options.handleProtocols] A hook to handle protocols
 	   * @param {String} [options.host] The hostname where to bind the server
-	   * @param {Number} [options.maxBufferedChunks=1048576] The maximum number of
+	   * @param {Number} [options.maxBufferedChunks=262144] The maximum number of
 	   *     buffered data chunks
-	   * @param {Number} [options.maxFragments=131072] The maximum number of message
+	   * @param {Number} [options.maxFragments=16384] The maximum number of message
 	   *     fragments
 	   * @param {Number} [options.maxPayload=104857600] The maximum allowed message
 	   *     size
@@ -4742,8 +4783,8 @@ function requireWebsocketServer () {
 	    options = {
 	      allowSynchronousEvents: true,
 	      autoPong: true,
-	      maxBufferedChunks: 1024 * 1024,
-	      maxFragments: 128 * 1024,
+	      maxBufferedChunks: 256 * 1024,
+	      maxFragments: 16 * 1024,
 	      maxPayload: 100 * 1024 * 1024,
 	      skipUTF8Validation: false,
 	      perMessageDeflate: false,
@@ -8395,12 +8436,65 @@ async function sendCommand(command, ev) {
         await ev.action.showAlert(); // l'app n'est probablement pas lancée
     }
 }
+/** Avant le premier contact avec l'app : le doré historique. */
+let theme = { theme: 'dark', accent: '#e8c547', background: '#16181c', live: '#4fc3a1' };
+const HEX = /^#[0-9a-f]{6}$/i;
+const keyColor = (color) => (typeof color === 'string' && HEX.test(color) ? color : theme.accent);
+/** Glyphes 24×24 (trait), « {c} » = couleur de la touche, « {b} » = fond. */
+const GLYPHS = {
+    fullscreen: '<rect x="3" y="4" width="18" height="12.5" rx="1"/><path d="M9 20h6"/>',
+    region: '<path d="M4 8.5V4h4.5M15.5 4H20v4.5M20 15.5V20h-4.5M8.5 20H4v-4.5"/>',
+    window: '<rect x="3.5" y="4.5" width="17" height="15" rx="1"/><path d="M3.5 4.5h17v3.5h-17z" fill="{c}"/>',
+    delayed: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
+    library: '<path d="M3.5 6.5a1 1 0 0 1 1-1h4.5l2 2h8.5a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1z"/>',
+    clipboard: '<rect x="8.5" y="4" width="11" height="11" rx="1"/><rect x="4.5" y="8.5" width="11" height="11" rx="1" fill="{b}"/>',
+    pipette: '<path d="M19.6 4.4a2.1 2.1 0 0 0-3 0L14 7l-1-1-1.5 1.5 1 1-7 7-1 4 4-1 7-7 1 1L17 11l-1-1 2.6-2.6a2.1 2.1 0 0 0 0-3z"/>',
+    'desktop-peek': '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
+    'desktop-hide': '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><path d="M4 20 20 4"/>',
+    'desktop-sort': '<path d="M12 3c.6 4.2 2.8 6.4 7 7-4.2.6-6.4 2.8-7 7-.6-4.2-2.8-6.4-7-7 4.2-.6 6.4-2.8 7-7z"/>',
+    'desktop-page-next': '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><path d="m14 7 5 5-5 5"/>',
+    'desktop-page-prev': '<rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/><path d="m10 7-5 5 5 5"/>',
+    'desktop-show': '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'
+};
+function glyphImage(glyph, color) {
+    const body = (GLYPHS[glyph] ?? '').replace(/\{c\}/g, color).replace(/\{b\}/g, theme.background);
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">` +
+        `<rect width="144" height="144" rx="24" fill="${theme.background}"/>` +
+        `<g transform="translate(42 42) scale(2.5)" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${body}</g>` +
+        `</svg>`;
+    return `data:image/svg+xml;charset=utf8,${encodeURIComponent(svg)}`;
+}
+const iconKeys = new Map();
+const renderIcon = (e) => e.action.setImage(glyphImage(e.glyph, keyColor(e.color)));
+/** Touche simple : un glyphe coloré + une commande de l'app. */
+class IconKey extends SingletonAction {
+    async onWillAppear(ev) {
+        const entry = { action: ev.action, glyph: this.glyph, color: ev.payload.settings?.color };
+        iconKeys.set(entry.action.id, entry);
+        await renderIcon(entry);
+        void refreshTheme();
+    }
+    onWillDisappear(ev) {
+        iconKeys.delete(ev.action.id);
+        return Promise.resolve();
+    }
+    async onDidReceiveSettings(ev) {
+        const entry = iconKeys.get(ev.action.id);
+        if (!entry)
+            return;
+        entry.color = ev.payload.settings?.color;
+        await renderIcon(entry);
+    }
+    onKeyDown(ev) {
+        return sendCommand(this.command, ev);
+    }
+}
 let CaptureFullscreen = (() => {
     let _classDecorators = [action({ UUID: 'com.supernon0.multioutils.capture-fullscreen' })];
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8410,9 +8504,8 @@ let CaptureFullscreen = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('capture.fullscreen', ev);
-        }
+        glyph = 'fullscreen';
+        command = 'capture.fullscreen';
     });
     return _classThis;
 })();
@@ -8421,7 +8514,7 @@ let CaptureRegion = (() => {
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8431,9 +8524,8 @@ let CaptureRegion = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('capture.region', ev);
-        }
+        glyph = 'region';
+        command = 'capture.region';
     });
     return _classThis;
 })();
@@ -8442,7 +8534,7 @@ let CaptureWindow = (() => {
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8452,9 +8544,8 @@ let CaptureWindow = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('capture.window', ev);
-        }
+        glyph = 'window';
+        command = 'capture.window';
     });
     return _classThis;
 })();
@@ -8463,7 +8554,7 @@ let CaptureDelayed = (() => {
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8473,9 +8564,8 @@ let CaptureDelayed = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('capture.delayed', ev);
-        }
+        glyph = 'delayed';
+        command = 'capture.delayed';
     });
     return _classThis;
 })();
@@ -8484,7 +8574,7 @@ let OpenLibrary = (() => {
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8494,9 +8584,8 @@ let OpenLibrary = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('library.open', ev);
-        }
+        glyph = 'library';
+        command = 'library.open';
     });
     return _classThis;
 })();
@@ -8505,7 +8594,7 @@ let CopyLast = (() => {
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8515,19 +8604,17 @@ let CopyLast = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('clipboard.last', ev);
-        }
+        glyph = 'clipboard';
+        command = 'clipboard.last';
     });
     return _classThis;
 })();
-// ── Module Presse-papiers (docs/00 §9.4) ─────────────────────────────────
 let ClipsOpen = (() => {
     let _classDecorators = [action({ UUID: 'com.supernon0.multioutils.clips-open' })];
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8537,9 +8624,8 @@ let ClipsOpen = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('clips.open', ev);
-        }
+        glyph = 'clipboard';
+        command = 'clips.open';
     });
     return _classThis;
 })();
@@ -8548,7 +8634,7 @@ let ClipsCopyLast = (() => {
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8558,9 +8644,8 @@ let ClipsCopyLast = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('clips.copyLast', ev);
-        }
+        glyph = 'clipboard';
+        command = 'clips.copyLast';
     });
     return _classThis;
 })();
@@ -8569,7 +8654,7 @@ let ClipsPinCurrent = (() => {
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8579,19 +8664,17 @@ let ClipsPinCurrent = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('clips.pinCurrent', ev);
-        }
+        glyph = 'clipboard';
+        command = 'clips.pinCurrent';
     });
     return _classThis;
 })();
-// ── Module Pipette (docs/00 §9.2) ────────────────────────────────────────
 let ColorPickerStart = (() => {
     let _classDecorators = [action({ UUID: 'com.supernon0.multioutils.colorpicker-start' })];
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8601,22 +8684,11 @@ let ColorPickerStart = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('colorpicker.start', ev);
-        }
+        glyph = 'pipette';
+        command = 'colorpicker.start';
     });
     return _classThis;
 })();
-// ── Module Autoclic (docs/00 §9.5) ───────────────────────────────────────
-// Deux touches complémentaires :
-//  • « profil »       → SÉLECTIONNE un profil (ne lance pas). Doré classique au
-//                       repos, doré plein quand sélectionné, teal animé quand il
-//                       tourne. La liste vient de l'app (nouveau profil → auto).
-//  • « marche/arrêt » → lance / stoppe le profil sélectionné. Triangle doré à
-//                       l'arrêt, carré teal animé en marche ; nom du profil
-//                       sélectionné affiché dessous.
-const ACCENT = '#e8c547'; // doré
-const LIVE = '#4fc3a1'; // teal (en cours)
 const entries = new Map();
 let names = new Map();
 let selectedId = null;
@@ -8626,34 +8698,36 @@ function svgUrl(inner) {
     // Style maison des touches : fond gris arrondi #16181c plein + glyphe plus
     // petit (inséré à 72 % autour du centre), comme les icônes existantes.
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">` +
-        `<rect width="144" height="144" rx="20" fill="#16181c"/>` +
+        `<rect width="144" height="144" rx="20" fill="${theme.background}"/>` +
         `<g transform="translate(72 72) scale(0.72) translate(-72 -72)">${inner}</g>` +
         `</svg>`;
     return `data:image/svg+xml;charset=utf8,${encodeURIComponent(svg)}`;
 }
 /** Image d'une touche « profil » selon son état. */
-function mouseImage(state, on) {
-    const color = state === 'running' ? LIVE : ACCENT;
-    const body = state === 'classic' ? 'none' : state === 'running' ? `${LIVE}33` : `${ACCENT}22`;
+function mouseImage(state, on, accent) {
+    const live = theme.live;
+    const color = state === 'running' ? live : accent;
+    const body = state === 'classic' ? 'none' : state === 'running' ? `${live}33` : `${accent}22`;
     const wheel = state === 'classic' ? 'none' : color;
     const halo = state === 'running' && on
-        ? `<rect x="34" y="16" width="76" height="112" rx="38" fill="none" stroke="${LIVE}" stroke-width="5" opacity="0.55"/>`
+        ? `<rect x="34" y="16" width="76" height="112" rx="38" fill="none" stroke="${live}" stroke-width="5" opacity="0.55"/>`
         : '';
     return svgUrl(halo +
         `<rect x="46" y="26" width="52" height="92" rx="26" fill="${body}" stroke="${color}" stroke-width="7" stroke-linejoin="round"/>` +
         `<rect x="68" y="44" width="8" height="20" rx="4" fill="${wheel}" stroke="${color}" stroke-width="6"/>`);
 }
-/** Image de la touche « marche/arrêt » : lecture dorée (arrêt) / carré teal
+/** Image de la touche « marche/arrêt » : lecture à la couleur de la touche (arrêt) / carré « en cours »
  *  animé (en marche). */
-function toggleImage(running, on) {
+function toggleImage(running, on, accent) {
+    const live = theme.live;
     if (!running) {
-        return svgUrl(`<path d="M58 42 L58 102 L104 72 Z" fill="none" stroke="${ACCENT}" stroke-width="7" stroke-linejoin="round"/>`);
+        return svgUrl(`<path d="M58 42 L58 102 L104 72 Z" fill="none" stroke="${accent}" stroke-width="7" stroke-linejoin="round"/>`);
     }
     const halo = on
-        ? `<circle cx="72" cy="72" r="52" fill="none" stroke="${LIVE}" stroke-width="5" opacity="0.55"/>`
+        ? `<circle cx="72" cy="72" r="52" fill="none" stroke="${live}" stroke-width="5" opacity="0.55"/>`
         : '';
     return svgUrl(halo +
-        `<rect x="50" y="50" width="44" height="44" rx="8" fill="${LIVE}33" stroke="${LIVE}" stroke-width="7"/>`);
+        `<rect x="50" y="50" width="44" height="44" rx="8" fill="${live}33" stroke="${live}" stroke-width="7"/>`);
 }
 async function appGet(path) {
     try {
@@ -8682,7 +8756,7 @@ async function appPost(path) {
 async function renderEntry(e) {
     if (e.kind === 'toggle') {
         await e.action.setTitle(selectedId ? (names.get(selectedId) ?? '') : '');
-        await e.action.setImage(toggleImage(runningId != null, glow));
+        await e.action.setImage(toggleImage(runningId != null, glow, keyColor(e.color)));
         return;
     }
     await e.action.setTitle(e.profileId ? (names.get(e.profileId) ?? '?') : '—');
@@ -8691,7 +8765,7 @@ async function renderEntry(e) {
         : e.profileId != null && selectedId === e.profileId
             ? 'selected'
             : 'classic';
-    await e.action.setImage(mouseImage(state, glow));
+    await e.action.setImage(mouseImage(state, glow, keyColor(e.color)));
 }
 /** Interroge l'app : profils (liste live), profil sélectionné et profil en
  *  cours, puis rafraîchit toutes les touches. */
@@ -8728,13 +8802,20 @@ let AutoclickToggle = (() => {
         }
         async onWillAppear(ev) {
             const key = ev.action;
-            entries.set(key.id, { action: key, kind: 'toggle' });
+            entries.set(key.id, { action: key, kind: 'toggle', color: ev.payload.settings?.color });
             await renderEntry(entries.get(key.id));
             void poll();
         }
         onWillDisappear(ev) {
             entries.delete(ev.action.id);
             return Promise.resolve();
+        }
+        async onDidReceiveSettings(ev) {
+            const entry = entries.get(ev.action.id);
+            if (entry) {
+                entry.color = ev.payload.settings?.color;
+                await renderEntry(entry);
+            }
         }
         async onKeyDown(ev) {
             const key = ev.action;
@@ -8766,7 +8847,8 @@ let AutoclickProfile = (() => {
             entries.set(key.id, {
                 action: key,
                 kind: 'profile',
-                profileId: ev.payload.settings?.profileId
+                profileId: ev.payload.settings?.profileId,
+                color: ev.payload.settings?.color
             });
             await renderEntry(entries.get(key.id));
             void poll();
@@ -8779,6 +8861,7 @@ let AutoclickProfile = (() => {
             const entry = entries.get(ev.action.id);
             if (entry) {
                 entry.profileId = ev.payload.settings?.profileId;
+                entry.color = ev.payload.settings?.color;
                 await renderEntry(entry);
             }
             void poll();
@@ -8798,12 +8881,13 @@ let AutoclickProfile = (() => {
     });
     return _classThis;
 })();
+// ── Module Bureau (zones du bureau) ────────────────────────────────────
 let DesktopPeek = (() => {
     let _classDecorators = [action({ UUID: 'com.supernon0.multioutils.desktop-peek' })];
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8813,9 +8897,8 @@ let DesktopPeek = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('desktop.peek', ev);
-        }
+        glyph = 'desktop-peek';
+        command = 'desktop.peek';
     });
     return _classThis;
 })();
@@ -8824,7 +8907,7 @@ let DesktopToggleHide = (() => {
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8834,9 +8917,8 @@ let DesktopToggleHide = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('desktop.toggleHide', ev);
-        }
+        glyph = 'desktop-hide';
+        command = 'desktop.toggleHide';
     });
     return _classThis;
 })();
@@ -8845,7 +8927,7 @@ let DesktopSortNow = (() => {
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8855,9 +8937,8 @@ let DesktopSortNow = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('desktop.sortNow', ev);
-        }
+        glyph = 'desktop-sort';
+        command = 'desktop.sortNow';
     });
     return _classThis;
 })();
@@ -8866,7 +8947,7 @@ let DesktopPageNext = (() => {
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8876,9 +8957,8 @@ let DesktopPageNext = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('desktop.pageNext', ev);
-        }
+        glyph = 'desktop-page-next';
+        command = 'desktop.pageNext';
     });
     return _classThis;
 })();
@@ -8887,7 +8967,7 @@ let DesktopPagePrev = (() => {
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8897,9 +8977,8 @@ let DesktopPagePrev = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('desktop.pagePrev', ev);
-        }
+        glyph = 'desktop-page-prev';
+        command = 'desktop.pagePrev';
     });
     return _classThis;
 })();
@@ -8908,7 +8987,7 @@ let DesktopShow = (() => {
     let _classDescriptor;
     let _classExtraInitializers = [];
     let _classThis;
-    let _classSuper = SingletonAction;
+    let _classSuper = IconKey;
     (class extends _classSuper {
         static { _classThis = this; }
         static {
@@ -8918,9 +8997,8 @@ let DesktopShow = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        onKeyDown(ev) {
-            return sendCommand('desktop.showDesktop', ev);
-        }
+        glyph = 'desktop-show';
+        command = 'desktop.showDesktop';
     });
     return _classThis;
 })();
@@ -8936,7 +9014,32 @@ streamDeck.actions.registerAction(new ClipsPinCurrent());
 streamDeck.actions.registerAction(new ColorPickerStart());
 streamDeck.actions.registerAction(new AutoclickToggle());
 streamDeck.actions.registerAction(new AutoclickProfile());
+streamDeck.actions.registerAction(new DesktopPeek());
+streamDeck.actions.registerAction(new DesktopToggleHide());
+streamDeck.actions.registerAction(new DesktopSortNow());
+streamDeck.actions.registerAction(new DesktopPageNext());
+streamDeck.actions.registerAction(new DesktopPagePrev());
+streamDeck.actions.registerAction(new DesktopShow());
+/** Relit l'accent / le thème de l'app ; redessine toutes les touches s'ils changent. */
+async function refreshTheme() {
+    const next = await appGet('/theme');
+    if (!next || !HEX.test(next.accent) || !HEX.test(next.background))
+        return;
+    const changed = next.accent !== theme.accent || next.background !== theme.background || next.live !== theme.live || next.theme !== theme.theme;
+    if (!changed)
+        return;
+    theme = { theme: next.theme, accent: next.accent, background: next.background, live: HEX.test(next.live) ? next.live : theme.live };
+    for (const e of iconKeys.values())
+        await renderIcon(e);
+    for (const e of entries.values())
+        await renderEntry(e);
+}
 void streamDeck.connect();
+// Suit les changements d'apparence faits dans l'app.
+setInterval(() => {
+    if (iconKeys.size > 0 || entries.size > 0)
+        void refreshTheme();
+}, 4000);
 // Animation des touches « en cours » : alterne le halo ~toutes les 500 ms.
 setInterval(() => {
     glow = !glow;

@@ -1,7 +1,7 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "Name": "MultiOutils",
-  "Version": "0.6.0.0",
+  "Version": "0.7.0.0",
   "Author": "SuperNon0",
   "UUID": "com.supernon0.multioutils",
   "Description": "Pilote MultiOutils : captures plein écran / zone / fenêtre / différée, ouverture de la bibliothèque, dernière capture dans le presse-papier. Nécessite l'application MultiOutils lancée.",
@@ -29,6 +29,7 @@
       "Name": "Capture plein écran",
       "Tooltip": "Capture l'écran entier dans MultiOutils",
       "Icon": "imgs/fullscreen",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-fullscreen"
@@ -40,6 +41,7 @@
       "Name": "Capture de zone",
       "Tooltip": "Ouvre la sélection de zone de MultiOutils",
       "Icon": "imgs/region",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-region"
@@ -51,6 +53,7 @@
       "Name": "Capture de fenêtre",
       "Tooltip": "Ouvre le sélecteur de fenêtre de MultiOutils",
       "Icon": "imgs/window",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-window"
@@ -62,6 +65,7 @@
       "Name": "Capture différée",
       "Tooltip": "Lance le compte à rebours puis capture",
       "Icon": "imgs/delayed",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-delayed"
@@ -73,6 +77,7 @@
       "Name": "Ouvrir la bibliothèque",
       "Tooltip": "Met MultiOutils au premier plan sur la galerie",
       "Icon": "imgs/library",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-library"
@@ -84,6 +89,7 @@
       "Name": "Dernière capture → presse-papier",
       "Tooltip": "Copie la dernière capture dans le presse-papier",
       "Icon": "imgs/clipboard",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-clipboard"
@@ -95,6 +101,7 @@
       "Name": "Ouvrir le presse-papiers",
       "Tooltip": "Ouvre le module Presse-papiers de MultiOutils",
       "Icon": "imgs/clipboard",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-clipboard"
@@ -106,6 +113,7 @@
       "Name": "Copier le dernier clip",
       "Tooltip": "Recopie le dernier élément du presse-papiers MultiOutils (y compris ceux de l'iPhone)",
       "Icon": "imgs/clipboard",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-clipboard"
@@ -117,6 +125,7 @@
       "Name": "Garder le clip courant",
       "Tooltip": "Épingle le contenu actuel du presse-papiers dans MultiOutils (jamais supprimé)",
       "Icon": "imgs/clipboard",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-clipboard"
@@ -128,6 +137,7 @@
       "Name": "Pipette de couleur",
       "Tooltip": "Lance la pipette MultiOutils : prélève une couleur à l'écran, code copié",
       "Icon": "imgs/pipette",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-pipette"
@@ -139,6 +149,7 @@
       "Name": "Autoclic marche/arrêt",
       "Tooltip": "Démarre ou arrête le profil d'autoclic sélectionné (triangle = arrêté, carré animé = en cours)",
       "Icon": "imgs/autoclick",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-autoclick",
@@ -149,7 +160,7 @@
     {
       "UUID": "com.supernon0.multioutils.autoclick-profile",
       "Name": "Autoclic — profil",
-      "Tooltip": "Sélectionne un profil d'autoclic (choisi dans les réglages de la touche, liste mise à jour depuis l'application). S'allume en doré quand sélectionné, en teal animé quand il tourne.",
+      "Tooltip": "Sélectionne un profil d'autoclic (choisi dans les réglages de la touche, liste mise à jour depuis l'application). S'allume à sa couleur quand sélectionné, animé quand il tourne.",
       "Icon": "imgs/autoclick-profile",
       "PropertyInspectorPath": "ui/autoclick-profile.html",
       "States": [
@@ -164,6 +175,7 @@
       "Name": "Bureau : aperçu des zones",
       "Tooltip": "Montre les zones par-dessus les fenêtres (encore une fois pour revenir)",
       "Icon": "imgs/desktop-peek",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-desktop-peek"
@@ -175,6 +187,7 @@
       "Name": "Bureau : masquer les zones",
       "Tooltip": "Masque ou réaffiche toutes les zones du bureau",
       "Icon": "imgs/desktop-hide",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-desktop-hide"
@@ -186,6 +199,7 @@
       "Name": "Bureau : ranger maintenant",
       "Tooltip": "Applique toutes les règles de rangement du bureau",
       "Icon": "imgs/desktop-sort",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-desktop-sort"
@@ -197,6 +211,7 @@
       "Name": "Bureau : page suivante",
       "Tooltip": "Passe à la page de bureau suivante",
       "Icon": "imgs/desktop-page-next",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-desktop-page-next"
@@ -208,6 +223,7 @@
       "Name": "Bureau : page précédente",
       "Tooltip": "Revient à la page de bureau précédente",
       "Icon": "imgs/desktop-page-prev",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-desktop-page-prev"
@@ -219,6 +235,7 @@
       "Name": "Bureau : afficher le bureau",
       "Tooltip": "Réduit les fenêtres pour voir le bureau et ses zones",
       "Icon": "imgs/desktop-show",
+      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-desktop-show"
