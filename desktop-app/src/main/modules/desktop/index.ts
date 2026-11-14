@@ -105,6 +105,7 @@ const DOT_PNG =
 
 export function createDesktopMainModule(): MainToolModule {
   let ctx: MainHostContext;
+  let stopping = false;
   let settings: DesktopSettings = normalizeSettings(null);
   let zones: Zone[] = [];
   let opens: Record<string, number> = {};
@@ -323,11 +324,12 @@ export function createDesktopMainModule(): MainToolModule {
 
   /* ------------------------------------------------------- fenêtres */
   const syncWindows = (): void => {
+    if (stopping) return;
     const wanted = new Set(
       settings.enabled ? zones.filter((z) => z.enabled && isHost(z) && onActivePage(z, settings)).map((z) => z.id) : []
     );
     for (const [id, w] of windows) {
-      if (!wanted.has(id)) {
+      if (!wanted.has(id) || w.win.isDestroyed()) {
         w.destroy();
         windows.delete(id);
       }
@@ -338,7 +340,13 @@ export function createDesktopMainModule(): MainToolModule {
       let w = windows.get(z.id);
       if (w) w.setBounds(bounds, w.current()?.host.rolled !== z.rolled);
       else {
-        w = new ZoneWindow(z.id, bounds, () => native);
+        const created = new ZoneWindow(z.id, bounds, () => native, () => {
+          // A delayed close must not remove a newer replacement.
+          if (windows.get(z.id) !== created) return;
+          windows.delete(z.id);
+          if (!stopping) setImmediate(() => syncWindows());
+        });
+        w = created;
         if (desktopFront) w.overDesktop(true);
         windows.set(z.id, w);
       }
@@ -599,6 +607,7 @@ export function createDesktopMainModule(): MainToolModule {
   let desktopFront = false;
   let fgTimer: ReturnType<typeof setInterval> | null = null;
   const followShowDesktop = (): void => {
+    if (stopping) return;
     const kind = foregroundKind();
     if (kind === 'self') return; // clic dans une zone : on ne bouge rien
     // Simple clic sur le bureau : il reste au fond, rien à faire. Win+D : il
@@ -914,6 +923,7 @@ export function createDesktopMainModule(): MainToolModule {
     for (const [id, w] of windows) {
       if (id === except) continue;
       const b = w.bounds();
+      if (!b) continue;
       if (pt.x >= b.x && pt.x < b.x + b.width && pt.y >= b.y && pt.y < b.y + ZONE_TITLE_HEIGHT) return id;
     }
     return null;
@@ -1111,7 +1121,7 @@ export function createDesktopMainModule(): MainToolModule {
 
   /** Surveillance légère (250 ms) : touche maintenue, coin actif, bords, inactivité. */
   const poll = (): void => {
-    if (!settings.enabled) return;
+    if (stopping || !settings.enabled) return;
     if (++autoTick % 8 === 0) checkAutoPage();
     const pt = screen.getCursorScreenPoint();
     const d = screen.getDisplayNearestPoint(pt);
@@ -1119,6 +1129,7 @@ export function createDesktopMainModule(): MainToolModule {
     // souris sur une zone = activité
     for (const w of windows.values()) {
       const r = w.bounds();
+      if (!r) continue;
       if (pt.x >= r.x && pt.x < r.x + r.width && pt.y >= r.y && pt.y < r.y + r.height) {
         touch();
         break;
@@ -1656,7 +1667,14 @@ export function createDesktopMainModule(): MainToolModule {
       hostCtx.registerLocalCommand('desktop.showDesktop', () => showDesktop());
       hostCtx.registerLocalCommand('desktop.pageNext', () => switchPage(nextPage(settings, 1)));
       hostCtx.registerLocalCommand('desktop.pagePrev', () => switchPage(nextPage(settings, -1)));
-      app.on('before-quit', restoreNativeIcons);
+      app.on('before-quit', () => {
+        stopping = true;
+        stopBehaviours();
+        if (holdTimer) clearInterval(holdTimer);
+        if (fgTimer) clearInterval(fgTimer);
+        if (shellTimer) clearInterval(shellTimer);
+        restoreNativeIcons();
+      });
 
       await start();
     },
@@ -1676,6 +1694,7 @@ export function createDesktopMainModule(): MainToolModule {
     },
 
     deactivate(): void {
+      stopping = true;
       icons.flush();
       pageIndicator.close();
       if (dailyTimer) clearInterval(dailyTimer);
