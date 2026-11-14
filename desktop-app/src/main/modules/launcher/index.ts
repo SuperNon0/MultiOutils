@@ -45,6 +45,8 @@ import {
   createWinSettingsProvider
 } from './providers/system';
 import { LauncherWindow } from './window';
+import { widgetEntity } from './core/widget-controls';
+import type { HaWidgetAction } from '../../../common/desktop';
 import { isControllable, isOn } from './core/homeassistant';
 import { createHaIntegration, HA_DASHBOARD_SHORTCUT_ID, type HaIntegration } from './homeassistant';
 
@@ -409,14 +411,9 @@ export function createLauncherMainModule(): MainToolModule {
       );
       ipcMain.handle('ha:entities', async () => {
         try {
-          const list = (await haClient.states()).filter((st) => isControllable(st) || ['sensor', 'binary_sensor'].includes(st.entity_id.split('.')[0])).map((st) => ({
-            id: st.entity_id,
-            name: String(st.attributes?.friendly_name ?? st.entity_id),
-            domain: st.entity_id.split('.')[0],
-            state: st.state,
-            on: isOn(st),
-            unit: typeof st.attributes?.unit_of_measurement === 'string' ? st.attributes.unit_of_measurement : undefined
-          }));
+          const list = (await haClient.states())
+            .filter((st) => isControllable(st) || ['sensor', 'binary_sensor'].includes(st.entity_id.split('.')[0]))
+            .map(widgetEntity);
           return { ok: true, list };
         } catch (err) {
           return { ok: false, error: err instanceof Error ? err.message : String(err) };
@@ -431,6 +428,14 @@ export function createLauncherMainModule(): MainToolModule {
         } catch (error) {
           return { ok: false, error: error instanceof Error ? error.message : String(error) };
         }
+      });
+      ipcMain.handle('ha:control', async (_e, entityId: unknown, action: unknown, value?: unknown) => {
+        if (typeof entityId !== 'string' || typeof action !== 'string' || !['brightness', 'previous', 'playPause', 'next'].includes(String(action)) ||
+          (value !== undefined && (typeof value !== 'number' || !Number.isFinite(value)))) return { ok: false };
+        try {
+          await haClient.control(entityId, action as HaWidgetAction, value as number | undefined);
+          return { ok: true };
+        } catch { return { ok: false }; }
       });
       ipcMain.handle('ha:toggle', async (_e, entityId: unknown) => {
         if (typeof entityId !== 'string') return false;

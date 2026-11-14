@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -19,6 +20,7 @@ import {
   type ZoneTab,
   type ZoneWindowMsg
 } from '../../../../common/desktop';
+import { FileTile } from '../../lib/FileTile';
 import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
 import { WIDGET_ICONS, WidgetBody } from './ZoneWidgets';
@@ -55,16 +57,16 @@ function useFileIcon(path: string, size: 'small' | 'normal' | 'large', mtime: nu
   return url;
 }
 
-function FileIcon({ entry, size, tint }: { entry: DesktopEntry; size: 'small' | 'normal' | 'large'; tint?: string | null }): ReactNode {
+function FileIcon({ entry, size, tint, framed }: { entry: DesktopEntry; size: 'small' | 'normal' | 'large'; tint?: string | null; framed?: boolean }): ReactNode {
   const url = useFileIcon(entry.path, size, entry.mtime);
-  if (!url) return <span className="ph" />;
-  if (!tint) return <img src={url} alt="" draggable={false} />;
+  if (!url) return <FileTile path={entry.path} isDir={entry.isDir} framed={framed} />;
+  if (!tint) return <FileTile path={entry.path} isDir={entry.isDir} framed={framed}><img src={url} alt="" draggable={false} /></FileTile>;
   // Teinte : la couleur, découpée à la forme de l'icône, se fond par-dessus.
   return (
-    <span className="zw-tint">
+    <FileTile path={entry.path} isDir={entry.isDir} framed={framed}><span className="zw-tint">
       <img src={url} alt="" draggable={false} />
       <span style={{ background: tint, WebkitMaskImage: `url(${url})`, maskImage: `url(${url})` } as CSSProperties} />
-    </span>
+    </span></FileTile>
   );
 }
 
@@ -104,6 +106,8 @@ export function ZoneWindow(): ReactNode {
   const [anchor, setAnchor] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState(false);
   const [editItem, setEditItem] = useState<string | null>(null);
+  const [rolling, setRolling] = useState(false);
+  const previousRoll = useRef<boolean | null>(null);
   const [dropOn, setDropOn] = useState(false);
   const [before, setBefore] = useState<string | null>(null);
   const [lasso, setLasso] = useState<Rect | null>(null);
@@ -147,6 +151,17 @@ export function ZoneWindow(): ReactNode {
       return next.size === s.size ? s : next;
     });
   }, [msg]);
+
+  useLayoutEffect(() => {
+    if (!msg) return;
+    const collapsed = msg.host.rolled && !msg.expanded && !msg.peek;
+    const changed = previousRoll.current !== null && previousRoll.current !== collapsed;
+    previousRoll.current = collapsed;
+    if (!changed) return;
+    setRolling(true);
+    const timer = setTimeout(() => setRolling(false), 260);
+    return () => clearTimeout(timer);
+  }, [msg?.host.rolled, msg?.expanded, msg?.peek]);
 
   /* ----------------------------------------- déplacer / redimensionner */
   const startGeom = useCallback(
@@ -355,6 +370,8 @@ export function ZoneWindow(): ReactNode {
     '--zc': zone.color ?? 'var(--accent)',
     '--zo': `${st.opacity}%`,
     '--zalpha': st.opacity / 100,
+    '--zone-border': st.border ? 'var(--line2)' : 'transparent',
+    '--zone-full-height': `${Math.min(host.bounds.height, window.screen.availHeight)}px`,
     '--zbg': st.bg ?? 'var(--pop)',
     '--zr': `${st.radius}px`,
     '--ztf': FONTS[st.titleFont],
@@ -403,7 +420,7 @@ export function ZoneWindow(): ReactNode {
             {...itemProps(e)}
             className={`zw-fi${sel.has(e.path) ? ' sel' : ''}${before === e.name ? ' before' : ''}`}
           >
-            <FileIcon entry={e} size={iconRes} tint={st.iconTint} />
+            <FileIcon entry={e} size={iconRes} tint={st.iconTint} framed={st.iconFrame} />
             <span className="lb">
               {editItem === e.path ? <RenameInput value={e.name} onDone={(v) => finishRename(e.path, v)} /> : displayName(e)}
             </span>
@@ -425,7 +442,7 @@ export function ZoneWindow(): ReactNode {
         )}
         {entries.map((e) => (
           <div key={e.path} {...itemProps(e)} className={`zw-row${sel.has(e.path) ? ' sel' : ''}${before === e.name ? ' before' : ''}`}>
-            <FileIcon entry={e} size="small" tint={st.iconTint} />
+            <FileIcon entry={e} size="small" tint={st.iconTint} framed={st.iconFrame} />
             <span className="nm">
               {editItem === e.path ? <RenameInput value={e.name} onDone={(v) => finishRename(e.path, v)} /> : displayName(e)}
             </span>
@@ -538,12 +555,13 @@ export function ZoneWindow(): ReactNode {
 
   return (
     <div
-      className={`zw${host.locked ? '' : ' unlocked'}${dropOn ? ' drop' : ''}${collapsed ? ' rolled' : ''}${fade ? ' fade' : ''}${
+      className={`zw${host.locked ? '' : ' unlocked'}${dropOn ? ' drop' : ''}${collapsed ? ' rolled' : ''}${rolling ? ' rolling' : ''}${fade ? ' fade' : ''}${
         mergeHint ? ' merge' : ''
       }${msg.peek ? ' peek' : ''}${st.invisible ? ' inv' : ''}${st.titleBar !== 'visible' ? ` tb-${st.titleBar}` : ''}${
         st.titleLook === 'bold' ? ' tl-bold' : ''
       }${st.iconFade ? ' ifade' : ''}${st.stripe ? ' stripe' : ''}`}
       style={style}
+      data-zone-theme={st.theme === 'inherit' ? undefined : st.theme}
       tabIndex={-1}
       onKeyDown={onKey}
       onPointerEnter={enter}

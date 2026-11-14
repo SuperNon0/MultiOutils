@@ -406,6 +406,7 @@ export interface PreloadApi {
   };
   /** Liaison PC ↔ Home Assistant (pop-ups, mini tableau de bord, capteurs). */
   ha: {
+    control(entityId: string, action: import('./desktop').HaWidgetAction, value?: number): Promise<{ ok: boolean }>;
     /** Entités pilotables (zone Home Assistant du bureau). */
     entities(): Promise<{ ok: true; list: import('./desktop').HaEntity[] } | { ok: false; error: string }>;
     toggle(entityId: string): Promise<boolean>;

@@ -1,0 +1,19 @@
+.file-tile {
+  --file-color: var(--accent); --tile-size: 42px;
+  width: var(--tile-size); height: var(--tile-size); flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: calc(var(--tile-size) * .26); color: var(--file-color);
+  background: color-mix(in srgb, var(--file-color) 18%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--file-color) 35%, transparent);
+  overflow: hidden; pointer-events: none;
+}
+.file-tile[data-kind='folder'] { --file-color: #e0a33a; }
+.file-tile[data-kind='image'] { --file-color: #e46a52; }
+.file-tile[data-kind='pdf'] { --file-color: #d9534f; }
+.file-tile[data-kind='document'] { --file-color: #5b7be0; }
+.file-tile[data-kind='archive'] { --file-color: #2fae95; }
+.file-tile[data-kind='video'] { --file-color: #b25fd6; }
+.file-tile[data-kind='sheet'] { --file-color: #2f9e5a; }
+.file-tile > img, .file-tile > svg.i { width: 64%; height: 64%; object-fit: contain; }
+.file-tile.plain { background: transparent; border-color: transparent; border-radius: 0; }
+.file-tile.plain > img { width: 100%; height: 100%; }

@@ -27,7 +27,7 @@ export function absoluteBounds(zone: Zone, collapsedHeight?: number): Rect {
 export class ZoneWindow {
   readonly win: BrowserWindow;
   private ready = false;
-  private motion: ReturnType<typeof setInterval> | null = null;
+  private motion: ReturnType<typeof setTimeout> | null = null;
   private motionTarget: Rect | null = null;
   /** Aperçu en cours : la fenêtre reste au-dessus des autres. */
   private raised = false;
@@ -38,7 +38,8 @@ export class ZoneWindow {
   constructor(
     readonly zoneId: string,
     bounds: Rect,
-    private readonly native: () => boolean
+    private readonly native: () => boolean,
+    onClosed: () => void = () => undefined
   ) {
     this.win = new BrowserWindow({
       ...bounds,
@@ -62,9 +63,15 @@ export class ZoneWindow {
       }
     });
     const win = this.win;
+    win.once('closed', () => {
+      this.ready = false;
+      this.stopMotion();
+      onClosed();
+    });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', (e) => e.preventDefault());
     win.once('ready-to-show', () => {
+      if (win.isDestroyed()) return;
       win.showInactive();
       this.pin();
     });
@@ -156,8 +163,8 @@ export class ZoneWindow {
     if (this.ready && !this.win.isDestroyed()) this.win.webContents.send(channel, payload);
   }
 
-  bounds(): Rect {
-    return this.win.getBounds();
+  bounds(): Rect | null {
+    return this.win.isDestroyed() ? null : this.win.getBounds();
   }
 
   send(msg: ZoneWindowMsg): void {
@@ -169,32 +176,36 @@ export class ZoneWindow {
     return this.last;
   }
 
+  private stopMotion(): void {
+    if (this.motion) clearTimeout(this.motion);
+    this.motion = null;
+    this.motionTarget = null;
+  }
+
   setBounds(r: Rect, animate = false): void {
     if (this.win.isDestroyed()) return;
     const same = (a: Rect, b: Rect): boolean => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
     if (this.motionTarget && same(this.motionTarget, r)) return;
-    if (this.motion) clearInterval(this.motion);
-    this.motion = null;
-    this.motionTarget = null;
+    this.stopMotion();
     const b = this.win.getBounds();
     if (same(b, r)) return;
     if (!animate || b.x !== r.x || b.y !== r.y || b.width !== r.width) {
       this.win.setBounds(r);
       return;
     }
-    const started = Date.now();
+    // Keep the content at its final size while the renderer animates a clip.
+    // Expanding needs the full native window once; collapsing shrinks it only
+    // after the reveal animation. Never resize the HWND on every frame.
+    if (r.height >= b.height) {
+      this.win.setBounds(r);
+      return;
+    }
     this.motionTarget = r;
-    this.motion = setInterval(() => {
-      if (this.win.isDestroyed()) { if (this.motion) clearInterval(this.motion); this.motion = null; return; }
-      const progress = Math.min(1, (Date.now() - started) / 220);
-      const ease = 1 - Math.pow(1 - progress, 3);
-      this.win.setBounds({ ...r, height: Math.round(b.height + (r.height - b.height) * ease) });
-      if (progress === 1) {
-        if (this.motion) clearInterval(this.motion);
-        this.motion = null;
-        this.motionTarget = null;
-      }
-    }, 16);
+    this.motion = setTimeout(() => {
+      this.motion = null;
+      this.motionTarget = null;
+      if (!this.win.isDestroyed()) this.win.setBounds(r);
+    }, 260);
   }
 
   isSender(id: number): boolean {
@@ -202,8 +213,7 @@ export class ZoneWindow {
   }
 
   destroy(): void {
-    if (this.motion) clearInterval(this.motion);
-    this.motion = null;
+    this.stopMotion();
     if (!this.win.isDestroyed()) this.win.destroy();
   }
 }

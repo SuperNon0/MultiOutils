@@ -20,6 +20,7 @@ import { useI18n } from '../../i18n';
 import { LayoutsTab, PagesBar } from './LayoutsPanel';
 import { LogTab, RulesTab } from './RulesPanel';
 import { AiPlanSheet } from './AiPlanSheet';
+import { HaCards } from './HaCards';
 import { ZoneGeometry } from './ZoneGeometry';
 import { StyleEditor } from './StyleEditor';
 import { EncreColorPicker } from './EncreColorPicker';
@@ -97,26 +98,45 @@ const saveStyleAs = async (t: (k: string) => string, style: Partial<ZoneStyle>):
 };
 
 /** Réglages propres aux zones spéciales. */
-function WidgetDetail({ zone }: { zone: Zone }): ReactNode {
+function WidgetDetail({ zone, full }: { zone: Zone; full: ZoneStyle & { opacity: number } }): ReactNode {
   const { t } = useI18n();
   const [ents, setEnts] = useState<HaEntity[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState('');
   useEffect(() => {
     if (zone.widget !== 'ha' && zone.widget !== 'ha-sensor' && zone.widget !== 'ha-chart') return;
-    void window.api.ha.entities().then((r) => (r.ok ? setEnts(r.list) : setErr(r.error)));
+    let alive = true;
+    const refresh = (): void => { void window.api.ha.entities().then((r) => {
+      if (!alive) return;
+      if (r.ok) { setEnts(r.list); setErr(null); } else setErr(r.error);
+    }).catch(() => { if (alive) setErr('connection'); }); };
+    refresh();
+    const timer = setInterval(refresh, 20_000);
+    return () => { alive = false; clearInterval(timer); };
   }, [zone.widget]);
   if (zone.widget === 'ha' || zone.widget === 'ha-sensor' || zone.widget === 'ha-chart') {
     if (err) return <p className="muted petit">{t(err === 'not-configured' ? 'desktop.ha.notConfigured' : 'desktop.ha.error', { error: err })}</p>;
     if (!ents) return <p className="muted petit">…</p>;
     const low = q.trim().toLowerCase();
-    const list = ents.filter((e) => ((zone.widget === 'ha-sensor' || zone.widget === 'ha-chart') ? ['sensor', 'binary_sensor'].includes(e.domain) : !['sensor', 'binary_sensor'].includes(e.domain)) && (!low || e.name.toLowerCase().includes(low) || e.id.includes(low)));
+    const list = ents.filter((e) => ((zone.widget === 'ha-sensor' || zone.widget === 'ha-chart') ? ['sensor', 'binary_sensor'].includes(e.domain) : true) && (!low || e.name.toLowerCase().includes(low) || e.id.includes(low)));
     const toggle = (id: string): void =>
       void window.api.desktop.updateZone(zone.id, {
         entities: zone.entities.includes(id) ? zone.entities.filter((x) => x !== id) : zone.widget === 'ha-chart' ? [id] : [...zone.entities, id]
       });
     return (
       <div className="bz-ha">
+        {zone.widget !== 'ha-chart' && zone.entities.length > 0 && <div className="bz-widget-preview">
+          <span className="lbl-mono">{t('desktop.ha.preview')}</span>
+          <div className="ha-preview-frame" data-zone-theme={full.theme === 'inherit' ? undefined : full.theme}
+            style={{ '--zc': zone.color ?? 'var(--accent)', '--preview-opacity': full.opacity / 100,
+              '--preview-bg': full.bg ?? 'var(--pop)', borderRadius: full.radius,
+              borderColor: full.border ? 'var(--line2)' : 'transparent' } as React.CSSProperties}>
+            {full.titleBar !== 'hidden' && <div className="ha-preview-title">{zone.title}</div>}
+            <HaCards entities={zone.entities.map((id) => ents.find((entity) => entity.id === id)).filter((entity): entity is HaEntity => !!entity)}
+              layout={zone.widgetLayout} preview readOnly/>
+          </div>
+          <span className="muted petit">{t('desktop.ha.previewHelp')}</span>
+        </div>}
         <p className="muted petit" style={{ margin: 0 }}>
           {t('desktop.ha.pickHelp', { n: zone.entities.length })}
         </p>
@@ -152,7 +172,7 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
       <ZoneGeometry zone={zone} state={state} />
       {zone.kind === 'widget' ? (
         <>
-          <WidgetDetail zone={zone} />
+          <WidgetDetail zone={zone} full={effectiveStyle(zone, state.settings)} />
           {zone.widget === 'ha-chart' && (
             <RegLigne titre={t('desktop.widget.period')} aide={<Aide titre={t('desktop.widget.period')} texte={t('desktop.widget.period.help')} />}>
               <select className="select sm" value={zone.chartHours} onChange={(e) => up({ chartHours: Number(e.target.value) as Zone['chartHours'] })}>
@@ -781,6 +801,18 @@ export function DesktopSettingsPanel(): ReactNode {
         onReset={() => set({ defaultStyle: defaultZoneStyle(), opacity: 90 })}
         onSaveStyle={() => void saveStyleAs(t, s.defaultStyle)}
       />
+      <div className="bs-act">
+        <button className="btn sm" onClick={async () => {
+          const previous = { defaultStyle: s.defaultStyle, opacity: s.opacity, zones: state.zones.map((z) => ({ id: z.id, style: z.style })) };
+          await window.api.desktop.setSettings({ defaultStyle: defaultZoneStyle(), opacity: 90 });
+          await Promise.all(state.zones.map((z) => window.api.desktop.updateZone(z.id, { style: {} })));
+          ui.toast(t('desktop.style.appliedOriginal'), { annuler: async () => {
+            await window.api.desktop.setSettings({ defaultStyle: previous.defaultStyle, opacity: previous.opacity });
+            await Promise.all(previous.zones.map((z) => window.api.desktop.updateZone(z.id, { style: z.style })));
+          } });
+        }}><Icon name="palette" size={16}/>{t('desktop.style.originalAll')}</button>
+      </div>
+      <p className="muted petit">{t('desktop.style.originalAllHelp')}</p>
       {s.savedStyles.length > 0 && (
         <RegLigne titre={t('desktop.style.savedList')} aide={<Aide titre={t('desktop.style.savedList')} texte={t('desktop.style.savedList.help')} />}>
           <div className="chips">

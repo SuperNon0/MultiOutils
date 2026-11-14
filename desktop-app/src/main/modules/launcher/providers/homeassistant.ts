@@ -3,6 +3,8 @@
  * scène…) et l'allume / l'éteint par l'API REST. Adresse dans les réglages
  * du lanceur ; jeton d'accès chiffré (safeStorage), jamais renvoyé au renderer.
  */
+import type { HaWidgetAction } from '../../../../common/desktop';
+import { widgetCommand } from '../core/widget-controls';
 import type { HaNotification, LauncherAction, LauncherOutcome } from '../../../../common/launcher';
 import type { Provider, ProviderItem, ProviderQuery } from '../core/engine';
 import {
@@ -90,6 +92,14 @@ export class HomeAssistantClient {
       method: 'POST',
       body: JSON.stringify({ entity_id: entityId })
     });
+    this.invalidate();
+  }
+
+  async control(entityId: string, action: HaWidgetAction, value?: number): Promise<void> {
+    const state = (await this.states()).find((st) => st.entity_id === entityId);
+    if (!state) throw new Error('Entity not found');
+    const command = widgetCommand(state, action, value);
+    await this.call(`/services/${command.domain}/${command.service}`, { method: 'POST', body: JSON.stringify(command.data) });
     this.invalidate();
   }
 

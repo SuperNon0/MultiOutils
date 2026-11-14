@@ -761,3 +761,11 @@ button.fm-tw:hover {
     display: none;
   }
 }
+
+.fm-row .file-tile { --tile-size: 22px; }
+.fm-cell .file-tile { --tile-size: 42px; }
+.fm-row .file-tile > img, .fm-cell .file-tile > img,
+.fm-row .file-tile > svg.i, .fm-cell .file-tile > svg.i { width: 64%; height: 64%; }
+.fm-row { min-height: 38px; border-radius: 0; border-bottom-color: var(--line); }
+.fm-side { background: var(--surface); }
+.fm-pl.on { background: var(--pop); border-color: var(--line2); }
