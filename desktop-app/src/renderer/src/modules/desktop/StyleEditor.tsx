@@ -4,35 +4,19 @@ import { ui } from '../../encre/ui';
 import { Icon } from '../../host/Icon';
 import { RegLigne, RegSwitch } from '../../host/reglages';
 import { useI18n } from '../../i18n';
+import { EncreColorPicker } from './EncreColorPicker';
 
 type ColorField = 'bg' | 'titleColor' | 'iconTint';
 
-/** Choix d'une couleur : nuancier natif, pipette à l'écran, ou « aucune ». */
-function ColorPick({
-  value,
-  fallbackLabel,
-  onChange,
-  onPick,
-  label
-}: {
+/** Éditeur commun aux zones, utilisant la palette native Encre. */
+function ColorPick({ value, fallbackLabel, onChange, onPick, label }: {
   value: string | null;
   fallbackLabel: string;
   onChange(v: string | null): void;
   onPick(): void;
   label: string;
 }): ReactNode {
-  const { t } = useI18n();
-  return (
-    <div className="bs-color">
-      <input type="color" aria-label={label} value={value ?? '#7f7f7f'} onChange={(e) => onChange(e.target.value)} />
-      <button className="btn xs" title={t('desktop.style.pipette')} aria-label={t('desktop.style.pipette')} onClick={onPick}>
-        <Icon name="palette" size={14} />
-      </button>
-      <button className={`btn xs${value === null ? ' pri' : ''}`} onClick={() => onChange(null)}>
-        {fallbackLabel}
-      </button>
-    </div>
-  );
+  return <EncreColorPicker value={value} label={label} onChange={onChange} onPick={onPick} onReset={() => onChange(null)} />;
 }
 
 /** Nombre au curseur, avec la valeur aussi saisissable au clavier (h1). */
