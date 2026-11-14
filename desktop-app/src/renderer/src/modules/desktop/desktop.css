@@ -1294,3 +1294,40 @@ body[data-fenetre='zone-pages'] #root {
 @media (prefers-reduced-motion: reduce) {
   .zw { transition: opacity 100ms ease; }
 }
+
+/* Notes workspace: two distinct surfaces and a comfortable writing area. */
+.mo-notes-library { margin-top: 18px; min-width: 0; }
+.mo-notes-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; margin-bottom: 18px; }
+.mo-notes-head h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; font: 600 21px var(--f-title, inherit); }
+.mo-notes-head p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.6; max-width: 60ch; }
+.mo-notes-head > .btn { flex: none; }
+.mo-notes-count { padding: 3px 8px; border: 1px solid var(--line); border-radius: 8px; font: 500 12px var(--f-mono); color: var(--muted); }
+.mo-notes-library .mo-notes-grid { margin-top: 0; grid-template-columns: minmax(210px, .85fr) minmax(0, 1.65fr); align-items: stretch; gap: 18px; }
+.mo-notes-library .mo-notes-list { padding: 14px; gap: 14px; max-height: none; overflow: hidden; align-self: stretch; }
+.mo-notes-list-head { display: grid; gap: 12px; }
+.mo-notes-list-head .champ { width: 100%; }
+.mo-notes-items { display: flex; flex-direction: column; gap: 8px; min-height: 0; overflow-y: auto; max-height: 510px; scrollbar-width: thin; }
+.mo-notes-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 48px 12px; text-align: center; min-height: 280px; }
+.mo-notes-empty-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; color: var(--accent); background: var(--acc-dim); border: 1px solid var(--acc-line); }
+.mo-notes-empty strong { font-size: 14px; font-weight: 600; }
+.mo-notes-empty p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.6; max-width: 26ch; }
+.mo-notes-library .mo-note-item { padding: 13px; gap: 8px; border-radius: 12px; background: transparent; transition: background .15s, border-color .15s; }
+.mo-note-item:hover { background: var(--pop); }
+.mo-notes-library .mo-note-item.on { background: var(--acc-dim); border-color: var(--acc-line); }
+.mo-note-item strong { font-size: 13px; font-weight: 600; overflow-wrap: anywhere; }
+.mo-notes-library .mo-note-item > span { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.5; }
+.mo-notes-library .mo-notes-editor { padding: 22px; gap: 10px; }
+.mo-notes-editor-head { display: flex; align-items: center; gap: 10px; padding-bottom: 17px; margin-bottom: 4px; border-bottom: 1px solid var(--line); }
+.mo-notes-editor-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px; background: var(--acc-dim); color: var(--accent); flex: none; }
+.mo-notes-editor-head > div { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.mo-notes-editor-head strong { font-size: 14px; }
+.mo-notes-editor-head div > span { font-size: 11.5px; color: var(--muted); }
+.mo-notes-editor-head .badge { white-space: normal; text-align: center; }
+.mo-notes-field { font-size: 12px; font-weight: 600; color: var(--soft, var(--text)); margin-top: 5px; }
+.mo-notes-library .mo-note-title { width: 100%; min-width: 0; height: 44px; padding: 10px 12px; font-size: 15px; }
+.mo-notes-library .mo-note-body { width: 100%; min-height: 270px; resize: vertical; padding: 14px; line-height: 1.75; font-size: 14px; font-family: inherit; }
+.mo-notes-library .mo-note-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; margin-top: 4px; border-top: 1px solid var(--line); }
+.mo-note-actions > div { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mo-notes-message { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+@media (max-width: 850px) { .mo-notes-library .mo-notes-grid { grid-template-columns: 1fr; } .mo-notes-items { max-height: 230px; } .mo-notes-empty { min-height: 160px; padding: 24px 12px; } }
+@media (max-width: 560px) { .mo-notes-head { flex-direction: column; gap: 12px; } .mo-notes-library .mo-notes-editor { padding: 16px; } .mo-note-actions { flex-wrap: wrap; } }
