@@ -1151,3 +1151,14 @@ body[data-fenetre='zone-pages'] #root {
   color: var(--muted);
   overflow-wrap: anywhere;
 }
+
+/* Capteurs : héritent des couleurs Encre et de l'accent personnalisable de chaque zone. */
+.zw-sensors { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.zw-sensor { display: flex; flex-direction: column; gap: 8px; min-width: 0; padding: 12px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.zw-sensor-name { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zw-sensor-value { color: var(--zc); font: 600 22px var(--f-mono); overflow-wrap: anywhere; }
+.zw-sensors.compact { grid-template-columns: 1fr; gap: 0; }
+.zw-sensors.compact .zw-sensor { flex-direction: row; align-items: center; justify-content: space-between;
+  border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 8px; }
+.zw-sensors.compact .zw-sensor-value { font-size: 14px; }
