@@ -328,6 +328,7 @@ const api: PreloadApi = {
   ha: {
     entities: () => ipcRenderer.invoke('ha:entities'),
     toggle: (entityId) => ipcRenderer.invoke('ha:toggle', entityId),
+    series: (entityId, hours) => ipcRenderer.invoke('ha:series', entityId, hours),
     status: () => ipcRenderer.invoke('ha:status'),
     onStatus: (cb) => subscribe('ha:status', cb),
     forget: () => ipcRenderer.invoke('ha:forget'),
