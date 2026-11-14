@@ -44,13 +44,13 @@ function NotesWidget({ zone }: { zone: Zone }): ReactNode {
   const [text, setText] = useState(zone.note);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef(text);
-  const archivedId = useRef<string | null>(null);
+  const archivedId = useRef<string | null>(zone.savedNoteId);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   useEffect(() => {
     setText(zone.note);
     latest.current = zone.note;
-    archivedId.current = null;
+    archivedId.current = zone.savedNoteId;
     setSaved(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zone.id]);
@@ -99,6 +99,7 @@ function NotesWidget({ zone }: { zone: Zone }): ReactNode {
           body: latest.current
         });
         archivedId.current = note.id;
+        await window.api.desktop.updateZone(zone.id, { savedNoteId: note.id });
         setSaved(true);
       } catch {
         setSaved(false);
