@@ -1180,3 +1180,32 @@ body[data-fenetre='zone-pages'] #root {
 .mo-notes-editor textarea { resize: vertical; min-height: 150px; }
 .mo-note-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 @media (max-width: 650px) { .mo-notes-grid { grid-template-columns: 1fr; } }
+
+/* Palette intégrée Encre : panneau discret et couleurs libres. */
+.encre-picker { display: flex; flex-direction: column; gap: 10px; min-width: 0; width: 100%; }
+.encre-picker-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.encre-picker-current { display: inline-flex; align-items: center; gap: 9px; padding: 6px 9px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text); }
+.encre-picker-current span { width: 28px; height: 22px; border-radius: 6px; border: 1px solid var(--line); }
+.encre-picker-panel { display: flex; flex-direction: column; width: min(100%, 310px); gap: 10px; padding: 12px;
+  box-sizing: border-box; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+.encre-picker-sv { position: relative; width: 100%; height: 160px; cursor: crosshair; border-radius: 10px;
+  overflow: hidden; touch-action: none; box-shadow: inset 0 0 0 1px var(--line); }
+.encre-picker-sv::before, .encre-picker-sv::after { content: ''; position: absolute; inset: 0; pointer-events: none; }
+.encre-picker-sv::before { background: linear-gradient(to right, #fff, transparent); }
+.encre-picker-sv::after { background: linear-gradient(to top, #000, transparent); }
+.encre-picker-marker { position: absolute; z-index: 1; width: 11px; height: 11px; border: 2px solid white;
+  box-shadow: 0 0 0 1px #13131b, 0 1px 8px #0005; border-radius: 50%; transform: translate(-50%, -50%); pointer-events: none; }
+.encre-picker-hue-label, .encre-picker-caption { color: var(--muted); font-size: 12px; }
+.encre-picker-hue { display: block; width: 100%; height: 14px; appearance: none; border: 0; border-radius: 20px; cursor: pointer;
+  background: linear-gradient(to right, #f00, #ff0, #0f0, #0ff, #00f, #f0f, #f00); }
+.encre-picker-hue::-webkit-slider-thumb { appearance: none; border: 2px solid white; box-shadow: 0 0 0 1px #0008;
+  border-radius: 50%; width: 18px; height: 18px; background: transparent; }
+.encre-picker-hex { display: flex; align-items: center; gap: 10px; color: var(--muted); font: 12px var(--f-mono); }
+.encre-picker-hex input { flex: 1; width: 80px; min-width: 0; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); padding: 7px 9px; color: var(--text); font: 13px var(--f-mono); }
+.encre-picker-swatch { width: 30px; height: 28px; border-radius: 8px; border: 1px solid var(--line); }
+.encre-picker-history { display: flex; flex-wrap: wrap; gap: 7px; }
+.encre-picker-history button { width: 25px; height: 25px; border-radius: 8px; border: 2px solid var(--line);
+  cursor: pointer; }
+.encre-picker-history button:focus-visible, .encre-picker-current:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
