@@ -482,7 +482,12 @@ export function createDesktopMainModule(): MainToolModule {
       } catch {
         token = null;
       }
-    } else if (stored.startsWith('plain:')) token = stored.slice(6);
+    } else if (stored.startsWith('plain:') && safeStorage.isEncryptionAvailable()) {
+      // Même migration que le client de captures : pas de jeton en clair actif.
+      token = stored.slice(6);
+      ctx.db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+        .run('remote.tokenEnc', `enc:${safeStorage.encryptString(token).toString('base64')}`);
+    }
     return token ? { url, token } : null;
   };
   const MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.pdf': 'application/pdf' };
