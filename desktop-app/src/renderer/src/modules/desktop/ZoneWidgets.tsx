@@ -10,6 +10,7 @@ export const WIDGET_ICONS: Record<WidgetType, string> = {
   clips: 'clipboard',
   ha: 'home',
   'ha-sensor': 'signal',
+  'ha-chart': 'signal',
   search: 'search',
   cloud: 'cloud'
 };
@@ -26,6 +27,8 @@ export function WidgetBody({ zone, content }: { zone: Zone; content: ZoneContent
       return <HaWidget zone={zone} />;
     case 'ha-sensor':
       return <HaSensorWidget zone={zone} />;
+    case 'ha-chart':
+      return <HaChartWidget zone={zone} />;
     case 'search':
       return <SearchWidget />;
     case 'cloud':
@@ -312,6 +315,56 @@ function HaSensorWidget({ zone }: { zone: Zone }): ReactNode {
           <span className="zw-sensor-value">{entity.state}{entity.unit ? ` ${entity.unit}` : ''}</span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/** Courbe compacte : aperçu léger, détails conservés dans Home Assistant. */
+function HaChartWidget({ zone }: { zone: Zone }): ReactNode {
+  const entityId = zone.entities[0] ?? '';
+  const [points, setPoints] = useState<Array<{ at: number; value: number }>>([]);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = async (): Promise<void> => {
+      if (!entityId) { setPoints([]); return; }
+      try {
+        const response = await window.api.ha.series(entityId, zone.chartHours);
+        if (!alive) return;
+        if (response.ok) { setPoints(response.points); setError(null); }
+        else setError(response.error);
+      } catch (e) {
+        if (alive) setError(String(e));
+      }
+    };
+    void load();
+    const timer = setInterval(() => void load(), 300_000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [entityId, zone.chartHours]);
+  if (!entityId) return <div className="zw-vide">Sélectionne un capteur numérique dans Bureau → Modifier la zone.</div>;
+  const valid = points.length >= 2;
+  const values = points.map((p) => p.value);
+  const min = valid ? Math.min(...values) : 0;
+  const max = valid ? Math.max(...values) : 1;
+  const minAt = points[0]?.at ?? 0;
+  const maxAt = points[points.length - 1]?.at ?? 1;
+  const line = valid ? points.map((p) => {
+    const x = 4 + 292 * (p.at - minAt) / Math.max(1, maxAt - minAt);
+    const y = 88 - 76 * (p.value - min) / Math.max(0.001, max - min);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ') : '';
+  return (
+    <div className="zw-chart">
+      <div className="zw-chart-title"><span title={entityId}>{entityId.split('.')[1]?.replace(/_/g, ' ') ?? entityId}</span><strong>{zone.chartHours === 168 ? '7 jours' : '24 h'}</strong></div>
+      {error ? <p className="zw-vide">{error}</p> : valid ? (
+        <>
+          <svg viewBox="0 0 300 100" preserveAspectRatio="none" role="img" aria-label={`Historique : de ${min} à ${max}`}>
+            <polyline points={line} fill="none" stroke="var(--zc)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>
+          </svg>
+          <div className="zw-chart-values"><span>{min.toLocaleString()} min</span><strong>{values[values.length - 1]?.toLocaleString()}</strong><span>{max.toLocaleString()} max</span></div>
+        </>
+      ) : <p className="zw-vide">Pas assez de mesures numériques disponibles.</p>}
+      <button type="button" className="btn xs zw-chart-more" onPointerDown={(e) => e.stopPropagation()} onClick={() => void window.api.ha.openDashboard()}>Ouvrir Home Assistant</button>
     </div>
   );
 }
