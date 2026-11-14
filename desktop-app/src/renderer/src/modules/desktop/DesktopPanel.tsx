@@ -141,7 +141,15 @@ function WidgetDetail({ zone }: { zone: Zone }): ReactNode {
 function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): ReactNode {
   const { t } = useI18n();
   const [showStyle, setShowStyle] = useState(false);
+  const [colorDraft, setColorDraft] = useState(zone.color ?? '');
+  useEffect(() => setColorDraft(zone.color ?? ''), [zone.id, zone.color]);
   const up = (patch: Partial<Zone>): void => void window.api.desktop.updateZone(zone.id, patch);
+  const commitColor = (): void => {
+    const next = colorDraft.trim();
+    if (next === '') up({ color: null });
+    else if (/^#[0-9a-f]{6}$/i.test(next)) up({ color: next });
+    else setColorDraft(zone.color ?? '');
+  };
   const sorts: ZoneSort[] = zone.kind === 'folder' ? ['name', 'type', 'size', 'date', 'opens'] : ['manual', 'name', 'type', 'size', 'date', 'opens'];
   return (
     <div className="carte bz-det">
@@ -152,10 +160,7 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
           <RegLigne titre="Couleur d'accent du widget">
             <div className="bs-color">
               <input type="color" aria-label="Choisir une couleur libre" value={zone.color && /^#[0-9a-f]{6}$/i.test(zone.color) ? zone.color : '#a99bff'} onChange={(e) => up({ color: e.target.value })} />
-              <input className="champ" style={{ width: 106 }} aria-label="Code hexadécimal" placeholder="#A99BFF" maxLength={7} value={zone.color ?? ''} onChange={(e) => {
-                const v = e.target.value;
-                if (v === '' || /^#[0-9a-f]{6}$/i.test(v)) up({ color: v || null });
-              }} />
+              <input className="champ" style={{ width: 106 }} aria-label="Code hexadécimal" placeholder="#A99BFF" maxLength={7} value={colorDraft} onChange={(e) => setColorDraft(e.target.value)} onBlur={commitColor} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} />
               <button className="btn xs" type="button" onClick={() => up({ color: null })}>Thème Encre</button>
             </div>
           </RegLigne>
