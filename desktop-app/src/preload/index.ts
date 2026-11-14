@@ -60,6 +60,12 @@ const api: PreloadApi = {
   },
   desktop: {
     getState: () => ipcRenderer.invoke('desktop:getState'),
+    notes: {
+      list: () => ipcRenderer.invoke('desktop:notes:list'),
+      save: (note) => ipcRenderer.invoke('desktop:notes:save', note),
+      remove: (id) => ipcRenderer.invoke('desktop:notes:remove', id),
+      onChanged: (cb) => subscribe('desktop:notes:changed', cb)
+    },
     setSettings: (patch) => ipcRenderer.invoke('desktop:setSettings', patch),
     createZone: (kind) => ipcRenderer.invoke('desktop:createZone', kind),
     aiPlan: () => ipcRenderer.invoke('desktop:aiPlan'),
