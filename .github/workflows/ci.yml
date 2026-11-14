@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ['**']
+    branches: [main]
   pull_request:
 
 jobs:
@@ -20,6 +20,36 @@ jobs:
       # pour vérifier types, tests et bundling.
       - name: Installer les dépendances
         run: npm ci --ignore-scripts
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+      - name: Tests
+        run: npm run test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build de l'app (bundles main/preload/renderer)
+        run: npm run build:app
+
+  windows-check:
+    name: Tests et compilation sous Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Comme le workflow de publication, recalculer les dépendances natives Windows.
+      # Le lockfile généré sous Linux peut omettre le binaire optionnel Rollup Windows.
+      - name: Installer les dépendances Windows
+        shell: bash
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install --ignore-scripts --no-audit --no-fund
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
 

@@ -409,23 +409,35 @@ export function createLauncherMainModule(): MainToolModule {
       );
       ipcMain.handle('ha:entities', async () => {
         try {
-          const list = (await haClient.states()).filter(isControllable).map((st) => ({
+          const list = (await haClient.states()).filter((st) => isControllable(st) || ['sensor', 'binary_sensor'].includes(st.entity_id.split('.')[0])).map((st) => ({
             id: st.entity_id,
             name: String(st.attributes?.friendly_name ?? st.entity_id),
             domain: st.entity_id.split('.')[0],
             state: st.state,
-            on: isOn(st)
+            on: isOn(st),
+            unit: typeof st.attributes?.unit_of_measurement === 'string' ? st.attributes.unit_of_measurement : undefined
           }));
           return { ok: true, list };
         } catch (err) {
           return { ok: false, error: err instanceof Error ? err.message : String(err) };
         }
       });
+      ipcMain.handle('ha:series', async (_e, entityId: unknown, hours: unknown) => {
+        if (typeof entityId !== 'string' || ![24, 168].includes(Number(hours))) {
+          return { ok: false, error: 'Paramètres invalides' };
+        }
+        try {
+          return { ok: true, points: await haClient.series(entityId, Number(hours) as 24 | 168) };
+        } catch (error) {
+          return { ok: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      });
       ipcMain.handle('ha:toggle', async (_e, entityId: unknown) => {
         if (typeof entityId !== 'string') return false;
         try {
           const st = (await haClient.states()).find((x) => x.entity_id === entityId);
-          await haClient.run(entityId, 'toggle', st ? isOn(st) : false);
+          if (!st || !isControllable(st)) return false;
+          await haClient.run(entityId, 'toggle', isOn(st));
           return true;
         } catch {
           return false;

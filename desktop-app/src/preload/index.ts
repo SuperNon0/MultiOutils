@@ -18,6 +18,11 @@ function subscribe<T>(channel: string, cb: (payload: T) => void): Unsubscribe {
 }
 
 const api: PreloadApi = {
+  backup: {
+    create: () => ipcRenderer.invoke('backup:create'),
+    restore: () => ipcRenderer.invoke('backup:restore'),
+    status: () => ipcRenderer.invoke('backup:status')
+  },
   fm: {
     places: () => ipcRenderer.invoke('files:places'),
     setFavorites: (paths) => ipcRenderer.invoke('files:setFavorites', paths),
@@ -55,6 +60,12 @@ const api: PreloadApi = {
   },
   desktop: {
     getState: () => ipcRenderer.invoke('desktop:getState'),
+    notes: {
+      list: () => ipcRenderer.invoke('desktop:notes:list'),
+      save: (note) => ipcRenderer.invoke('desktop:notes:save', note),
+      remove: (id) => ipcRenderer.invoke('desktop:notes:remove', id),
+      onChanged: (cb) => subscribe('desktop:notes:changed', cb)
+    },
     setSettings: (patch) => ipcRenderer.invoke('desktop:setSettings', patch),
     createZone: (kind) => ipcRenderer.invoke('desktop:createZone', kind),
     aiPlan: () => ipcRenderer.invoke('desktop:aiPlan'),
@@ -317,6 +328,7 @@ const api: PreloadApi = {
   ha: {
     entities: () => ipcRenderer.invoke('ha:entities'),
     toggle: (entityId) => ipcRenderer.invoke('ha:toggle', entityId),
+    series: (entityId, hours) => ipcRenderer.invoke('ha:series', entityId, hours),
     status: () => ipcRenderer.invoke('ha:status'),
     onStatus: (cb) => subscribe('ha:status', cb),
     forget: () => ipcRenderer.invoke('ha:forget'),

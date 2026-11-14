@@ -118,8 +118,9 @@ async function walkSearch(root: string, q: string, max: number, signal?: AbortSi
   const out: string[] = [];
   const queue = [root];
   let seen = 0;
-  while (queue.length && out.length < max && seen < 20000 && !signal?.aborted) {
-    const dir = queue.shift()!;
+  let nextDir = 0;
+  while (nextDir < queue.length && out.length < max && seen < 20000 && !signal?.aborted) {
+    const dir = queue[nextDir++];
     let dirents: fs.Dirent[];
     try {
       dirents = await fs.promises.readdir(dir, { withFileTypes: true });
@@ -204,8 +205,9 @@ async function hashFile(p: string, signal?: AbortSignal): Promise<string> {
 export async function duplicates(root: string, onProgress: (done: number, total: number, phase: 'scan' | 'hash') => void, signal?: AbortSignal): Promise<DupGroup[]> {
   const files: Array<{ path: string; size: number }> = [];
   const queue = [root];
-  while (queue.length && !signal?.aborted && files.length < 200_000) {
-    const dir = queue.shift()!;
+  let nextDir = 0;
+  while (nextDir < queue.length && !signal?.aborted && files.length < 200_000) {
+    const dir = queue[nextDir++];
     let dirents: fs.Dirent[];
     try {
       dirents = await fs.promises.readdir(dir, { withFileTypes: true });
@@ -235,7 +237,9 @@ export async function duplicates(root: string, onProgress: (done: number, total:
     for (const p of g.paths) {
       try {
         const h = await hashFile(p, signal);
-        byHash.set(h, [...(byHash.get(h) ?? []), p]);
+        const matches = byHash.get(h);
+        if (matches) matches.push(p);
+        else byHash.set(h, [p]);
       } catch {
         // illisible
       }
@@ -363,8 +367,11 @@ export async function emptyTrash(): Promise<boolean> {
 
 /* -------------------------------------------------- actions rapides */
 export async function zip(paths: string[], destDir: string, name: string): Promise<string> {
-  const target = path.join(destDir, name.endsWith('.zip') ? name : `${name}.zip`);
-  await runPowerShell(`Compress-Archive -LiteralPath ${paths.map(psQuote).join(',')} -DestinationPath ${psQuote(target)} -Force`, { timeoutMs: 600_000 });
+  const baseName = name.endsWith('.zip') ? name.slice(0, -4) : name;
+  let target = path.join(destDir, `${baseName}.zip`);
+  let i = 2;
+  while (fs.existsSync(target)) target = path.join(destDir, `${baseName} (${i++}).zip`);
+  await runPowerShell(`Compress-Archive -LiteralPath ${paths.map(psQuote).join(',')} -DestinationPath ${psQuote(target)}`, { timeoutMs: 600_000 });
   return target;
 }
 

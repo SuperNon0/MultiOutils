@@ -21,6 +21,8 @@ import { LayoutsTab, PagesBar } from './LayoutsPanel';
 import { LogTab, RulesTab } from './RulesPanel';
 import { AiPlanSheet } from './AiPlanSheet';
 import { StyleEditor } from './StyleEditor';
+import { EncreColorPicker } from './EncreColorPicker';
+import { NotesLibraryPanel } from './NotesLibraryPanel';
 import { WIDGET_ICONS } from './ZoneWidgets';
 import './desktop.css';
 
@@ -100,17 +102,17 @@ function WidgetDetail({ zone }: { zone: Zone }): ReactNode {
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState('');
   useEffect(() => {
-    if (zone.widget !== 'ha') return;
+    if (zone.widget !== 'ha' && zone.widget !== 'ha-sensor' && zone.widget !== 'ha-chart') return;
     void window.api.ha.entities().then((r) => (r.ok ? setEnts(r.list) : setErr(r.error)));
   }, [zone.widget]);
-  if (zone.widget === 'ha') {
+  if (zone.widget === 'ha' || zone.widget === 'ha-sensor' || zone.widget === 'ha-chart') {
     if (err) return <p className="muted petit">{t(err === 'not-configured' ? 'desktop.ha.notConfigured' : 'desktop.ha.error', { error: err })}</p>;
     if (!ents) return <p className="muted petit">…</p>;
     const low = q.trim().toLowerCase();
-    const list = ents.filter((e) => !low || e.name.toLowerCase().includes(low) || e.id.includes(low));
+    const list = ents.filter((e) => ((zone.widget === 'ha-sensor' || zone.widget === 'ha-chart') ? ['sensor', 'binary_sensor'].includes(e.domain) : !['sensor', 'binary_sensor'].includes(e.domain)) && (!low || e.name.toLowerCase().includes(low) || e.id.includes(low)));
     const toggle = (id: string): void =>
       void window.api.desktop.updateZone(zone.id, {
-        entities: zone.entities.includes(id) ? zone.entities.filter((x) => x !== id) : [...zone.entities, id]
+        entities: zone.entities.includes(id) ? zone.entities.filter((x) => x !== id) : zone.widget === 'ha-chart' ? [id] : [...zone.entities, id]
       });
     return (
       <div className="bz-ha">
@@ -147,7 +149,26 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
     <div className="carte bz-det">
       <div className="lbl-mono">{zone.title}</div>
       {zone.kind === 'widget' ? (
-        <WidgetDetail zone={zone} />
+        <>
+          <WidgetDetail zone={zone} />
+          {zone.widget === 'ha-chart' && (
+            <RegLigne titre="Période du graphique">
+              <select className="select sm" value={zone.chartHours} onChange={(e) => up({ chartHours: Number(e.target.value) as Zone['chartHours'] })}>
+                <option value={24}>24 heures</option><option value={168}>7 jours</option>
+              </select>
+            </RegLigne>
+          )}
+          <RegLigne titre="Couleur d'accent du widget">
+            <EncreColorPicker value={zone.color} label="Couleur d'accent du widget" onChange={(color) => up({ color })} onPick={() => void window.api.desktop.pickColor(zone.id, 'color')} onReset={() => up({ color: null })} />
+          </RegLigne>
+          <RegLigne titre="Affichage du widget">
+            <select className="select sm" value={zone.widgetLayout} onChange={(e) => up({ widgetLayout: e.target.value as Zone['widgetLayout'] })}>
+              <option value="cards">Cartes</option>
+              <option value="compact">Compact</option>
+            </select>
+          </RegLigne>
+          <p className="muted petit">Le widget suit le thème Encre. Personnalise son fond, ses couleurs, sa transparence, ses angles et son titre dans Apparence ci-dessous.</p>
+        </>
       ) : (
         <>
           <RegLigne titre={t('desktop.menu.view')}>
@@ -269,6 +290,8 @@ const PRESETS: Array<[ZonePreset, string]> = [
   ['notes', 'edit'],
   ['clips', 'clipboard'],
   ['ha', 'home'],
+  ['ha-sensor', 'signal'],
+  ['ha-chart', 'signal'],
   ['search', 'search'],
   ['cloud', 'cloud']
 ];
@@ -278,7 +301,7 @@ export function DesktopPanel(): ReactNode {
   const { t } = useI18n();
   const [state] = useDesktopState();
   const [selected, setSelected] = useState<string | null>(null);
-  const [section, setSection] = useState<'zones' | 'rules' | 'log' | 'layouts'>('zones');
+  const [section, setSection] = useState<'zones' | 'rules' | 'log' | 'layouts' | 'notes'>('zones');
   const [aiOpen, setAiOpen] = useState(false);
 
   useEffect(
@@ -397,9 +420,9 @@ export function DesktopPanel(): ReactNode {
       )}
 
       <div className="chips" role="tablist" style={{ marginBottom: 14 }}>
-        {(['zones', 'rules', 'log', 'layouts'] as const).map((k) => (
+        {(['zones', 'notes', 'rules', 'log', 'layouts'] as const).map((k) => (
           <button key={k} role="tab" aria-selected={section === k} className={`chip${section === k ? ' on' : ''}`} onClick={() => setSection(k)}>
-            {t(`desktop.section.${k}`)}
+            {k === 'notes' ? 'Mes notes' : t(`desktop.section.${k}`)}
           </button>
         ))}
       </div>
@@ -407,7 +430,9 @@ export function DesktopPanel(): ReactNode {
       {aiOpen && <AiPlanSheet onClose={() => setAiOpen(false)} />}
       {section === 'zones' && <PagesBar state={state} />}
 
-      {section === 'rules' ? (
+      {section === 'notes' ? (
+        <NotesLibraryPanel />
+      ) : section === 'rules' ? (
         <RulesTab state={state} />
       ) : section === 'layouts' ? (
         <LayoutsTab state={state} />

@@ -175,6 +175,14 @@ export function createAutoclickerMainModule(): MainToolModule {
     timer = setTimeout(() => tick(profile, intervalMs(profile)), Math.max(0, Math.floor(profile.startDelayMs)));
   };
 
+  /** Explicit start must not stop a running profile (unlike toggle). */
+  const startSelected = (): void => {
+    if (runningId) return;
+    const store = getStore();
+    const id = store.selectedId ?? store.profiles[0]?.id;
+    if (id) void startProfile(id);
+  };
+
   const toggleProfile = (id: string): void => {
     if (runningId === id) stop(true);
     else void startProfile(id);
@@ -214,7 +222,7 @@ export function createAutoclickerMainModule(): MainToolModule {
 
       // Commandes du service localhost (Stream Deck, docs/00 §8).
       ctx.registerLocalCommand('autoclick.toggle', () => toggleSelected());
-      ctx.registerLocalCommand('autoclick.start', () => toggleSelected());
+      ctx.registerLocalCommand('autoclick.start', () => startSelected());
       ctx.registerLocalCommand('autoclick.stop', () => stop(true));
 
       // Routes enrichies : le plugin et son panneau de configuration lisent la

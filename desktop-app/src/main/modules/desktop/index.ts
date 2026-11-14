@@ -68,6 +68,7 @@ import {
   type EntryKind,
   type Rect,
   type Rule,
+  type SavedNote,
   type Zone,
   type ZoneContent,
   type ZoneStyle,
@@ -89,6 +90,7 @@ import { IconStore, type IconSize } from './icons';
 
 const SETTINGS_KEY = 'desktop.settings';
 const ZONES_KEY = 'desktop.zones';
+const NOTES_KEY = 'desktop.savedNotes';
 const OPENS_KEY = 'desktop.opens';
 /** Raccourcis globaux du module et réglage qui porte chacun. */
 const SHORTCUTS = {
@@ -482,7 +484,12 @@ export function createDesktopMainModule(): MainToolModule {
       } catch {
         token = null;
       }
-    } else if (stored.startsWith('plain:')) token = stored.slice(6);
+    } else if (stored.startsWith('plain:') && safeStorage.isEncryptionAvailable()) {
+      // Même migration que le client de captures : pas de jeton en clair actif.
+      token = stored.slice(6);
+      ctx.db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
+        .run('remote.tokenEnc', `enc:${safeStorage.encryptString(token).toString('base64')}`);
+    }
     return token ? { url, token } : null;
   };
   const MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.pdf': 'application/pdf' };
@@ -783,7 +790,7 @@ export function createDesktopMainModule(): MainToolModule {
           }
         );
       }
-      if (z.widget === 'ha') items.push({ type: 'separator' }, { label: t('desktop.ha.pick'), click: () => ctx.showMainWindow({ view: 'tool', toolId: 'desktop' }) });
+      if (z.widget === 'ha' || z.widget === 'ha-sensor' || z.widget === 'ha-chart') items.push({ type: 'separator' }, { label: t('desktop.ha.pick'), click: () => ctx.showMainWindow({ view: 'tool', toolId: 'desktop' }) });
     } else if (z.kind === 'shortcuts') {
       items.push({
         label: t('desktop.menu.inbox'),
@@ -1382,6 +1389,40 @@ export function createDesktopMainModule(): MainToolModule {
       ipcMain.handle('desktop:createZone', (_e, kind: ZoneKind | ZonePreset) =>
         ZONE_PRESETS.includes(kind as ZonePreset) ? createPreset(kind as ZonePreset, null) : createZone(kind === 'folder' ? 'folder' : 'shortcuts', null)
       );
+      /** Bibliothèque de notes archivée dans la base SQLite existante. */
+      const storedNotes = (): SavedNote[] => {
+        const raw = kvGet<unknown>(NOTES_KEY, []);
+        if (!Array.isArray(raw)) return [];
+        return raw.filter((n): n is SavedNote => Boolean(n && typeof n === 'object' &&
+          typeof n.id === 'string' && typeof n.title === 'string' && typeof n.body === 'string' &&
+          typeof n.createdAt === 'number' && typeof n.updatedAt === 'number')).slice(0, 1000);
+      };
+      ipcMain.handle('desktop:notes:list', () => storedNotes().sort((a, b) => b.updatedAt - a.updatedAt));
+      ipcMain.handle('desktop:notes:save', (_e, draft: unknown) => {
+        if (!draft || typeof draft !== 'object') throw new Error('Note invalide');
+        const input = draft as { id?: unknown; title?: unknown; body?: unknown };
+        if (typeof input.title !== 'string' || typeof input.body !== 'string') throw new Error('Note invalide');
+        const title = input.title.trim().slice(0, 120) || 'Sans titre';
+        const body = input.body.slice(0, 20_000);
+        if (!body.trim()) throw new Error('La note est vide');
+        const notes = storedNotes();
+        const old = typeof input.id === 'string' ? notes.find((n) => n.id === input.id) : undefined;
+        if (typeof input.id === 'string' && !old) throw new Error('Note introuvable');
+        if (!old && notes.length >= 1000) throw new Error('Limite de notes atteinte');
+        const now = Date.now();
+        const note: SavedNote = { id: old?.id ?? randomUUID(), title, body, createdAt: old?.createdAt ?? now, updatedAt: now };
+        kvSet(NOTES_KEY, old ? notes.map((n) => n.id === old.id ? note : n) : [...notes, note]);
+        ctx.broadcast('desktop:notes:changed');
+        return note;
+      });
+      ipcMain.handle('desktop:notes:remove', (_e, id: unknown) => {
+        if (typeof id !== 'string') return false;
+        const notes = storedNotes();
+        if (!notes.some((n) => n.id === id)) return false;
+        kvSet(NOTES_KEY, notes.filter((n) => n.id !== id));
+        ctx.broadcast('desktop:notes:changed');
+        return true;
+      });
       ipcMain.on('desktop:zone:note', (e, text: unknown) => {
         const host = hostOfSender(e);
         const z = host ? activeOf(host) : undefined;

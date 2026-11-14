@@ -9,6 +9,8 @@ export const WIDGET_ICONS: Record<WidgetType, string> = {
   notes: 'edit',
   clips: 'clipboard',
   ha: 'home',
+  'ha-sensor': 'signal',
+  'ha-chart': 'signal',
   search: 'search',
   cloud: 'cloud'
 };
@@ -23,6 +25,10 @@ export function WidgetBody({ zone, content }: { zone: Zone; content: ZoneContent
       return <ClipsWidget />;
     case 'ha':
       return <HaWidget zone={zone} />;
+    case 'ha-sensor':
+      return <HaSensorWidget zone={zone} />;
+    case 'ha-chart':
+      return <HaChartWidget zone={zone} />;
     case 'search':
       return <SearchWidget />;
     case 'cloud':
@@ -38,9 +44,14 @@ function NotesWidget({ zone }: { zone: Zone }): ReactNode {
   const [text, setText] = useState(zone.note);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef(text);
+  const archivedId = useRef<string | null>(zone.savedNoteId);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   useEffect(() => {
     setText(zone.note);
     latest.current = zone.note;
+    archivedId.current = zone.savedNoteId;
+    setSaved(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zone.id]);
   useEffect(
@@ -53,6 +64,7 @@ function NotesWidget({ zone }: { zone: Zone }): ReactNode {
     []
   );
   return (
+    <div className="zw-note-editor">
     <textarea
       className="zw-note"
       value={text}
@@ -63,6 +75,7 @@ function NotesWidget({ zone }: { zone: Zone }): ReactNode {
       onChange={(e) => {
         const v = e.target.value;
         setText(v);
+        setSaved(false);
         latest.current = v;
         if (timer.current) clearTimeout(timer.current);
         timer.current = setTimeout(() => {
@@ -71,6 +84,80 @@ function NotesWidget({ zone }: { zone: Zone }): ReactNode {
         }, 500);
       }}
     />
+    <button className="btn xs zw-note-save" type="button" disabled={saving || !text.trim()} onPointerDown={(e) => e.stopPropagation()} onClick={async () => {
+      if (saving || !latest.current.trim()) return;
+      setSaving(true);
+      try {
+        const firstLine = latest.current.trim().split('\n')[0].slice(0, 80);
+        // Réenregistrer une note archivée doit la modifier, pas créer un doublon.
+        const existing = archivedId.current
+          ? (await window.api.desktop.notes.list()).some((note) => note.id === archivedId.current)
+          : false;
+        const note = await window.api.desktop.notes.save({
+          ...(existing ? { id: archivedId.current! } : {}),
+          title: firstLine || 'Note rapide',
+          body: latest.current
+        });
+        archivedId.current = note.id;
+        await window.api.desktop.updateZone(zone.id, { savedNoteId: note.id });
+        setSaved(true);
+      } catch {
+        setSaved(false);
+      } finally {
+        setSaving(false);
+      }
+    }}><Icon name={saved ? 'check' : 'save'} size={14} /> {saved ? 'Enregistrée' : 'Enregistrer dans Mes notes'}</button>
+    </div>
+  );
+}
+
+/** Courbe compacte : aperçu léger, détails conservés dans Home Assistant. */
+function HaChartWidget({ zone }: { zone: Zone }): ReactNode {
+  const entityId = zone.entities[0] ?? '';
+  const [points, setPoints] = useState<Array<{ at: number; value: number }>>([]);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = async (): Promise<void> => {
+      if (!entityId) { setPoints([]); return; }
+      try {
+        const response = await window.api.ha.series(entityId, zone.chartHours);
+        if (!alive) return;
+        if (response.ok) { setPoints(response.points); setError(null); }
+        else setError(response.error);
+      } catch (e) {
+        if (alive) setError(String(e));
+      }
+    };
+    void load();
+    const timer = setInterval(() => void load(), 300_000);
+    return () => { alive = false; clearInterval(timer); };
+  }, [entityId, zone.chartHours]);
+  if (!entityId) return <div className="zw-vide">Sélectionne un capteur numérique dans Bureau → Modifier la zone.</div>;
+  const valid = points.length >= 2;
+  const values = points.map((p) => p.value);
+  const min = valid ? Math.min(...values) : 0;
+  const max = valid ? Math.max(...values) : 1;
+  const minAt = points[0]?.at ?? 0;
+  const maxAt = points[points.length - 1]?.at ?? 1;
+  const line = valid ? points.map((p) => {
+    const x = 4 + 292 * (p.at - minAt) / Math.max(1, maxAt - minAt);
+    const y = 88 - 76 * (p.value - min) / Math.max(0.001, max - min);
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ') : '';
+  return (
+    <div className="zw-chart">
+      <div className="zw-chart-title"><span title={entityId}>{entityId.split('.')[1]?.replace(/_/g, ' ') ?? entityId}</span><strong>{zone.chartHours === 168 ? '7 jours' : '24 h'}</strong></div>
+      {error ? <p className="zw-vide">{error}</p> : valid ? (
+        <>
+          <svg viewBox="0 0 300 100" preserveAspectRatio="none" role="img" aria-label={`Historique : de ${min} à ${max}`}>
+            <polyline points={line} fill="none" stroke="var(--zc)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>
+          </svg>
+          <div className="zw-chart-values"><span>{min.toLocaleString()} min</span><strong>{values[values.length - 1]?.toLocaleString()}</strong><span>{max.toLocaleString()} max</span></div>
+        </>
+      ) : <p className="zw-vide">Pas assez de mesures numériques disponibles.</p>}
+      <button type="button" className="btn xs zw-chart-more" onPointerDown={(e) => e.stopPropagation()} onClick={() => void window.api.ha.openDashboard()}>Ouvrir Home Assistant</button>
+    </div>
   );
 }
 
@@ -272,6 +359,41 @@ function CloudWidget({ content }: { content: ZoneContent }): ReactNode {
           <Icon name={c.state === 'sent' ? 'check' : c.state === 'error' ? 'alert' : 'upload'} size={14} />
           <span className="nm">{c.name}</span>
           <span className="m">{c.state === 'error' ? t('desktop.cloud.failed') : formatSize(c.size, lang)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Capteurs HA en lecture seule, style Encre avec couleur par zone. */
+function HaSensorWidget({ zone }: { zone: Zone }): ReactNode {
+  const [list, setList] = useState<HaEntity[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = async (): Promise<void> => {
+      try {
+        const result = await window.api.ha.entities();
+        if (!alive) return;
+        if (result.ok) { setList(result.list); setError(null); }
+        else setError(result.error);
+      } catch (e) {
+        if (alive) setError(String(e));
+      }
+    };
+    void load();
+    const timer = setInterval(() => void load(), 20_000);
+    return () => { alive = false; clearInterval(timer); };
+  }, []);
+  if (error) return <div className="zw-vide">{error}</div>;
+  const selected = zone.entities.map((id) => list.find((e) => e.id === id)).filter((e): e is HaEntity => !!e);
+  if (!selected.length) return <div className="zw-vide">Choisis des capteurs dans Bureau → Modifier la zone.</div>;
+  return (
+    <div className={`zw-sensors ${zone.widgetLayout}`}>
+      {selected.map((entity) => (
+        <div key={entity.id} className="zw-sensor" title={entity.id}>
+          <span className="zw-sensor-name">{entity.name}</span>
+          <span className="zw-sensor-value">{entity.state}{entity.unit ? ` ${entity.unit}` : ''}</span>
         </div>
       ))}
     </div>

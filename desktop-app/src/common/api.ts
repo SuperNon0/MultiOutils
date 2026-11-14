@@ -24,6 +24,11 @@ import type {
 export type Unsubscribe = () => void;
 
 export interface PreloadApi {
+  backup: {
+    create(): Promise<{ ok: boolean; path?: string; canceled?: boolean; error?: string }>;
+    restore(): Promise<{ ok: boolean; canceled?: boolean; error?: string }>;
+    status(): Promise<{ automaticFolder: string; latest: string | null; retention: number }>;
+  };
   /** Module Fichiers : gestionnaire de fichiers (common/files.ts). */
   fm: {
     places(): Promise<{ places: import('./files').FilePlace[]; zones: import('./files').FilePlace[] }>;
@@ -63,6 +68,12 @@ export interface PreloadApi {
   /** Module Bureau : zones sur le bureau Windows (common/desktop.ts). */
   desktop: {
     getState(): Promise<import('./desktop').DesktopState>;
+    notes: {
+      list(): Promise<import('./desktop').SavedNote[]>;
+      save(note: { id?: string; title: string; body: string }): Promise<import('./desktop').SavedNote>;
+      remove(id: string): Promise<boolean>;
+      onChanged(cb: () => void): Unsubscribe;
+    };
     setSettings(patch: Partial<import('./desktop').DesktopSettings>): Promise<import('./desktop').DesktopState>;
     /** Crée une zone à un emplacement libre (zone-dossier : choix du dossier). */
     createZone(kind: import('./desktop').ZoneKind | import('./desktop').ZonePreset): Promise<import('./desktop').Zone | null>;
@@ -395,6 +406,7 @@ export interface PreloadApi {
     /** Entités pilotables (zone Home Assistant du bureau). */
     entities(): Promise<{ ok: true; list: import('./desktop').HaEntity[] } | { ok: false; error: string }>;
     toggle(entityId: string): Promise<boolean>;
+    series(entityId: string, hours: 24 | 168): Promise<{ ok: true; points: Array<{ at: number; value: number }> } | { ok: false; error: string }>;
     status(): Promise<import('./launcher').HaLinkStatus>;
     onStatus(cb: (status: import('./launcher').HaLinkStatus) => void): Unsubscribe;
     /** Oublie l'enregistrement et se réenregistre (si la liaison est active). */

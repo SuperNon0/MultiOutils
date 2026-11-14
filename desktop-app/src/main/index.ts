@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { I18n } from './i18n';
+import { applyPendingRestore, registerBackups } from './backups';
 import { applySettings, registerHostIpc } from './ipc';
 import { LocalService } from './local-service';
 import type { MainHostContext } from './module-registry';
@@ -63,7 +64,9 @@ async function bootstrap(): Promise<void> {
   await app.whenReady();
   app.setAppUserModelId('com.supernon0.multioutils'); // notifications Windows
 
+  applyPendingRestore();
   const db = openDb(path.join(app.getPath('userData'), 'multioutils.db'));
+  registerBackups(db);
   const defaultStorageDir = path.join(app.getPath('pictures'), 'MultiOutils');
   const settings = new SettingsStore(db, defaultStorageDir);
   const i18n = new I18n(settings.get().language);
