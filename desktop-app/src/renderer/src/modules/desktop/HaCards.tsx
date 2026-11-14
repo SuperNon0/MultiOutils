@@ -56,7 +56,7 @@ export function HaCards({ entities, layout, readOnly = false, preview = false, o
           {entity.mediaArtist && <div className="ha-card-caption">{entity.mediaArtist}</div>}
           <div className="ha-media-actions">
             {entity.mediaControls?.previous && <button className="ha-media-button" disabled={disabled} aria-label={t('desktop.ha.previous')} onClick={() => void act(entity, 'previous')}><Icon name="chevl" size={18}/></button>}
-            {entity.mediaControls?.playPause && <button className="ha-media-button main" disabled={disabled} aria-label={t('desktop.ha.playPause')} onClick={() => void act(entity, 'playPause')}>
+            {entity.mediaControls?.playPause && <button className="ha-media-button is-primary" disabled={disabled} aria-label={t('desktop.ha.playPause')} onClick={() => void act(entity, 'playPause')}>
               {entity.state === 'playing' ? <svg className="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" strokeWidth="3"/></svg> : <Icon name="play" size={19}/>}
             </button>}
             {entity.mediaControls?.next && <button className="ha-media-button" disabled={disabled} aria-label={t('desktop.ha.next')} onClick={() => void act(entity, 'next')}><Icon name="chev" size={18}/></button>}
