@@ -789,7 +789,7 @@ export function createDesktopMainModule(): MainToolModule {
           }
         );
       }
-      if (z.widget === 'ha' || z.widget === 'ha-sensor') items.push({ type: 'separator' }, { label: t('desktop.ha.pick'), click: () => ctx.showMainWindow({ view: 'tool', toolId: 'desktop' }) });
+      if (z.widget === 'ha' || z.widget === 'ha-sensor' || z.widget === 'ha-chart') items.push({ type: 'separator' }, { label: t('desktop.ha.pick'), click: () => ctx.showMainWindow({ view: 'tool', toolId: 'desktop' }) });
     } else if (z.kind === 'shortcuts') {
       items.push({
         label: t('desktop.menu.inbox'),
