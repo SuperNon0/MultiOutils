@@ -31,6 +31,7 @@ describe('text request usage', () => {
     expect(textUsage('openai', { usage: { prompt_tokens: 10, completion_tokens: 20 } })).toEqual({ inputTokens: 10, outputTokens: 20 });
     expect(textUsage('gemini', { usageMetadata: { promptTokenCount: 8, candidatesTokenCount: 2, thoughtsTokenCount: 4 } })).toEqual({ inputTokens: 8, outputTokens: 6 });
     expect(textUsage('openai', {})).toBeUndefined();
+    expect(textUsage('openai', { usage: {} })).toBeUndefined();
   });
   it('returns text, actual model and tokens from a text request', async () => {
     const fetcher = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({

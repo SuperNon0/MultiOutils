@@ -1270,3 +1270,8 @@ body[data-fenetre='zone-pages'] #root {
 .bz-geometry-fields label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); min-width: 0; }
 .bz-geometry-fields input { min-width: 0; width: 100%; }
 .bz-geometry .btn { white-space: normal; height: auto; min-height: 32px; text-align: left; }
+
+/* Header decoration follows the same background opacity control. */
+.zw .zw-h { background: color-mix(in srgb, color-mix(in srgb, var(--zc) 6%, transparent) var(--zo, 90%), transparent); }
+.zw.tl-bold .zw-h { background: color-mix(in srgb, color-mix(in srgb, var(--zc) 18%, transparent) var(--zo, 90%), transparent); }
+.zw.inv:not(:hover):not(.drop):not(.peek) .zw-h { background: transparent; }

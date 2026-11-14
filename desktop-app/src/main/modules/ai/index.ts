@@ -17,7 +17,7 @@ import type { MainHostContext, MainToolModule } from '../../module-registry';
 import { CaptureRepo } from '../../storage/captures';
 import { canSendAsIs, candidateSizes, MAX_IMAGE_BYTES } from './image';
 import { AiKeyStore, type KeyValue } from './keys';
-import { AiError, cleanTargetLang, httpError, pickModel, resolveModel, type TranslateImage } from './provider';
+import { AiError, cleanTargetLang, pickModel, resolveModel, type TranslateImage } from './provider';
 import { pickGeminiModel } from './gemini';
 import { costOf, priceFor } from '../../../common/aiPricing';
 import { createProviders } from './providers';

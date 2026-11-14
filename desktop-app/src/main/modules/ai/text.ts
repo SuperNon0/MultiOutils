@@ -5,7 +5,7 @@ import { httpError, AiError } from './provider';
 export function textUsage(provider: AiProviderId, response: unknown): AiUsage | undefined {
   const r = response as Record<string, unknown> | null;
   const u = (provider === 'gemini' ? r?.usageMetadata : r?.usage) as Record<string, unknown> | undefined;
-  if (!u || typeof u !== 'object') return undefined;
+  if (!u || typeof u !== 'object' || !Object.values(u).some((v) => typeof v === 'number' && Number.isFinite(v))) return undefined;
   const num = (v: unknown): number => typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : 0;
   if (provider === 'anthropic') return { inputTokens: num(u.input_tokens) + num(u.cache_creation_input_tokens) + num(u.cache_read_input_tokens), outputTokens: num(u.output_tokens) };
   if (provider === 'openai') return { inputTokens: num(u.prompt_tokens), outputTokens: num(u.completion_tokens) };
