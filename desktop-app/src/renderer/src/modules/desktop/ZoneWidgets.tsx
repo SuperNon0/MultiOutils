@@ -82,7 +82,7 @@ function NotesWidget({ zone }: { zone: Zone }): ReactNode {
       if (saving || !latest.current.trim()) return;
       setSaving(true);
       try {
-        const firstLine = latest.current.trim().split('\\n')[0].slice(0, 80);
+        const firstLine = latest.current.trim().split('\n')[0].slice(0, 80);
         await window.api.desktop.notes.save({ title: firstLine || 'Note rapide', body: latest.current });
         setSaved(true);
       } catch {
