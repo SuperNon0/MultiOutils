@@ -1,4 +1,4 @@
-import { useEffect, useState, type PointerEvent, type ReactNode } from 'react';
+import { useEffect, useId, useState, type PointerEvent, type ReactNode } from 'react';
 import { Icon } from '../../host/Icon';
 
 type HSV = { h: number; s: number; v: number };
@@ -38,6 +38,9 @@ export function EncreColorPicker({
   resetLabel?: string;
   label?: string;
 }): ReactNode {
+  const instanceId = useId();
+  const hueId = `${instanceId}-hue`;
+  const hexId = `${instanceId}-hex`;
   const [open, setOpen] = useState(false);
   const color = value && valid(value) ? value : '#A99BFF';
   const [hsv, setHsv] = useState<HSV>(() => fromHex(color));
@@ -96,12 +99,12 @@ export function EncreColorPicker({
           }}>
           <span className="encre-picker-marker" style={{ left: `${hsv.s * 100}%`, top: `${(1 - hsv.v) * 100}%` }} />
         </div>
-        <label className="encre-picker-hue-label" htmlFor="encre-hue">Teinte</label>
-        <input id="encre-hue" className="encre-picker-hue" type="range" min={0} max={359} step={1} value={Math.round(hsv.h)} aria-label="Teinte" onChange={(e) => choose({ ...hsv, h: Number(e.target.value) })} />
+        <label className="encre-picker-hue-label" htmlFor={hueId}>Teinte</label>
+        <input id={hueId} className="encre-picker-hue" type="range" min={0} max={359} step={1} value={Math.round(hsv.h)} aria-label="Teinte" onChange={(e) => choose({ ...hsv, h: Number(e.target.value) })} />
         <div className="encre-picker-hex">
           <span className="encre-picker-swatch" style={{ background: color }} />
-          <label htmlFor="encre-hex">HEX</label>
-          <input id="encre-hex" value={hex} maxLength={7} onChange={(e) => setHex(e.target.value)} onBlur={applyHex} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} />
+          <label htmlFor={hexId}>HEX</label>
+          <input id={hexId} value={hex} maxLength={7} onChange={(e) => setHex(e.target.value)} onBlur={applyHex} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} />
         </div>
         {history.length > 0 && <>
           <span className="encre-picker-caption">Couleurs récentes de la pipette</span>
