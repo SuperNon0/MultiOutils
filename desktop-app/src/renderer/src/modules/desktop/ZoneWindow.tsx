@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type CSSProperties,
@@ -104,6 +105,8 @@ export function ZoneWindow(): ReactNode {
   const [anchor, setAnchor] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState(false);
   const [editItem, setEditItem] = useState<string | null>(null);
+  const [rolling, setRolling] = useState(false);
+  const previousRoll = useRef<boolean | null>(null);
   const [dropOn, setDropOn] = useState(false);
   const [before, setBefore] = useState<string | null>(null);
   const [lasso, setLasso] = useState<Rect | null>(null);
@@ -147,6 +150,17 @@ export function ZoneWindow(): ReactNode {
       return next.size === s.size ? s : next;
     });
   }, [msg]);
+
+  useLayoutEffect(() => {
+    if (!msg) return;
+    const collapsed = msg.host.rolled && !msg.expanded && !msg.peek;
+    const changed = previousRoll.current !== null && previousRoll.current !== collapsed;
+    previousRoll.current = collapsed;
+    if (!changed) return;
+    setRolling(true);
+    const timer = setTimeout(() => setRolling(false), 260);
+    return () => clearTimeout(timer);
+  }, [msg?.host.rolled, msg?.expanded, msg?.peek]);
 
   /* ----------------------------------------- déplacer / redimensionner */
   const startGeom = useCallback(
@@ -355,6 +369,7 @@ export function ZoneWindow(): ReactNode {
     '--zc': zone.color ?? 'var(--accent)',
     '--zo': `${st.opacity}%`,
     '--zalpha': st.opacity / 100,
+    '--zone-full-height': `${Math.min(host.bounds.height, window.screen.availHeight)}px`,
     '--zbg': st.bg ?? 'var(--pop)',
     '--zr': `${st.radius}px`,
     '--ztf': FONTS[st.titleFont],
@@ -538,7 +553,7 @@ export function ZoneWindow(): ReactNode {
 
   return (
     <div
-      className={`zw${host.locked ? '' : ' unlocked'}${dropOn ? ' drop' : ''}${collapsed ? ' rolled' : ''}${fade ? ' fade' : ''}${
+      className={`zw${host.locked ? '' : ' unlocked'}${dropOn ? ' drop' : ''}${collapsed ? ' rolled' : ''}${rolling ? ' rolling' : ''}${fade ? ' fade' : ''}${
         mergeHint ? ' merge' : ''
       }${msg.peek ? ' peek' : ''}${st.invisible ? ' inv' : ''}${st.titleBar !== 'visible' ? ` tb-${st.titleBar}` : ''}${
         st.titleLook === 'bold' ? ' tl-bold' : ''

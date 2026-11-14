@@ -35,6 +35,21 @@ const bounds = { x: 0, y: 0, width: 320, height: 240 };
 afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 
 describe('zone window lifetime', () => {
+  it('changes native height once per reveal instead of once per frame', () => {
+    vi.useFakeTimers();
+    const zone = new ZoneWindow('a', bounds, () => false);
+    zone.setBounds({ ...bounds, height: 36 }, true);
+    vi.advanceTimersByTime(200);
+    expect(zone.win.setBounds).not.toHaveBeenCalled();
+    expect(zone.bounds()?.height).toBe(240);
+    vi.advanceTimersByTime(60);
+    expect(zone.win.setBounds).toHaveBeenCalledTimes(1);
+    expect(zone.bounds()?.height).toBe(36);
+    zone.setBounds(bounds, true);
+    expect(zone.win.setBounds).toHaveBeenCalledTimes(2);
+    vi.advanceTimersByTime(1000);
+    expect(zone.win.setBounds).toHaveBeenCalledTimes(2);
+  });
   it('does not read native bounds after an external window destruction', () => {
     const closed = vi.fn();
     const zone = new ZoneWindow('a', bounds, () => false, closed);

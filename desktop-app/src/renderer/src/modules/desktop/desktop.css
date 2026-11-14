@@ -1275,3 +1275,22 @@ body[data-fenetre='zone-pages'] #root {
 .zw .zw-h { background: color-mix(in srgb, color-mix(in srgb, var(--zc) 6%, transparent) var(--zo, 90%), transparent); }
 .zw.tl-bold .zw-h { background: color-mix(in srgb, color-mix(in srgb, var(--zc) 18%, transparent) var(--zo, 90%), transparent); }
 .zw.inv:not(:hover):not(.drop):not(.peek) .zw-h { background: transparent; }
+
+/* Reveal fixed-size content on the compositor. The native window changes
+   size only at the start of opening or after closing has finished. */
+.zw {
+  bottom: auto;
+  height: var(--zone-full-height, 100vh);
+  box-sizing: border-box;
+  clip-path: inset(0 0 0 0 round var(--zr, 14px));
+  transition: clip-path 240ms cubic-bezier(.22, 1, .36, 1),
+    opacity 180ms ease, border-color 180ms ease;
+}
+.zw.rolled {
+  clip-path: inset(0 0 calc(100% - 36px) 0 round var(--zr, 14px));
+}
+.zw-body { scrollbar-gutter: stable; }
+.zw.rolling .zw-body, .zw.rolled .zw-body { overflow-y: hidden; }
+@media (prefers-reduced-motion: reduce) {
+  .zw { transition: opacity 100ms ease; }
+}

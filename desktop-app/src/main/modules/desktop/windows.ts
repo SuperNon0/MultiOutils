@@ -27,7 +27,7 @@ export function absoluteBounds(zone: Zone, collapsedHeight?: number): Rect {
 export class ZoneWindow {
   readonly win: BrowserWindow;
   private ready = false;
-  private motion: ReturnType<typeof setInterval> | null = null;
+  private motion: ReturnType<typeof setTimeout> | null = null;
   private motionTarget: Rect | null = null;
   /** Aperçu en cours : la fenêtre reste au-dessus des autres. */
   private raised = false;
@@ -177,7 +177,7 @@ export class ZoneWindow {
   }
 
   private stopMotion(): void {
-    if (this.motion) clearInterval(this.motion);
+    if (this.motion) clearTimeout(this.motion);
     this.motion = null;
     this.motionTarget = null;
   }
@@ -193,19 +193,19 @@ export class ZoneWindow {
       this.win.setBounds(r);
       return;
     }
-    const started = Date.now();
+    // Keep the content at its final size while the renderer animates a clip.
+    // Expanding needs the full native window once; collapsing shrinks it only
+    // after the reveal animation. Never resize the HWND on every frame.
+    if (r.height >= b.height) {
+      this.win.setBounds(r);
+      return;
+    }
     this.motionTarget = r;
-    this.motion = setInterval(() => {
-      if (this.win.isDestroyed()) { this.stopMotion(); return; }
-      const progress = Math.min(1, (Date.now() - started) / 220);
-      const ease = 1 - Math.pow(1 - progress, 3);
-      this.win.setBounds({ ...r, height: Math.round(b.height + (r.height - b.height) * ease) });
-      if (progress === 1) {
-        if (this.motion) clearInterval(this.motion);
-        this.motion = null;
-        this.motionTarget = null;
-      }
-    }, 16);
+    this.motion = setTimeout(() => {
+      this.motion = null;
+      this.motionTarget = null;
+      if (!this.win.isDestroyed()) this.win.setBounds(r);
+    }, 260);
   }
 
   isSender(id: number): boolean {
