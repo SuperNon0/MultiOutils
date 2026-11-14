@@ -18,6 +18,11 @@ function subscribe<T>(channel: string, cb: (payload: T) => void): Unsubscribe {
 }
 
 const api: PreloadApi = {
+  backup: {
+    create: () => ipcRenderer.invoke('backup:create'),
+    restore: () => ipcRenderer.invoke('backup:restore'),
+    status: () => ipcRenderer.invoke('backup:status')
+  },
   fm: {
     places: () => ipcRenderer.invoke('files:places'),
     setFavorites: (paths) => ipcRenderer.invoke('files:setFavorites', paths),

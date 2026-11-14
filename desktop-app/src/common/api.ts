@@ -24,6 +24,11 @@ import type {
 export type Unsubscribe = () => void;
 
 export interface PreloadApi {
+  backup: {
+    create(): Promise<{ ok: boolean; path?: string; canceled?: boolean; error?: string }>;
+    restore(): Promise<{ ok: boolean; canceled?: boolean; error?: string }>;
+    status(): Promise<{ automaticFolder: string; latest: string | null; retention: number }>;
+  };
   /** Module Fichiers : gestionnaire de fichiers (common/files.ts). */
   fm: {
     places(): Promise<{ places: import('./files').FilePlace[]; zones: import('./files').FilePlace[] }>;
