@@ -13,6 +13,17 @@ files:
   - out/**
   - resources/**
   - package.json
+# Plugin Stream Deck livré avec l'app (bouton « Mettre à jour le plugin ») :
+# le manifeste (version) et le paquet .streamDeckPlugin empaqueté par la CI
+# juste avant (absent en build local : l'app le télécharge alors depuis la
+# release GitHub de sa version).
+extraResources:
+  - from: ../streamdeck-plugin/com.supernon0.multioutils.sdPlugin/manifest.json
+    to: streamdeck/manifest.json
+  - from: ../sd-dist
+    to: streamdeck
+    filter:
+      - '*.streamDeckPlugin'
 # tesseract.js lance un worker thread depuis ses fichiers : hors asar.
 # koffi charge un binaire natif (.node) depuis son dossier : idem.
 asarUnpack:

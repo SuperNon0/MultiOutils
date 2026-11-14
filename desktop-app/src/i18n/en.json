@@ -415,7 +415,7 @@
   "reglages.sub.clipboard": "Monitoring, retention, sync",
   "reglages.sub.launcher": "Shortcut, providers, web engines, files",
   "reglages.sub.server": "MultiOutils site: address and API token",
-  "reglages.sub.updates": "Installed version, new releases",
+  "reglages.sub.updates": "Installed version, new releases, Stream Deck plugin",
   "reglages.sub.about": "MultiOutils, licence and source code",
   "reglages.updates.installed": "Installed version",
   "reglages.danger": "Danger zone",
@@ -1633,5 +1633,17 @@
   "desktop.ai.emptyDesktop": "The desktop is empty: nothing to tidy.",
   "desktop.ai.noPlan": "The AI didn't suggest a usable layout. Try again.",
   "desktop.ai.noKey": "No AI key: add one in Settings → AI translation.",
-  "files.place.icloud": "iCloud Drive"
+  "files.place.icloud": "iCloud Drive",
+  "settings.sd.title": "Stream Deck plugin",
+  "settings.sd.installed": "Installed plugin",
+  "settings.sd.bundled": "Shipped with the app",
+  "settings.sd.none": "Not installed",
+  "settings.sd.how": "Every MultiOutils version ships with its matching Stream Deck plugin. The button opens it in the Stream Deck app, which replaces the old version (accept its confirmation window). Your keys and their settings are kept.",
+  "settings.sd.upToDate": "The Stream Deck plugin is up to date.",
+  "settings.sd.update": "Update the plugin",
+  "settings.sd.install": "Install the plugin",
+  "settings.sd.reinstall": "Reinstall the plugin",
+  "settings.sd.busy": "Preparing…",
+  "settings.sd.opened": "Plugin sent to Stream Deck: confirm the install in its window.",
+  "settings.sd.error": "Couldn't install the plugin: {msg}"
 }

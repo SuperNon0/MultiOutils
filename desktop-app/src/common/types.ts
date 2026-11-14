@@ -397,3 +397,28 @@ export interface AutoclickState {
 }
 
 export type { Capture };
+
+/** Plugin Stream Deck : version installée vs version fournie avec l'app. */
+export interface StreamDeckPluginInfo {
+  /** Faux hors Windows / macOS (Stream Deck n'existe pas). */
+  supported: boolean;
+  /** Version du plugin actuellement installé dans Stream Deck, ou null. */
+  installed: string | null;
+  /** Version livrée avec cette version de MultiOutils, ou null si inconnue. */
+  bundled: string | null;
+  /** Vrai si installed < bundled (ou plugin absent). */
+  outdated: boolean;
+}
+
+export type StreamDeckInstallResult = { ok: true } | { ok: false; error: string };
+
+/** Compare deux versions « 0.6.0.0 » / « 0.6.0 » : <0, 0 ou >0. */
+export function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map((n) => parseInt(n, 10) || 0);
+  const pb = b.split('.').map((n) => parseInt(n, 10) || 0);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+    const d = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (d !== 0) return d;
+  }
+  return 0;
+}

@@ -22,6 +22,7 @@ import { CaptureRepo, originalPathFor, thumbPathFor } from './storage/captures';
 import { openDb } from './storage/db';
 import { ShortcutManager } from './shortcuts';
 import { TrayController } from './tray';
+import { setupStreamDeckPlugin } from './streamdeck-plugin';
 import { setupUpdater } from './updater';
 import {
   applyAppearance,
@@ -139,6 +140,7 @@ async function bootstrap(): Promise<void> {
 
   registerHostIpc(ctx);
   setupUpdater(ctx);
+  setupStreamDeckPlugin();
   localService.start();
 
   const statuses = shortcuts.applyAll();
