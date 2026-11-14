@@ -68,6 +68,12 @@ export interface PreloadApi {
   /** Module Bureau : zones sur le bureau Windows (common/desktop.ts). */
   desktop: {
     getState(): Promise<import('./desktop').DesktopState>;
+    notes: {
+      list(): Promise<import('./desktop').SavedNote[]>;
+      save(note: { id?: string; title: string; body: string }): Promise<import('./desktop').SavedNote>;
+      remove(id: string): Promise<boolean>;
+      onChanged(cb: () => void): Unsubscribe;
+    };
     setSettings(patch: Partial<import('./desktop').DesktopSettings>): Promise<import('./desktop').DesktopState>;
     /** Crée une zone à un emplacement libre (zone-dossier : choix du dossier). */
     createZone(kind: import('./desktop').ZoneKind | import('./desktop').ZonePreset): Promise<import('./desktop').Zone | null>;
