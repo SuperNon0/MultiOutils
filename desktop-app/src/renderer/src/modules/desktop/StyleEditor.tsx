@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { SavedStyle, ZoneStyle } from '../../../../common/desktop';
+import { defaultZoneStyle, type SavedStyle, type ZoneStyle } from '../../../../common/desktop';
 import { Aide, ui } from '../../encre/ui';
 import { Icon } from '../../host/Icon';
 import { RegLigne, RegSwitch } from '../../host/reglages';
@@ -66,6 +66,11 @@ export function StyleEditor({
   const { t } = useI18n();
   return (
     <div className="bs">
+      <RegLigne titre={t('desktop.style.themeMode')} aide={<Aide titre={t('desktop.style.themeMode')} texte={t('desktop.style.themeMode.help')} />}>
+        <div className="seg">{(['inherit', 'dark', 'light'] as const).map((theme) =>
+          <button key={theme} className={full.theme === theme ? 'on' : ''} onClick={() => onChange({ theme })}>{t('desktop.style.themeMode.' + theme)}</button>)}</div>
+      </RegLigne>
+      <RegSwitch titre={t('desktop.style.border')} aide={<Aide titre={t('desktop.style.border')} texte={t('desktop.style.border.help')} />} checked={full.border} onChange={(border) => onChange({ border })} />
       <RegLigne titre={t('desktop.style.bg')} aide={<Aide titre={t('desktop.style.bg')} texte={t('desktop.style.bg.help')} />} sous={t('desktop.style.bgSub')}>
         <ColorPick label={t('desktop.style.bg')} value={full.bg} fallbackLabel={t('desktop.style.theme')} onChange={(bg) => onChange({ bg })} onPick={() => onPick('bg')} />
       </RegLigne>
@@ -125,9 +130,13 @@ export function StyleEditor({
           onPick={() => onPick('iconTint')}
         />
       </RegLigne>
+      <RegSwitch titre={t('desktop.style.iconFrame')} aide={<Aide titre={t('desktop.style.iconFrame')} texte={t('desktop.style.iconFrame.help')} />} checked={full.iconFrame} onChange={(iconFrame) => onChange({ iconFrame })} />
       <RegSwitch titre={t('desktop.style.iconFade')} aide={<Aide titre={t('desktop.style.iconFade')} texte={t('desktop.style.iconFade.help')} />} sous={t('desktop.style.iconFadeSub')} checked={full.iconFade} onChange={(iconFade) => onChange({ iconFade })} />
       <RegSwitch titre={t('desktop.style.stripe')} aide={<Aide titre={t('desktop.style.stripe')} texte={t('desktop.style.stripe.help')} />} sous={t('desktop.style.stripeSub')} checked={full.stripe} onChange={(stripe) => onChange({ stripe })} />
       <div className="bs-act">
+        <button className="btn sm" onClick={() => onChange({ ...defaultZoneStyle(), opacity: 90 })}>
+          <Icon name="palette" size={16} />{t('desktop.style.original')}
+        </button>
         {saved.length > 0 && (
           <select
             className="select sm"

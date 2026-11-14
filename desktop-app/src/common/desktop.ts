@@ -93,6 +93,8 @@ export interface SavedNote {
   updatedAt: number;
 }
 
+export type HaWidgetAction = 'brightness' | 'previous' | 'playPause' | 'next';
+
 export interface HaEntity {
   id: string;
   name: string;
@@ -100,6 +102,12 @@ export interface HaEntity {
   state: string;
   on: boolean;
   unit?: string;
+  deviceClass?: string;
+  brightness?: number;
+  supportsBrightness?: boolean;
+  mediaTitle?: string;
+  mediaArtist?: string;
+  mediaControls?: { previous: boolean; next: boolean; playPause: boolean };
 }
 
 /** Envoi vers le mini cloud (zone « Mini cloud »). */
@@ -130,6 +138,10 @@ export interface ZoneStyle {
   iconTint: string | null;
   /** Icônes fondues dans le fond d'écran, nettes au survol. */
   iconFade: boolean;
+  /** Tuiles colorées du style Encre d’origine. */
+  iconFrame: boolean;
+  border: boolean;
+  theme: 'inherit' | 'dark' | 'light';
   /** Liseré de couleur à gauche. */
   stripe: boolean;
 }
@@ -325,6 +337,9 @@ export function defaultZoneStyle(): ZoneStyle {
     titleColor: null,
     iconTint: null,
     iconFade: false,
+    iconFrame: true,
+    border: true,
+    theme: 'inherit',
     stripe: false
   };
 }
@@ -346,6 +361,9 @@ export function normalizeStyle(raw: unknown): Partial<ZoneStyle> {
   if ('titleSize' in r) out.titleSize = clamp(Number(r.titleSize) || 13.5, 10, 22);
   if ('titleColor' in r) out.titleColor = hexOrNull(r.titleColor);
   if ('iconTint' in r) out.iconTint = hexOrNull(r.iconTint);
+  if ('border' in r) out.border = Boolean(r.border);
+  if ('theme' in r) out.theme = oneOf(r.theme, ['inherit', 'dark', 'light'] as const, 'inherit');
+  if ('iconFrame' in r) out.iconFrame = Boolean(r.iconFrame);
   if ('iconFade' in r) out.iconFade = Boolean(r.iconFade);
   if ('stripe' in r) out.stripe = Boolean(r.stripe);
   return out;

@@ -333,6 +333,7 @@ const api: PreloadApi = {
     onState: (cb) => subscribe('launcher:state', cb)
   },
   ha: {
+    control: (entityId, action, value) => ipcRenderer.invoke('ha:control', entityId, action, value),
     entities: () => ipcRenderer.invoke('ha:entities'),
     toggle: (entityId) => ipcRenderer.invoke('ha:toggle', entityId),
     series: (entityId, hours) => ipcRenderer.invoke('ha:series', entityId, hours),

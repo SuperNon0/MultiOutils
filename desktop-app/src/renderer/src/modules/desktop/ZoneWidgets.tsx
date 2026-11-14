@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { formatSize, type HaEntity, type WidgetType, type Zone, type ZoneContent } from '../../../../common/desktop';
 import type { LauncherResult } from '../../../../common/launcher';
 import type { ClipItem } from '../../../../common/types';
+import { HaCards } from './HaCards';
 import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
 
@@ -197,67 +198,30 @@ function ClipsWidget(): ReactNode {
 }
 
 /* ---------------------------------------------------- Home Assistant */
-const HA_ICONS: Record<string, string> = {
-  light: 'sun',
-  switch: 'zap',
-  fan: 'refresh',
-  cover: 'window',
-  media_player: 'play',
-  climate: 'sun',
-  scene: 'sparkle',
-  script: 'play',
-  automation: 'wrench',
-  lock: 'lock',
-  vacuum: 'home',
-  button: 'dot',
-  input_boolean: 'zap',
-  input_button: 'dot'
-};
 function HaWidget({ zone }: { zone: Zone }): ReactNode {
   const { t } = useI18n();
   const [list, setList] = useState<HaEntity[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const alive = useRef(true);
   const load = async (): Promise<void> => {
-    const r = await window.api.ha.entities();
-    if (r.ok) {
-      setList(r.list);
-      setError(null);
-    } else setError(r.error);
+    try {
+      const result = await window.api.ha.entities();
+      if (!alive.current) return;
+      if (result.ok) { setList(result.list); setError(null); }
+      else setError(result.error);
+    } catch { if (alive.current) setError('connection'); }
   };
   useEffect(() => {
+    alive.current = true;
     void load();
     const timer = setInterval(() => void load(), 20_000);
-    return () => clearInterval(timer);
+    return () => { alive.current = false; clearInterval(timer); };
   }, []);
   if (error) return <div className="zw-vide">{t(error === 'not-configured' ? 'desktop.ha.notConfigured' : 'desktop.ha.error', { error })}</div>;
   if (!list) return <div className="zw-vide">…</div>;
-  const shown = zone.entities.map((id) => list.find((e) => e.id === id)).filter((e): e is HaEntity => !!e);
-  if (shown.length === 0) return <div className="zw-vide">{t('desktop.ha.none')}</div>;
-  return (
-    <div className="zw-ha">
-      {shown.map((e) => (
-        <button
-          key={e.id}
-          className={`zw-hab${e.on ? ' on' : ''}${busy === e.id ? ' busy' : ''}`}
-          title={`${e.name} · ${e.state}`}
-          onPointerDown={(ev) => ev.stopPropagation()}
-          onClick={async () => {
-            setBusy(e.id);
-            setList((l) => l?.map((x) => (x.id === e.id ? { ...x, on: !x.on } : x)) ?? l);
-            await window.api.ha.toggle(e.id);
-            setTimeout(() => {
-              setBusy(null);
-              void load();
-            }, 700);
-          }}
-        >
-          <Icon name={HA_ICONS[e.domain] ?? 'zap'} size={20} />
-          <span>{e.name}</span>
-        </button>
-      ))}
-    </div>
-  );
+  const shown = zone.entities.map((id) => list.find((entity) => entity.id === id)).filter((entity): entity is HaEntity => !!entity);
+  if (!shown.length) return <div className="zw-vide">{t('desktop.ha.none')}</div>;
+  return <HaCards entities={shown} layout={zone.widgetLayout} readOnly={zone.widget === 'ha-sensor'} onRefresh={load}/>;
 }
 
 /* ------------------------------------------------- barre de recherche */
@@ -365,37 +329,7 @@ function CloudWidget({ content }: { content: ZoneContent }): ReactNode {
   );
 }
 
-/** Capteurs HA en lecture seule, style Encre avec couleur par zone. */
+/** Sensor-only zones use the same cards, with controls disabled. */
 function HaSensorWidget({ zone }: { zone: Zone }): ReactNode {
-  const [list, setList] = useState<HaEntity[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => {
-    let alive = true;
-    const load = async (): Promise<void> => {
-      try {
-        const result = await window.api.ha.entities();
-        if (!alive) return;
-        if (result.ok) { setList(result.list); setError(null); }
-        else setError(result.error);
-      } catch (e) {
-        if (alive) setError(String(e));
-      }
-    };
-    void load();
-    const timer = setInterval(() => void load(), 20_000);
-    return () => { alive = false; clearInterval(timer); };
-  }, []);
-  if (error) return <div className="zw-vide">{error}</div>;
-  const selected = zone.entities.map((id) => list.find((e) => e.id === id)).filter((e): e is HaEntity => !!e);
-  if (!selected.length) return <div className="zw-vide">Choisis des capteurs dans Bureau → Modifier la zone.</div>;
-  return (
-    <div className={`zw-sensors ${zone.widgetLayout}`}>
-      {selected.map((entity) => (
-        <div key={entity.id} className="zw-sensor" title={entity.id}>
-          <span className="zw-sensor-name">{entity.name}</span>
-          <span className="zw-sensor-value">{entity.state}{entity.unit ? ` ${entity.unit}` : ''}</span>
-        </div>
-      ))}
-    </div>
-  );
+  return <HaWidget zone={zone}/>;
 }

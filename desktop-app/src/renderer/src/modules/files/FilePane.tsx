@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type DragEvent as ReactDragEvent, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from 'react';
 import { displayName, formatSize, sortEntries, type ZoneSort } from '../../../../common/desktop';
 import type { FileEntry } from '../../../../common/files';
+import { FileTile } from '../../lib/FileTile';
 import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
 
@@ -30,7 +31,7 @@ export function FileIcon({ entry, large }: { entry: Pick<FileEntry, 'path' | 'mt
       alive = false;
     };
   }, [entry.path, entry.mtime, large]);
-  return url ? <img src={url} alt="" draggable={false} /> : <Icon name={entry.isDir ? 'folder' : 'file'} size={large ? 40 : 18} />;
+  return <FileTile path={entry.path} isDir={entry.isDir}>{url ? <img src={url} alt="" draggable={false} /> : undefined}</FileTile>;
 }
 
 export interface PaneHandlers {
