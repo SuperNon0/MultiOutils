@@ -1134,6 +1134,7 @@
   "desktop.item.rename": "Renommer",
   "desktop.item.trash": "Mettre à la corbeille",
   "desktop.item.removeFromZone": "Retirer de la zone",
+  "desktop.item.moveToZone": "Déplacer vers une zone",
   "desktop.detail.lockSub": "Position, taille et contenu figés",
   "desktop.detail.inboxSub": "Tout ce qui n'est dans aucune zone arrive ici",
   "desktop.sub.folder": "Dossier {path}",

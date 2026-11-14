@@ -1217,3 +1217,20 @@ body[data-fenetre='zone-pages'] #root {
 .encre-picker-history button { width: 25px; height: 25px; border-radius: 8px; border: 2px solid var(--line);
   cursor: pointer; }
 .encre-picker-history button:focus-visible, .encre-picker-current:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Keep labels readable in the narrow zone inspector. Controls get their own
+   row; switches remain beside their label. */
+.bz-side, .bz-det, .bz-ha, .bz-ha-l, .bz-grid > * { min-width: 0; }
+.bz-det .reg-l { flex-wrap: wrap; align-items: flex-start; }
+.bz-det .reg-l > .tx { flex: 1 1 100%; min-width: 0; }
+.bz-det .reg-l:has(> .sw) { flex-wrap: nowrap; align-items: center; }
+.bz-det .reg-l:has(> .sw) > .tx { flex: 1 1 auto; }
+.bz-det .reg-l > .sw { flex: none; }
+.bz-det .reg-l > .seg { max-width: 100%; display: flex; flex-wrap: wrap; }
+.bz-det .reg-l > .select { max-width: 100%; }
+.bz-det .reg-l > .bs-slider { width: 100%; min-width: 0; }
+.bz-det .bs-slider input[type='range'] { flex: 1; width: 0; min-width: 40px; }
+.bz-det .bs-num { flex: 0 0 82px; }
+.bz-ha-r .tx { flex: 1; }
+.bz-ha-r b { overflow-wrap: anywhere; }
+.bz-mini { row-gap: 32px; }

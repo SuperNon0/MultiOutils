@@ -23,6 +23,7 @@ import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
 import { WIDGET_ICONS, WidgetBody } from './ZoneWidgets';
 import './desktop.css';
+import { ZONE_DRAG_TYPE, acceptsZoneDrag, draggedPaths } from './zone-drag';
 
 const ICON_PX: Record<ZoneIconSize, number> = { small: 28, medium: 40, large: 64 };
 const CELL_PX: Record<ZoneIconSize, number> = { small: 66, medium: 78, large: 104 };
@@ -39,7 +40,14 @@ function useFileIcon(path: string, size: 'small' | 'normal' | 'large', mtime: nu
       p = window.api.desktop.icon(path, size);
       icons.set(key, p);
     }
-    void p.then((u) => alive && setUrl(u));
+    setUrl(null);
+    void p.then((u) => {
+      if (!u) icons.delete(key);
+      if (alive) setUrl(u);
+    }).catch(() => {
+      icons.delete(key);
+      if (alive) setUrl(null);
+    });
     return () => {
       alive = false;
     };
@@ -284,20 +292,25 @@ export function ZoneWindow(): ReactNode {
 
   /* -------------------------------------------------- glisser-déposer */
   const dragStart = (e: ReactDragEvent, p: string): void => {
-    e.preventDefault();
     const paths = sel.has(p) ? [...sel] : [p];
-    window.api.desktop.zone.startDrag(paths);
+    if (e.altKey) {
+      e.preventDefault();
+      window.api.desktop.zone.startDrag(paths);
+      return;
+    }
+    e.dataTransfer.effectAllowed = 'copyMove';
+    e.dataTransfer.setData(ZONE_DRAG_TYPE, JSON.stringify(paths));
   };
   const noDrop = zone.kind === 'widget' && zone.widget !== 'cloud';
   const dragOver = (e: ReactDragEvent): void => {
-    if (!e.dataTransfer.types.includes('Files') || noDrop) return;
+    if (!acceptsZoneDrag(e.dataTransfer.types) || noDrop) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = e.ctrlKey ? 'copy' : 'move';
     const target = (e.target as HTMLElement).closest<HTMLElement>('[data-name]');
     setBefore(zone.kind === 'shortcuts' && zone.sort === 'manual' ? (target?.dataset.name ?? null) : null);
   };
   const dragEnter = (e: ReactDragEvent): void => {
-    if (!e.dataTransfer.types.includes('Files') || noDrop) return;
+    if (!acceptsZoneDrag(e.dataTransfer.types) || noDrop) return;
     dragDepth.current++;
     setDropOn(true);
     if (collapsed) window.api.desktop.zone.expand(true);
@@ -313,10 +326,10 @@ export function ZoneWindow(): ReactNode {
     e.preventDefault();
     dragDepth.current = 0;
     setDropOn(false);
-    const paths = window.api.files.pathsFor([...e.dataTransfer.files]);
+    const paths = draggedPaths(e.dataTransfer, () => window.api.files.pathsFor([...e.dataTransfer.files]));
     const b = before;
     setBefore(null);
-    if (paths.length) void window.api.desktop.zone.drop(paths, e.ctrlKey, b ?? undefined);
+    if (!noDrop && paths.length) void window.api.desktop.zone.drop(paths, e.ctrlKey, b ?? undefined);
   };
 
   const finishRename = (p: string, v: string | null): void => {
@@ -430,7 +443,7 @@ export function ZoneWindow(): ReactNode {
     dragDepth.current = 0;
     setDropOn(false);
     if (tabTimer.current) clearTimeout(tabTimer.current);
-    const paths = window.api.files.pathsFor([...e.dataTransfer.files]);
+    const paths = draggedPaths(e.dataTransfer, () => window.api.files.pathsFor([...e.dataTransfer.files]));
     if (paths.length) void window.api.desktop.zone.drop(paths, e.ctrlKey, undefined, id);
   };
   const tabHover = (id: string): void => {
@@ -488,7 +501,7 @@ export function ZoneWindow(): ReactNode {
               window.api.desktop.zone.tabMenu(tb.id);
             }}
             onDragOver={(e) => {
-              if (!e.dataTransfer.types.includes('Files')) return;
+              if (!acceptsZoneDrag(e.dataTransfer.types)) return;
               e.preventDefault();
               e.dataTransfer.dropEffect = e.ctrlKey ? 'copy' : 'move';
             }}
@@ -576,6 +589,13 @@ export function ZoneWindow(): ReactNode {
       <div
         ref={bodyRef}
         className={`zw-body${zone.kind === 'widget' ? ` wg ${zone.widget}` : ''}`}
+        onDoubleClick={(e) => {
+          if (settings.dblClickHide && zone.kind !== 'widget' &&
+              !(e.target as HTMLElement).closest('.zw-fi,.zw-row,button,input,select')) {
+            e.stopPropagation();
+            void window.api.desktop.toggleHide();
+          }
+        }}
         onPointerDown={(e) => (e.altKey ? startGeom('move', {})(e) : zone.kind !== 'widget' && startLasso(e))} onContextMenu={(e) => menuAt(e)}>
         {body}
         {lasso && <div className="zw-lasso" style={{ left: lasso.x, top: lasso.y, width: lasso.width, height: lasso.height }} />}

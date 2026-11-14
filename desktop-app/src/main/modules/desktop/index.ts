@@ -851,6 +851,18 @@ export function createDesktopMainModule(): MainToolModule {
         }
       }
     ];
+    const destinations = zones.filter((o) => o.kind === 'shortcuts' && !o.inbox && o.id !== z.id);
+    if (inDesktop(p) && destinations.length) {
+      items.push({
+        label: t('desktop.item.moveToZone'),
+        submenu: destinations.map((dest) => ({
+          label: dest.title,
+          click: () => { void dropInto(dest, [p], false).catch((err: unknown) => {
+            ctx.notify(t('desktop.dropFailed'), err instanceof Error ? err.message : String(err));
+          }); }
+        }))
+      });
+    }
     if (z.kind === 'shortcuts' && !z.inbox && z.items.includes(path.basename(p))) {
       items.push(
         { type: 'separator' },
