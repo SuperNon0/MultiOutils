@@ -48,6 +48,13 @@ jobs:
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
 
+      # Le lockfile créé sur Linux peut manquer le binaire Rollup Windows.
+      - name: Installer le binaire Rollup Windows
+        shell: pwsh
+        run: |
+          $version = node -p "require('rollup/package.json').version"
+          npm install --no-save --ignore-scripts --package-lock=false "@rollup/rollup-win32-x64-msvc@$version"
+
       - name: Tests
         run: npm run test
 
