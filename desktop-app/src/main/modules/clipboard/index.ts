@@ -145,8 +145,10 @@ export function createClipboardMainModule(): MainToolModule {
       } catch {
         token = null;
       }
-    } else if (stored.startsWith('plain:')) {
+    } else if (stored.startsWith('plain:') && safeStorage.isEncryptionAvailable()) {
+      // Migration du même secret partagé avec captures et mini cloud.
       token = stored.slice(6);
+      kvSet(REMOTE_TOKEN_KEY, `enc:${safeStorage.encryptString(token).toString('base64')}`);
     }
     return token ? { url, token } : null;
   };
