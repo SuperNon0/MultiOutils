@@ -66,6 +66,24 @@ export class HomeAssistantClient {
     return states;
   }
 
+  /** Historique numérique issu de l'API HA, limité pour un widget léger. */
+  async series(entityId: string, hours: 24 | 168): Promise<Array<{ at: number; value: number }>> {
+    if (!/^[a-z0-9_]+\.[a-z0-9_]+$/i.test(entityId)) throw new Error('Entité invalide');
+    const start = new Date(Date.now() - hours * 3_600_000).toISOString();
+    const data = await this.call(`/history/period/${start}?filter_entity_id=${encodeURIComponent(entityId)}&minimal_response&no_attributes`);
+    const states = Array.isArray(data) && Array.isArray(data[0]) ? data[0] as Array<Record<string, unknown>> : [];
+    const points = states.flatMap((state) => {
+      const value = Number(state.state);
+      const at = Date.parse(String(state.last_changed ?? state.last_updated ?? ''));
+      return state.state !== '' && state.state !== null && Number.isFinite(value) && Number.isFinite(at)
+        ? [{ at, value }]
+        : [];
+    });
+    // Réduire les points pour que l'affichage sur le bureau reste fluide.
+    const step = Math.max(1, Math.ceil(points.length / 96));
+    return points.filter((_p, i) => i % step === 0 || i === points.length - 1);
+  }
+
   async run(entityId: string, action: HaAction, currentlyOn: boolean): Promise<void> {
     const [domain, service] = haService(entityId, action, currentlyOn);
     await this.call(`/services/${domain}/${service}`, {
