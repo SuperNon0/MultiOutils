@@ -25,6 +25,7 @@ interface User32 {
   EnumWindows(cb: unknown, lParam: number): boolean;
   WindowFromPoint(pt: { x: number; y: number }): Hwnd;
   GetAncestor(hwnd: Hwnd, flags: number): Hwnd;
+  GetWindow(hwnd: Hwnd, cmd: number): Hwnd;
   GetClassNameW(hwnd: Hwnd, buf: Buffer, max: number): number;
   GetAsyncKeyState(vk: number): number;
   GetDoubleClickTime(): number;
@@ -35,7 +36,8 @@ interface User32 {
 
 const SW_HIDE = 0;
 const SW_SHOW = 5;
-const HWND_BOTTOM = 1n;
+const HWND_TOP = 0n;
+const GW_HWNDPREV = 3;
 const SWP_NOSIZE = 0x0001;
 const SWP_NOMOVE = 0x0002;
 const SWP_NOACTIVATE = 0x0010;
@@ -115,6 +117,7 @@ async function init(): Promise<void> {
       ) as User32['EnumWindows'],
       WindowFromPoint: lib.func('intptr __stdcall WindowFromPoint(MO_POINT pt)') as User32['WindowFromPoint'],
       GetAncestor: lib.func('intptr __stdcall GetAncestor(intptr hwnd, uint32 flags)') as User32['GetAncestor'],
+      GetWindow: lib.func('intptr __stdcall GetWindow(intptr hwnd, uint32 cmd)') as User32['GetWindow'],
       GetClassNameW: lib.func('int __stdcall GetClassNameW(intptr hwnd, void *buf, int max)') as User32['GetClassNameW'],
       GetAsyncKeyState: lib.func('int16 __stdcall GetAsyncKeyState(int vk)') as User32['GetAsyncKeyState'],
       GetDoubleClickTime: lib.func('uint32 __stdcall GetDoubleClickTime()') as User32['GetDoubleClickTime'],
@@ -195,12 +198,26 @@ function iconList(): Hwnd {
   return dv ? big(user32.FindWindowExW(dv, 0n, 'SysListView32', null)) : 0n;
 }
 
-/** Rattache la fenêtre au bureau (propriétaire = Progman) puis l'envoie au fond. */
+/**
+ * Fenêtre de premier niveau qui porte le bureau (icônes + fond) : Progman, ou
+ * le WorkerW qui contient SHELLDLL_DefView selon la version de Windows.
+ */
+function desktopRoot(): Hwnd {
+  if (!user32) return 0n;
+  const dv = defView();
+  const root = dv ? big(user32.GetAncestor(dv, GA_ROOT)) : 0n;
+  return root || progman();
+}
+
+/**
+ * Pose la fenêtre sur le bureau : juste au-dessus de la fenêtre du bureau,
+ * sous toutes les autres. Pas de lien de propriété avec Progman (une fenêtre
+ * possédée par l'Explorateur partage sa file d'entrée, ce qui casse le
+ * glisser-déposer) : seulement l'ordre d'empilement.
+ */
 export function pinToDesktop(hwnd: Hwnd): boolean {
   if (!user32) return false;
-  const pm = progman();
-  if (!pm) return false;
-  user32.SetWindowLongPtrW(hwnd, GWLP_HWNDPARENT, pm);
+  user32.SetWindowLongPtrW(hwnd, GWLP_HWNDPARENT, 0n);
   return sendToBottom(hwnd);
 }
 
@@ -211,17 +228,55 @@ export function unpinFromDesktop(hwnd: Hwnd): boolean {
   return true;
 }
 
+/** Renvoie la fenêtre juste au-dessus du bureau (sous toutes les autres). */
 export function sendToBottom(hwnd: Hwnd): boolean {
   if (!user32) return false;
+  const root = desktopRoot();
+  if (!root) return false;
+  const above = big(user32.GetWindow(root, GW_HWNDPREV));
+  if (above === hwnd) return true; // déjà en place
+  // SetWindowPos range la fenêtre SOUS « after » : sous la fenêtre qui
+  // surmonte le bureau, donc entre elle et le bureau.
   return user32.SetWindowPos(
     hwnd,
-    HWND_BOTTOM,
+    above || HWND_TOP,
     0,
     0,
     0,
     0,
     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER
   );
+}
+
+/**
+ * Le bureau est-il passé devant cette fenêtre (Win+D) ? On remonte l'ordre
+ * d'empilement depuis la fenêtre : si l'on croise le bureau, il la recouvre.
+ */
+export function desktopAbove(hwnd: Hwnd): boolean {
+  if (!user32) return false;
+  const root = desktopRoot();
+  if (!root) return false;
+  let h = big(user32.GetWindow(hwnd, GW_HWNDPREV));
+  for (let i = 0; h && i < 2000; i++) {
+    if (h === root) return true;
+    h = big(user32.GetWindow(h, GW_HWNDPREV));
+  }
+  return false;
+}
+
+/**
+ * Qui est au premier plan ? « desktop » quand on vient d'afficher le bureau
+ * (Win+D, clic sur le bureau), « self » pour une fenêtre de MultiOutils.
+ */
+export function foregroundKind(): 'desktop' | 'self' | 'other' {
+  if (!user32 || !procApi) return 'other';
+  const h = big(procApi.GetForegroundWindow());
+  if (!h) return 'other';
+  const cls = classOf(big(user32.GetAncestor(h, GA_ROOT)));
+  if (cls === 'Progman' || cls === 'WorkerW') return 'desktop';
+  const pid = [0];
+  procApi.GetWindowThreadProcessId(h, pid);
+  return pid[0] === process.pid ? 'self' : 'other';
 }
 
 /** Masque (false) ou réaffiche (true) les icônes natives du bureau. */

@@ -84,8 +84,9 @@ import type { MainHostContext, MainToolModule } from '../../module-registry';
 import { desktopDirs, listDesktop, listDir, transfer, watchDirs } from './files';
 import { createLayoutStore, type LayoutStore } from './layouts';
 import { createRulesEngine, type RulesEngine } from './rules';
-import { desktopHandle, ensureWin32, foregroundExe, isKeyDown, setNativeIconsVisible, vkOfAccelerator, watchDesktopClicks, win32Error } from './win32';
+import { desktopHandle, ensureWin32, foregroundExe, foregroundKind, isKeyDown, setNativeIconsVisible, vkOfAccelerator, watchDesktopClicks, win32Error } from './win32';
 import { absoluteBounds, displayFor, DrawOverlays, PageIndicator, PeekOverlays, ZoneWindow } from './windows';
+import { IconStore, type IconSize } from './icons';
 
 const SETTINGS_KEY = 'desktop.settings';
 const ZONES_KEY = 'desktop.zones';
@@ -114,7 +115,7 @@ export function createDesktopMainModule(): MainToolModule {
   const folderCache = new Map<string, { entries: DesktopEntry[]; error: ZoneContent['error'] }>();
   const windows = new Map<string, ZoneWindow>();
   const draw = new DrawOverlays();
-  const iconCache = new Map<string, string | null>();
+  const icons = new IconStore();
   let stopWatch: (() => void) | null = null;
   let refreshTimer: ReturnType<typeof setTimeout> | null = null;
   let iconsHidden = false;
@@ -338,6 +339,7 @@ export function createDesktopMainModule(): MainToolModule {
       if (w) w.setBounds(bounds);
       else {
         w = new ZoneWindow(z.id, bounds, () => native);
+        if (desktopFront) w.overDesktop(true);
         windows.set(z.id, w);
       }
       if (peek) w.raise();
@@ -593,9 +595,23 @@ export function createDesktopMainModule(): MainToolModule {
   /* ------------------------- reprise après plantage de l'Explorateur */
   let shellHandle = 0n;
   let shellTimer: ReturnType<typeof setInterval> | null = null;
+  /** Bureau au premier plan (Win+D) : les zones passent devant lui. */
+  let desktopFront = false;
+  let fgTimer: ReturnType<typeof setInterval> | null = null;
+  const followShowDesktop = (): void => {
+    const kind = foregroundKind();
+    if (kind === 'self') return; // clic dans une zone : on ne bouge rien
+    // Simple clic sur le bureau : il reste au fond, rien à faire. Win+D : il
+    // passe devant les fenêtres (et donc devant les zones).
+    const front = desktopFront ? kind === 'desktop' : kind === 'desktop' && [...windows.values()].some((w) => w.coveredByDesktop());
+    if (front === desktopFront) return;
+    desktopFront = front;
+    for (const w of windows.values()) w.overDesktop(front);
+  };
   const watchExplorer = (): void => {
     if (!native) return;
     shellHandle = desktopHandle();
+    fgTimer = setInterval(followShowDesktop, 400);
     shellTimer = setInterval(() => {
       const h = desktopHandle();
       if (h === shellHandle) return;
@@ -682,27 +698,7 @@ export function createDesktopMainModule(): MainToolModule {
   };
 
   /* ----------------------------------------------------- icônes */
-  const iconFor = async (p: string, size: 'small' | 'normal' | 'large'): Promise<string | null> => {
-    const key = `${size}|${p}`;
-    if (iconCache.has(key)) return iconCache.get(key) ?? null;
-    let url: string | null = null;
-    try {
-      if (size === 'large') {
-        // Vignette Windows (images, vidéos, PDF…) plus nette que l'icône 32 px.
-        const thumb = await nativeImage.createThumbnailFromPath(p, { width: 96, height: 96 }).catch(() => null);
-        if (thumb && !thumb.isEmpty()) url = thumb.toDataURL();
-      }
-      if (!url) {
-        const img = await app.getFileIcon(p, { size: size === 'small' ? 'small' : 'large' });
-        url = img.isEmpty() ? null : img.toDataURL();
-      }
-    } catch {
-      url = null;
-    }
-    if (iconCache.size > 3000) iconCache.clear();
-    iconCache.set(key, url);
-    return url;
-  };
+  const iconFor = (p: string, size: IconSize): Promise<string | null> => icons.get(p, size);
 
   /* ------------------------------------------------------ menus */
   const openEntry = async (z: Zone | undefined, p: string): Promise<void> => {
@@ -1592,7 +1588,7 @@ export function createDesktopMainModule(): MainToolModule {
       ipcMain.on('desktop:zone:startDrag', (e, paths: string[]) => {
         const files = (Array.isArray(paths) ? paths : []).filter((p) => typeof p === 'string' && fs.existsSync(p));
         if (files.length === 0) return;
-        const cached = iconCache.get(`large|${files[0]}`) ?? iconCache.get(`normal|${files[0]}`) ?? iconCache.get(`small|${files[0]}`);
+        const cached = icons.peek(files[0]);
         let icon = nativeImage.createFromDataURL(cached ?? DOT_PNG);
         if (icon.isEmpty()) icon = nativeImage.createFromDataURL(DOT_PNG);
         if (icon.getSize().width > 64) icon = icon.resize({ width: 64 });
@@ -1668,9 +1664,11 @@ export function createDesktopMainModule(): MainToolModule {
     },
 
     deactivate(): void {
+      icons.flush();
       pageIndicator.close();
       if (dailyTimer) clearInterval(dailyTimer);
       if (shellTimer) clearInterval(shellTimer);
+      if (fgTimer) clearInterval(fgTimer);
       stopBehaviours();
       stopPeek();
       rules?.stop();
