@@ -382,7 +382,7 @@ export function watchDesktopClicks(onClick: () => void, onDouble: () => void, on
       } catch {
         // ne jamais bloquer la souris
       }
-      return u.CallNextHookEx(0n, code, BigInt(Number(wParam) || 0), info);
+      return u.CallNextHookEx(0n, code, BigInt(Number(wParam) || 0), pointer);
     }) as (...a: unknown[]) => unknown,
     koffiRef.pointer(mouseProto)
   );
