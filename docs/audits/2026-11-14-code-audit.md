@@ -17,7 +17,7 @@ Les fichiers critiques de chaque domaine ont été inspectés, mais **il ne s'ag
 | Haute | Déplacement inter-disques d'un lien symbolique/jonction potentiellement silencieusement supprimé | `desktop-app/src/main/modules/files/jobs.ts` : `walk()` ignorait les types non ordinaires avant suppression de source | Correction PR #41 : refuser ce cas avant suppression |
 | Moyenne | Restauration invalide bloquant le démarrage suivant | `desktop-app/src/main/backups.ts` : validation avant ouverture de la base sans quarantaine | Correction PR #41 |
 | Moyenne | Validation end-to-end des sauvegardes encore manquante | `desktop-app/src/main/backups.ts` et flux WAL SQLite | Ticket #40 ; tests Windows sur profil de test |
-| Faible | Double enregistrement d'une note depuis le widget | `ZoneWidgets.tsx` : `notes.save` sans identifiant d'une note existante | Correction PR #41 pour les clics répétés pendant une session |
+| Faible | Double enregistrement d'une note depuis le widget | `ZoneWidgets.tsx` : `notes.save` sans identifiant d'une note existante | Correction PR #41 : identifiant archivé conservé avec la zone, y compris après redémarrage |
 | Faible | Identifiants HTML partagés entre palettes Encre | `EncreColorPicker.tsx` : `encre-hue`, `encre-hex` | Correction PR #41 : identifiants React uniques |
 | Moyenne | Sessions serveur stockées en mémoire ; revue CSRF/connexion requise | `server/src/index.ts`, `routes/admin.ts`, `routes/web.ts` | Ticket #42 ; approfondir sur serveur isolé |
 
