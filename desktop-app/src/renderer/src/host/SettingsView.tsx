@@ -87,6 +87,14 @@ export function settingsSections(modules: ToolModule[]): SectionDef[] {
       ]
     },
     {
+      id: 'backups',
+      group: 'reglages.group.system',
+      title: 'Sauvegardes',
+      sub: 'Copie de secours et restauration des paramètres',
+      icon: 'save',
+      keywords: ['sauvegarde', 'restauration', 'sécurité', 'backup']
+    },
+    {
       id: 'storage',
       group: 'reglages.group.app',
       title: 'settings.section.storage',
@@ -289,6 +297,7 @@ export function SettingsView({ settings, version, section, modules, update }: Pr
             {activeModule?.settingsPanel?.()}
             {current.id === 'shortcuts' && <ShortcutsSection onSaved={flash} />}
             {current.id === 'storage' && <StorageSection settings={settings} update={update} />}
+            {current.id === 'backups' && <BackupSection />}
             {current.id === 'server' && <ServerSection onSaved={flash} />}
             {current.id === 'ai' && <TraductionSection settings={settings} update={update} />}
             {current.id === 'homeassistant' && <HaSettingsPage />}
@@ -927,5 +936,46 @@ function StorageSection({
         </div>
       </div>
     </>
+  );
+}
+
+/** Sauvegarde SQLite globale ; les fichiers d'images demeurent dans leurs dossiers. */
+function BackupSection(): ReactNode {
+  const [status, setStatus] = useState<{ automaticFolder: string; latest: string | null; retention: number } | null>(null);
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    void window.api.backup.status().then(setStatus);
+  }, []);
+  const run = async (action: 'create' | 'restore'): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    setMessage('');
+    try {
+      const result = await window.api.backup[action]();
+      if (result.ok) setMessage(action === 'create' ? `Sauvegarde créée : ${result.path}` : 'Redémarrage pour restauration…');
+      else if (!result.canceled) setMessage(result.error ?? 'Opération impossible');
+    } catch (e) {
+      setMessage(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="reg-sec">
+      <p className="intro">Une copie de la base locale est conservée au premier lancement de chaque journée (7 copies maximum). Cela inclut les réglages, les zones et la bibliothèque, mais pas les fichiers images et autres fichiers externes.</p>
+      <p className="muted petit">Dossier automatique : {status?.automaticFolder ?? '…'}</p>
+      <p className="muted petit">Dernière copie : {status?.latest ?? 'Aucune'}</p>
+      <div className="ligne">
+        <button className="btn pri" type="button" disabled={busy} onClick={() => void run('create')}>
+          <Icon name="download" size={16} /> Exporter une sauvegarde
+        </button>
+        <button className="btn" type="button" disabled={busy} onClick={() => void run('restore')}>
+          <Icon name="refresh" size={16} /> Restaurer…
+        </button>
+      </div>
+      <p className="muted petit">Pour te protéger d'une panne du disque, exporte aussi une copie vers un autre emplacement. Une restauration demande confirmation et redémarre l'application. Les clés chiffrées sont liées au compte Windows.</p>
+      {message && <p className="statut" role="status">{message}</p>}
+    </div>
   );
 }
