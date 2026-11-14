@@ -10,11 +10,11 @@
 
 export type ZoneKind = 'shortcuts' | 'folder' | 'widget';
 /** Zones spéciales (étape 5) : contenu propre au lieu d'icônes. */
-export type WidgetType = 'notes' | 'clips' | 'ha' | 'search' | 'cloud';
+export type WidgetType = 'notes' | 'clips' | 'ha' | 'ha-sensor' | 'search' | 'cloud';
 /** Modèles proposés à la création d'une zone. */
 export type ZonePreset = 'captures' | 'shelf' | WidgetType;
-export const WIDGET_TYPES: WidgetType[] = ['notes', 'clips', 'ha', 'search', 'cloud'];
-export const ZONE_PRESETS: ZonePreset[] = ['captures', 'shelf', 'notes', 'clips', 'ha', 'search', 'cloud'];
+export const WIDGET_TYPES: WidgetType[] = ['notes', 'clips', 'ha', 'ha-sensor', 'search', 'cloud'];
+export const ZONE_PRESETS: ZonePreset[] = ['captures', 'shelf', 'notes', 'clips', 'ha', 'ha-sensor', 'search', 'cloud'];
 export type ZoneView = 'icons' | 'list' | 'details';
 export type ZoneSort = 'manual' | 'name' | 'type' | 'size' | 'date' | 'opens';
 export type ZoneIconSize = 'small' | 'medium' | 'large';
@@ -72,6 +72,8 @@ export interface Zone {
   note: string;
   /** Zone Home Assistant : entités affichées (boutons). */
   entities: string[];
+  /** Affichage propre au widget, indépendant du style Encre de sa zone. */
+  widgetLayout: 'cards' | 'compact';
   /** Étagère temporaire : fichiers envoyés à la corbeille après N jours (0 = jamais). */
   shelfDays: number;
   /** Nombre maximal d'éléments affichés (0 = tous), ex. « Dernières captures ». */
@@ -85,6 +87,7 @@ export interface HaEntity {
   domain: string;
   state: string;
   on: boolean;
+  unit?: string;
 }
 
 /** Envoi vers le mini cloud (zone « Mini cloud »). */
@@ -831,6 +834,7 @@ export function newZone(
     widget: null,
     note: '',
     entities: [],
+    widgetLayout: 'cards',
     shelfDays: 0,
     maxItems: 0,
     ...extra
@@ -877,6 +881,7 @@ export function normalizeZone(raw: Partial<Zone> & { id: string }): Zone {
     widget,
     note: typeof raw.note === 'string' ? raw.note.slice(0, 20_000) : '',
     entities: Array.isArray(raw.entities) ? raw.entities.filter((n): n is string => typeof n === 'string').slice(0, 40) : [],
+    widgetLayout: raw.widgetLayout === 'compact' ? 'compact' : 'cards',
     shelfDays: kind === 'folder' ? Math.max(0, Math.min(365, Math.round(Number(raw.shelfDays) || 0))) : 0,
     maxItems: Math.max(0, Math.min(500, Math.round(Number(raw.maxItems) || 0)))
   };
