@@ -46,6 +46,7 @@ const GWLP_HWNDPARENT = -8;
 
 let user32: User32 | null = null;
 let koffiRef: {
+  decode(value: unknown, type: string): unknown;
   register(fn: (...a: unknown[]) => unknown, type: unknown): unknown;
   unregister(cb: unknown): void;
   pointer(t: unknown): unknown;
@@ -73,6 +74,7 @@ async function init(): Promise<void> {
   try {
     const mod = (await import('koffi')) as unknown as { default?: unknown };
     const koffi = (mod.default ?? mod) as {
+      decode(value: unknown, type: string): unknown;
       load(name: string): { func(sig: string): (...a: unknown[]) => unknown };
       register(fn: (...a: unknown[]) => unknown, type: unknown): unknown;
       unregister(cb: unknown): void;
@@ -355,8 +357,12 @@ export function watchDesktopClicks(onClick: () => void, onDouble: () => void, on
   const dbl = Number(u.GetDoubleClickTime()) || 500;
   let last = { t: 0, x: 0, y: 0 };
   hookCb = koffiRef.register(
-    ((code: number, wParam: unknown, info: { pt: { x: number; y: number } }) => {
+    ((code: number, wParam: unknown, pointer: unknown) => {
       try {
+        // Koffi passes a native pointer to callback struct arguments.
+        const info = pointer && koffiRef
+          ? koffiRef.decode(pointer, 'MO_MSLLHOOKSTRUCT') as { pt: { x: number; y: number }; mouseData: number }
+          : null;
         if (code >= 0 && onWheel && Number(wParam) === WM_MOUSEWHEEL && info && isDesktopAt(info.pt.x, info.pt.y)) {
           const raw = (Number((info as { mouseData?: number }).mouseData) >>> 16) & 0xffff;
           const delta = raw > 0x7fff ? raw - 0x10000 : raw;

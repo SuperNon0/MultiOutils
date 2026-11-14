@@ -1,5 +1,6 @@
 import { app, nativeImage, shell } from 'electron';
 import fs from 'node:fs';
+import { shellIcon } from './shell-icons';
 import path from 'node:path';
 import { expandEnv, parseUrlShortcut } from '../../../common/shortcut-files';
 
@@ -47,10 +48,30 @@ function iconSource(p: string): string {
 
 async function load(p: string, size: IconSize): Promise<string | null> {
   const src = iconSource(p);
-  if (size === 'large' && src === p) {
-    // Vignette Windows (images, vidéos, PDF…) plus nette que l'icône 32 px.
+  if (size === 'large' && src === p && fs.statSync(p).isFile() && !/\.(lnk|url)$/i.test(p)) {
     const thumb = await nativeImage.createThumbnailFromPath(p, { width: 96, height: 96 }).catch(() => null);
     if (thumb && !thumb.isEmpty()) return thumb.toDataURL();
+  }
+  if (process.platform === 'win32') {
+    let source = p;
+    let index: number | null = null;
+    try {
+      if (path.extname(p).toLowerCase() === '.lnk') {
+        const link = shell.readShortcutLink(p);
+        const explicit = link.icon ? expandEnv(link.icon, process.env).replace(/^"|"$/g, '') : null;
+        if (exists(explicit)) { source = explicit; index = link.iconIndex ?? 0; }
+      } else if (path.extname(p).toLowerCase() === '.url') {
+        const text = fs.readFileSync(p, 'utf8');
+        const explicit = parseUrlShortcut(text).iconFile;
+        const expanded = explicit ? expandEnv(explicit, process.env) : null;
+        if (exists(expanded)) {
+          source = expanded;
+          index = Number(/^IconIndex\s*=\s*(-?\d+)/im.exec(text)?.[1] ?? 0);
+        }
+      }
+      const url = await shellIcon({ path: source, index, size: size === 'small' ? 16 : size === 'large' ? 64 : 32 });
+      if (url) return url;
+    } catch { /* Electron fallback below */ }
   }
   if (/\.(ico|png)$/i.test(src)) {
     const img = nativeImage.createFromPath(src);
@@ -65,7 +86,7 @@ export class IconStore {
   private failed = new Map<string, number>();
   private disk: Record<string, string> = {};
   private saveTimer: ReturnType<typeof setTimeout> | null = null;
-  private readonly file = path.join(app.getPath('userData'), 'desktop-icons.json');
+  private readonly file = path.join(app.getPath('userData'), 'desktop-icons-v2.json');
 
   constructor() {
     try {

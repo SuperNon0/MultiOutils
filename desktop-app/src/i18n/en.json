@@ -1134,6 +1134,7 @@
   "desktop.item.rename": "Rename",
   "desktop.item.trash": "Move to Recycle Bin",
   "desktop.item.removeFromZone": "Remove from zone",
+  "desktop.item.moveToZone": "Move to zone",
   "desktop.detail.lockSub": "Position, size and content are fixed",
   "desktop.detail.inboxSub": "Everything that is in no zone lands here",
   "desktop.sub.folder": "Folder {path}",
