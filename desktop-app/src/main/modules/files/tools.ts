@@ -363,8 +363,11 @@ export async function emptyTrash(): Promise<boolean> {
 
 /* -------------------------------------------------- actions rapides */
 export async function zip(paths: string[], destDir: string, name: string): Promise<string> {
-  const target = path.join(destDir, name.endsWith('.zip') ? name : `${name}.zip`);
-  await runPowerShell(`Compress-Archive -LiteralPath ${paths.map(psQuote).join(',')} -DestinationPath ${psQuote(target)} -Force`, { timeoutMs: 600_000 });
+  const baseName = name.endsWith('.zip') ? name.slice(0, -4) : name;
+  let target = path.join(destDir, `${baseName}.zip`);
+  let i = 2;
+  while (fs.existsSync(target)) target = path.join(destDir, `${baseName} (${i++}).zip`);
+  await runPowerShell(`Compress-Archive -LiteralPath ${paths.map(psQuote).join(',')} -DestinationPath ${psQuote(target)}`, { timeoutMs: 600_000 });
   return target;
 }
 
