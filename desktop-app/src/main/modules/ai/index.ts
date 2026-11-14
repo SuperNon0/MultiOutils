@@ -17,7 +17,7 @@ import type { MainHostContext, MainToolModule } from '../../module-registry';
 import { CaptureRepo } from '../../storage/captures';
 import { canSendAsIs, candidateSizes, MAX_IMAGE_BYTES } from './image';
 import { AiKeyStore, type KeyValue } from './keys';
-import { AiError, cleanTargetLang, pickModel, resolveModel, type TranslateImage } from './provider';
+import { AiError, cleanTargetLang, httpError, pickModel, resolveModel, type TranslateImage } from './provider';
 import { pickGeminiModel } from './gemini';
 import { costOf, priceFor } from '../../../common/aiPricing';
 import { createProviders } from './providers';
@@ -280,8 +280,69 @@ export function createAiMainModule(): MainToolModule {
           }
         }
       );
+
+      // Texte libre pour les autres modules (ex. rangement du bureau proposé
+      // par l'IA) : même fournisseur, même modèle et même clé que la traduction.
+      ctx.events.on('ai:text', (req: AiTextRequest) => {
+        void (async () => {
+          try {
+            const provider = ctx.settings.get().aiProvider;
+            const apiKey = keys.get(provider);
+            if (!apiKey) throw new AiError('noKey');
+            const p = providers[provider];
+            const model = resolveModel(p.info, ctx.settings.get().aiModels[provider]);
+            req.resolve(await textCall(provider, apiKey, model, req.system, req.prompt));
+          } catch (err) {
+            req.reject(err instanceof Error ? err : new Error(String(err)));
+          }
+        })();
+      });
     }
   };
+}
+
+/** Requête de texte libre envoyée par un autre module via ctx.events ('ai:text'). */
+export interface AiTextRequest {
+  system: string;
+  prompt: string;
+  resolve(text: string): void;
+  reject(err: Error): void;
+}
+
+async function textCall(provider: AiProviderId, apiKey: string, model: string, system: string, prompt: string): Promise<string> {
+  const post = async (url: string, headers: Record<string, string>, body: unknown): Promise<unknown> => {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000)
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) throw httpError(res.status, json);
+    return json;
+  };
+  if (provider === 'anthropic') {
+    const j = (await post(
+      'https://api.anthropic.com/v1/messages',
+      { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      { model, max_tokens: 4000, system, messages: [{ role: 'user', content: prompt }] }
+    )) as { content?: Array<{ type: string; text?: string }> };
+    return (j.content ?? []).map((c) => c.text ?? '').join('');
+  }
+  if (provider === 'openai') {
+    const j = (await post(
+      'https://api.openai.com/v1/chat/completions',
+      { Authorization: `Bearer ${apiKey}` },
+      { model, messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] }
+    )) as { choices?: Array<{ message?: { content?: string } }> };
+    return j.choices?.[0]?.message?.content ?? '';
+  }
+  const j = (await post(
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+    { 'x-goog-api-key': apiKey },
+    { systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }] }
+  )) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+  return (j.candidates?.[0]?.content?.parts ?? []).map((x) => x.text ?? '').join('');
 }
 
 /**

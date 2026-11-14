@@ -303,6 +303,50 @@ class AutoclickProfile extends SingletonAction<ProfileSettings> {
   }
 }
 
+// ── Module Bureau (zones du bureau) ────────────────────────────────────
+
+@action({ UUID: 'com.supernon0.multioutils.desktop-peek' })
+class DesktopPeek extends SingletonAction {
+  override onKeyDown(ev: KeyDownEvent): Promise<void> {
+    return sendCommand('desktop.peek', ev);
+  }
+}
+
+@action({ UUID: 'com.supernon0.multioutils.desktop-hide' })
+class DesktopToggleHide extends SingletonAction {
+  override onKeyDown(ev: KeyDownEvent): Promise<void> {
+    return sendCommand('desktop.toggleHide', ev);
+  }
+}
+
+@action({ UUID: 'com.supernon0.multioutils.desktop-sort' })
+class DesktopSortNow extends SingletonAction {
+  override onKeyDown(ev: KeyDownEvent): Promise<void> {
+    return sendCommand('desktop.sortNow', ev);
+  }
+}
+
+@action({ UUID: 'com.supernon0.multioutils.desktop-page-next' })
+class DesktopPageNext extends SingletonAction {
+  override onKeyDown(ev: KeyDownEvent): Promise<void> {
+    return sendCommand('desktop.pageNext', ev);
+  }
+}
+
+@action({ UUID: 'com.supernon0.multioutils.desktop-page-prev' })
+class DesktopPagePrev extends SingletonAction {
+  override onKeyDown(ev: KeyDownEvent): Promise<void> {
+    return sendCommand('desktop.pagePrev', ev);
+  }
+}
+
+@action({ UUID: 'com.supernon0.multioutils.desktop-show' })
+class DesktopShow extends SingletonAction {
+  override onKeyDown(ev: KeyDownEvent): Promise<void> {
+    return sendCommand('desktop.showDesktop', ev);
+  }
+}
+
 streamDeck.actions.registerAction(new CaptureFullscreen());
 streamDeck.actions.registerAction(new CaptureRegion());
 streamDeck.actions.registerAction(new CaptureWindow());
@@ -315,6 +359,12 @@ streamDeck.actions.registerAction(new ClipsPinCurrent());
 streamDeck.actions.registerAction(new ColorPickerStart());
 streamDeck.actions.registerAction(new AutoclickToggle());
 streamDeck.actions.registerAction(new AutoclickProfile());
+streamDeck.actions.registerAction(new DesktopPeek());
+streamDeck.actions.registerAction(new DesktopToggleHide());
+streamDeck.actions.registerAction(new DesktopSortNow());
+streamDeck.actions.registerAction(new DesktopPageNext());
+streamDeck.actions.registerAction(new DesktopPagePrev());
+streamDeck.actions.registerAction(new DesktopShow());
 
 void streamDeck.connect();
 

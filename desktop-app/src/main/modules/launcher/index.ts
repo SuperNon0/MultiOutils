@@ -159,6 +159,11 @@ export function createLauncherMainModule(): MainToolModule {
     hasLocalCommand: (id) => ctx.hasLocalCommand?.(id) ?? false,
     runLocalCommand: async (id) => (ctx.runLocalCommand ? ctx.runLocalCommand(id) : false),
     hideLauncher: () => launcher.hide(),
+    zoneFolders: () => {
+      let out: string[] = [];
+      ctx.events.emit('desktop:folders', (list: string[]) => (out = list));
+      return out;
+    },
     reindex: () => reindex(),
     quitApp: () => {
       launcher.hide();

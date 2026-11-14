@@ -71,7 +71,38 @@ export class FileSearcher {
     this.walkIndex = null;
   }
 
+  private zoneCache = new Map<string, { at: number; names: string[] }>();
+
+  /** Fichiers des dossiers affichés par les zones du bureau (premier niveau). */
+  private async zoneHits(text: string): Promise<string[]> {
+    const words = text.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return [];
+    const out: string[] = [];
+    for (const dir of this.env.zoneFolders?.() ?? []) {
+      let c = this.zoneCache.get(dir);
+      if (!c || Date.now() - c.at > 30_000) {
+        try {
+          c = { at: Date.now(), names: await fs.promises.readdir(dir) };
+        } catch {
+          c = { at: Date.now(), names: [] };
+        }
+        this.zoneCache.set(dir, c);
+      }
+      for (const n of c.names) {
+        const low = n.toLowerCase();
+        if (words.every((w) => low.includes(w))) out.push(path.join(dir, n));
+      }
+    }
+    return out;
+  }
+
   async search(text: string, max: number, signal: AbortSignal): Promise<string[]> {
+    const [zone, found] = await Promise.all([this.zoneHits(text), this.searchIndex(text, max, signal)]);
+    const seen = new Set<string>();
+    return [...zone, ...found].filter((p) => (seen.has(p.toLowerCase()) ? false : (seen.add(p.toLowerCase()), true))).slice(0, max);
+  }
+
+  private async searchIndex(text: string, max: number, signal: AbortSignal): Promise<string[]> {
     const backend = this.env.settings().fileBackend;
     if (this.env.isWin) {
       const es = this.everything();

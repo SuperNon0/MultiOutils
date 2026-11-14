@@ -179,6 +179,8 @@ export interface DesktopSettings {
   pageAuto: PageAutoRule[];
   /** Une disposition par configuration d'écrans, rétablie au branchement. */
   layoutPerScreens: boolean;
+  /** Entrées « Créer une zone » et « Réglages du bureau » dans le clic droit du bureau. */
+  contextMenu: boolean;
 }
 
 export type EntryKind =
@@ -290,7 +292,8 @@ export function defaultDesktopSettings(): DesktopSettings {
     pageNextShortcut: 'Control+Alt+PageDown',
     pagePrevShortcut: 'Control+Alt+PageUp',
     pageAuto: [],
-    layoutPerScreens: true
+    layoutPerScreens: true,
+    contextMenu: true
   };
 }
 
@@ -559,7 +562,8 @@ export function normalizeSettings(raw: Partial<DesktopSettings> | null | undefin
     pageNextShortcut: typeof s.pageNextShortcut === 'string' ? s.pageNextShortcut : d.pageNextShortcut,
     pagePrevShortcut: typeof s.pagePrevShortcut === 'string' ? s.pagePrevShortcut : d.pagePrevShortcut,
     pageAuto: normalizePageAuto(s.pageAuto),
-    layoutPerScreens: Boolean(s.layoutPerScreens)
+    layoutPerScreens: Boolean(s.layoutPerScreens),
+    contextMenu: s.contextMenu !== false
   };
 }
 
@@ -1133,4 +1137,46 @@ export function shelfSweep(
     else next[p] = at;
   }
   return { seen: next, expired };
+}
+
+/* ------------------------------------------------ rangement par l'IA */
+export interface AiPlanZone {
+  title: string;
+  items: string[];
+}
+
+/**
+ * Lit la réponse de l'IA ({"zones":[{"title","items":[noms]}]}) : seuls les
+ * noms réellement présents sur le bureau sont gardés, chacun dans une seule
+ * zone, 8 zones au plus.
+ */
+export function parseAiPlan(text: string, names: string[]): AiPlanZone[] {
+  const m = text.match(/\{[\s\S]*\}/);
+  if (!m) return [];
+  let data: unknown;
+  try {
+    data = JSON.parse(m[0]);
+  } catch {
+    return [];
+  }
+  const known = new Map(names.map((n) => [n.toLowerCase(), n]));
+  const used = new Set<string>();
+  const out: AiPlanZone[] = [];
+  const zones = (data as { zones?: unknown }).zones;
+  for (const z of Array.isArray(zones) ? zones : []) {
+    const title = String((z as { title?: unknown })?.title ?? '').trim().slice(0, 40);
+    const raw = (z as { items?: unknown })?.items;
+    if (!title || !Array.isArray(raw)) continue;
+    const items: string[] = [];
+    for (const it of raw) {
+      const n = known.get(String(it).toLowerCase());
+      if (n && !used.has(n)) {
+        used.add(n);
+        items.push(n);
+      }
+    }
+    if (items.length) out.push({ title, items });
+    if (out.length >= 8) break;
+  }
+  return out;
 }

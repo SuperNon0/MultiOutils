@@ -1131,3 +1131,23 @@ body[data-fenetre='zone-pages'] #root {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.bz-ai {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bz-ai-z {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.bz-ai-z.off {
+  opacity: 0.5;
+}
+.bz-ai-items {
+  font-size: 12.5px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}

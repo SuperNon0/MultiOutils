@@ -46,6 +46,13 @@ export async function places(favs: string[]): Promise<FilePlace[]> {
     q('music', 'music', 'signal'),
     q('videos', 'videos', 'film')
   ].filter((x): x is FilePlace => !!x);
+  // iCloud Drive (application iCloud pour Windows) : dossier « iCloudDrive » du profil.
+  const icloud = path.join(home, 'iCloudDrive');
+  try {
+    if ((await fs.promises.stat(icloud)).isDirectory()) quick.push({ id: 'icloud', label: 'icloud', path: icloud, icon: 'cloud', type: 'quick' });
+  } catch {
+    // iCloud pour Windows absent
+  }
   const drives: FilePlace[] = [];
   if (isWin) {
     for (const letter of 'CDEFGHIJKLMNOPQRSTUVWXYZ') {

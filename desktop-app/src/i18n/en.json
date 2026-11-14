@@ -1618,5 +1618,20 @@
   "desktop.cloud.badToken": "Token refused by the server",
   "desktop.cloud.openSite": "Open the website",
   "desktop.cloud.clear": "Clear history",
-  "desktop.cloud.failed": "Failed"
+  "desktop.cloud.failed": "Failed",
+  "desktop.ctx.newZone": "Create a zone (MultiOutils)",
+  "desktop.ctx.settings": "Desktop settings (MultiOutils)",
+  "desktop.set.contextMenu": "Desktop right-click entries",
+  "desktop.set.contextMenuSub": "“Create a zone” and “Desktop settings”. On Windows 11 they're under “Show more options”.",
+  "desktop.ai.button": "AI tidy-up",
+  "desktop.ai.title": "Tidy-up suggested by AI",
+  "desktop.ai.intro": "The AI looks at the names of desktop items (not their contents) and suggests zones. Nothing moves until you confirm; files stay on the desktop.",
+  "desktop.ai.busy": "The AI is thinking…",
+  "desktop.ai.again": "Another suggestion",
+  "desktop.ai.apply": "Create {n} zone(s)",
+  "desktop.ai.applied": "{n} zone(s) created",
+  "desktop.ai.emptyDesktop": "The desktop is empty: nothing to tidy.",
+  "desktop.ai.noPlan": "The AI didn't suggest a usable layout. Try again.",
+  "desktop.ai.noKey": "No AI key: add one in Settings → AI translation.",
+  "files.place.icloud": "iCloud Drive"
 }
