@@ -63,10 +63,10 @@ export class RemoteClient {
       this.kvSet(TOKEN_KEY, null);
       return;
     }
-    const value = safeStorage.isEncryptionAvailable()
-      ? `enc:${safeStorage.encryptString(token).toString('base64')}`
-      : `plain:${token}`;
-    this.kvSet(TOKEN_KEY, value);
+    if (!safeStorage.isEncryptionAvailable()) {
+      throw new Error('Le chiffrement système est indisponible : jeton non enregistré.');
+    }
+    this.kvSet(TOKEN_KEY, `enc:${safeStorage.encryptString(token).toString('base64')}`);
   }
 
   private readToken(): string | null {
@@ -79,7 +79,14 @@ export class RemoteClient {
         return null;
       }
     }
-    if (stored.startsWith('plain:')) return stored.slice(6);
+    // Migration d'anciens jetons éventuellement stockés en clair.
+    // Si le chiffrement n'est pas disponible, ne jamais utiliser ce secret.
+    if (stored.startsWith('plain:')) {
+      if (!safeStorage.isEncryptionAvailable()) return null;
+      const token = stored.slice(6);
+      this.kvSet(TOKEN_KEY, `enc:${safeStorage.encryptString(token).toString('base64')}`);
+      return token;
+    }
     return null;
   }
 

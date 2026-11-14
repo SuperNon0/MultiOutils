@@ -41,7 +41,20 @@ function validate(file: string): void {
 export function applyPendingRestore(): void {
   const pending = path.join(app.getPath('userData'), STAGED);
   if (!fs.existsSync(pending)) return;
-  validate(pending);
+  try {
+    validate(pending);
+  } catch (error) {
+    // Ne pas empêcher MultiOutils de démarrer à chaque relance lorsqu'une
+    // sauvegarde en attente a été corrompue ou modifiée entre deux lancements.
+    fs.mkdirSync(backupDir(), { recursive: true });
+    const rejected = path.join(backupDir(), `restauration-invalide-${Date.now()}.sqlite`);
+    fs.renameSync(pending, rejected);
+    dialog.showErrorBox(
+      'Restauration annulée',
+      `La sauvegarde n'a pas été appliquée car elle est invalide. La base actuelle reste intacte.\\nCopie conservée : ${rejected}\\n${String(error)}`
+    );
+    return;
+  }
   const target = dbPath();
   const backup = path.join(backupDir(), `avant-restauration-${Date.now()}.sqlite`);
   fs.mkdirSync(backupDir(), { recursive: true });

@@ -70,6 +70,8 @@ export interface Zone {
   widget: WidgetType | null;
   /** Zone « Notes » : texte. */
   note: string;
+  /** Identifiant de la note archivée depuis ce widget, pour la modifier après relance. */
+  savedNoteId: string | null;
   /** Zone Home Assistant : entités affichées (boutons). */
   entities: string[];
   /** Affichage propre au widget, indépendant du style Encre de sa zone. */
@@ -843,6 +845,7 @@ export function newZone(
     allPages: false,
     widget: null,
     note: '',
+    savedNoteId: null,
     entities: [],
     widgetLayout: 'cards',
     chartHours: 24,
@@ -891,6 +894,7 @@ export function normalizeZone(raw: Partial<Zone> & { id: string }): Zone {
     allPages: Boolean(raw.allPages),
     widget,
     note: typeof raw.note === 'string' ? raw.note.slice(0, 20_000) : '',
+    savedNoteId: typeof raw.savedNoteId === 'string' && raw.savedNoteId.length <= 100 ? raw.savedNoteId : null,
     entities: Array.isArray(raw.entities) ? raw.entities.filter((n): n is string => typeof n === 'string').slice(0, 40) : [],
     widgetLayout: raw.widgetLayout === 'compact' ? 'compact' : 'cards',
     chartHours: raw.chartHours === 168 ? 168 : 24,

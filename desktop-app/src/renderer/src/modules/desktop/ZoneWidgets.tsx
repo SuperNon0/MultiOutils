@@ -44,11 +44,14 @@ function NotesWidget({ zone }: { zone: Zone }): ReactNode {
   const [text, setText] = useState(zone.note);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef(text);
+  const archivedId = useRef<string | null>(zone.savedNoteId);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   useEffect(() => {
     setText(zone.note);
     latest.current = zone.note;
+    archivedId.current = zone.savedNoteId;
+    setSaved(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zone.id]);
   useEffect(
@@ -86,7 +89,17 @@ function NotesWidget({ zone }: { zone: Zone }): ReactNode {
       setSaving(true);
       try {
         const firstLine = latest.current.trim().split('\n')[0].slice(0, 80);
-        await window.api.desktop.notes.save({ title: firstLine || 'Note rapide', body: latest.current });
+        // Réenregistrer une note archivée doit la modifier, pas créer un doublon.
+        const existing = archivedId.current
+          ? (await window.api.desktop.notes.list()).some((note) => note.id === archivedId.current)
+          : false;
+        const note = await window.api.desktop.notes.save({
+          ...(existing ? { id: archivedId.current! } : {}),
+          title: firstLine || 'Note rapide',
+          body: latest.current
+        });
+        archivedId.current = note.id;
+        await window.api.desktop.updateZone(zone.id, { savedNoteId: note.id });
         setSaved(true);
       } catch {
         setSaved(false);

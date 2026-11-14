@@ -20,6 +20,11 @@ const sameDir = (a: string, b: string): boolean => path.resolve(a).toLowerCase()
 
 async function walk(src: string, dest: string, out: Item[]): Promise<void> {
   const st = await fs.promises.lstat(src);
+  // Une jonction ou un lien symbolique peut traverser les volumes. Sans ce
+  // contrôle, walk ignorait le lien puis le déplacement supprimait la source.
+  if (st.isSymbolicLink()) {
+    throw new Error('Déplacement inter-disques de liens symboliques/jonctions non pris en charge');
+  }
   if (st.isDirectory()) {
     out.push({ src, dest, size: 0, dir: true });
     for (const name of await fs.promises.readdir(src)) await walk(path.join(src, name), path.join(dest, name), out);
