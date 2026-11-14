@@ -277,6 +277,10 @@ const api: PreloadApi = {
     status: () => ipcRenderer.invoke('update:status'),
     onStatus: (cb) => subscribe('update:status', cb)
   },
+  streamdeck: {
+    info: () => ipcRenderer.invoke('streamdeck:info'),
+    install: () => ipcRenderer.invoke('streamdeck:install')
+  },
   editor: {
     save: (payload) => ipcRenderer.invoke('editor:save', payload),
     exportAs: (payload) => ipcRenderer.invoke('editor:export', payload),

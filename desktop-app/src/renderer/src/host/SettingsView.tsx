@@ -15,7 +15,8 @@ import {
   type ShortcutId,
   type RemoteTestResult,
   type ShortcutStatus,
-  type UpdateStatus
+  type UpdateStatus,
+  type StreamDeckPluginInfo
 } from '../../../common/types';
 import { applyAppearance } from '../encre/appearance';
 import { Aide, ui } from '../encre/ui';
@@ -138,7 +139,7 @@ export function settingsSections(modules: ToolModule[]): SectionDef[] {
       title: 'settings.section.updates',
       sub: 'reglages.sub.updates',
       icon: 'refresh',
-      keywords: ['settings.updates.check']
+      keywords: ['settings.updates.check', 'settings.sd.title', 'settings.sd.update']
     },
     {
       id: 'about',
@@ -571,6 +572,79 @@ function UpdatesSection({ version }: { version: string }): ReactNode {
           </div>
         </div>
       )}
+      <StreamDeckPluginBlock />
+    </>
+  );
+}
+
+/** Plugin Stream Deck : version installée, version fournie, mise à jour en un clic. */
+function StreamDeckPluginBlock(): ReactNode {
+  const { t } = useI18n();
+  const [sd, setSd] = useState<StreamDeckPluginInfo | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const refresh = (): void => void window.api.streamdeck.info().then(setSd);
+  useEffect(() => {
+    refresh();
+    // Stream Deck installe le plugin après la confirmation : on relit au retour sur la fenêtre.
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, []);
+  if (!sd?.supported) return null;
+  const upToDate = !!sd.installed && !sd.outdated;
+  return (
+    <>
+      <div className="lbl-mono sd-titre">
+        <Icon name="grid" size={14} />
+        {t('settings.sd.title')}
+      </div>
+      <div className="tuiles maj-tuiles sd-tuiles">
+        <div className="tuile">
+          <div className="k">
+            <Icon name={upToDate ? 'check' : 'alert'} size={16} />
+            {t('settings.sd.installed')}
+          </div>
+          <div className="v">{sd.installed ?? t('settings.sd.none')}</div>
+        </div>
+        <div className="tuile">
+          <div className="k">
+            <Icon name="download" size={16} />
+            {t('settings.sd.bundled')}
+          </div>
+          <div className="v">{sd.bundled ?? '—'}</div>
+        </div>
+      </div>
+      <p className="intro reg-note">{t('settings.sd.how')}</p>
+      <div className="form">
+        {upToDate && (
+          <p className="statut ok">
+            <Icon name="check" size={16} /> {t('settings.sd.upToDate')}
+          </p>
+        )}
+        {msg && (
+          <p className={`statut ${msg.ok ? 'ok' : 'err'}`}>
+            <Icon name={msg.ok ? 'check' : 'alert'} size={16} /> {msg.text}
+          </p>
+        )}
+        <div className="ligne">
+          <button
+            type="button"
+            className={`btn${upToDate ? '' : ' pri'}${busy ? ' occupe' : ''}`}
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setMsg(null);
+              const r = await window.api.streamdeck.install();
+              setBusy(false);
+              setMsg(r.ok ? { ok: true, text: t('settings.sd.opened') } : { ok: false, text: t('settings.sd.error', { msg: r.error }) });
+              refresh();
+            }}
+          >
+            <Icon name={upToDate ? 'refresh' : 'download'} />
+            {busy ? t('settings.sd.busy') : !sd.installed ? t('settings.sd.install') : upToDate ? t('settings.sd.reinstall') : t('settings.sd.update')}
+          </button>
+        </div>
+      </div>
     </>
   );
 }

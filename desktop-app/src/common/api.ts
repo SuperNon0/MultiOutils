@@ -330,6 +330,11 @@ export interface PreloadApi {
     status(): Promise<import('./types').UpdateStatus>;
     onStatus(cb: (status: import('./types').UpdateStatus) => void): Unsubscribe;
   };
+  streamdeck: {
+    info(): Promise<import('./types').StreamDeckPluginInfo>;
+    /** Ouvre le paquet .streamDeckPlugin : Stream Deck installe / remplace le plugin. */
+    install(): Promise<import('./types').StreamDeckInstallResult>;
+  };
   editor: {
     /** Annotations (JSON) + éventuel écrasement du fichier aplati. */
     save(payload: {
