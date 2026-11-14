@@ -9,7 +9,7 @@ import { EncreColorPicker } from './EncreColorPicker';
 type ColorField = 'bg' | 'titleColor' | 'iconTint';
 
 /** Éditeur commun aux zones, utilisant la palette native Encre. */
-function ColorPick({ value, fallbackLabel, onChange, onPick, label }: {
+function ColorPick({ value, onChange, onPick, label }: {
   value: string | null;
   fallbackLabel: string;
   onChange(v: string | null): void;
