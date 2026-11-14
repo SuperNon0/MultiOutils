@@ -1163,6 +1163,14 @@ body[data-fenetre='zone-pages'] #root {
   border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 8px; }
 .zw-sensors.compact .zw-sensor-value { font-size: 14px; }
 
+/* Courbe compacte issue des historiques HA. */
+.zw-chart { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 6px; }
+.zw-chart-title, .zw-chart-values { display: flex; justify-content: space-between; gap: 8px; align-items: center; font-size: 11px; color: var(--muted); }
+.zw-chart-title span { text-overflow: ellipsis; white-space: nowrap; overflow: hidden; }
+.zw-chart svg { flex: 1 1 auto; width: 100%; min-height: 65px; }
+.zw-chart-values strong { color: var(--zc); font: 600 15px var(--f-mono); }
+.zw-chart-more { align-self: flex-end; flex: 0 0 auto; }
+
 /* Bibliothèque de notes Encre et bouton d'archivage du widget. */
 .zw-note-editor { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 8px; }
 .zw-note-editor .zw-note { flex: 1 1 auto; min-height: 65px; height: auto; }
