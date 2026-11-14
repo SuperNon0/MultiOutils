@@ -1618,5 +1618,20 @@
   "desktop.cloud.badToken": "Jeton refusé par le serveur",
   "desktop.cloud.openSite": "Ouvrir le site",
   "desktop.cloud.clear": "Effacer l'historique",
-  "desktop.cloud.failed": "Échec"
+  "desktop.cloud.failed": "Échec",
+  "desktop.ctx.newZone": "Créer une zone (MultiOutils)",
+  "desktop.ctx.settings": "Réglages du bureau (MultiOutils)",
+  "desktop.set.contextMenu": "Entrées dans le clic droit du bureau",
+  "desktop.set.contextMenuSub": "« Créer une zone » et « Réglages du bureau ». Sous Windows 11, elles sont dans « Afficher plus d'options ».",
+  "desktop.ai.button": "Rangement IA",
+  "desktop.ai.title": "Rangement proposé par l'IA",
+  "desktop.ai.intro": "L'IA regarde les noms des éléments du bureau (pas leur contenu) et propose des zones. Rien ne bouge tant que tu n'as pas validé ; les fichiers restent sur le bureau.",
+  "desktop.ai.busy": "L'IA réfléchit…",
+  "desktop.ai.again": "Autre proposition",
+  "desktop.ai.apply": "Créer {n} zone(s)",
+  "desktop.ai.applied": "{n} zone(s) créée(s)",
+  "desktop.ai.emptyDesktop": "Le bureau est vide : rien à ranger.",
+  "desktop.ai.noPlan": "L'IA n'a pas proposé de rangement exploitable. Réessaie.",
+  "desktop.ai.noKey": "Aucune clé IA : ajoute-en une dans Réglages → Traduction IA.",
+  "files.place.icloud": "iCloud Drive"
 }

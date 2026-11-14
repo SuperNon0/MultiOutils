@@ -10,6 +10,7 @@ import {
   nextPage,
   onActivePage,
   parseBundle,
+  parseAiPlan,
   shelfSweep,
   pruneDaily,
   screensKey,
@@ -338,5 +339,16 @@ describe('étape 5 : zones spéciales', () => {
     expect(r.expired).toEqual(['a']);
     expect(r.seen).toEqual({ b: now - 86_400_000, c: now });
     expect(shelfSweep(['a'], { a: 0 }, 0, now).expired).toEqual([]);
+  });
+});
+
+describe('rangement par l’IA', () => {
+  it('garde les noms connus, une fois chacun', () => {
+    const text = 'Voici :\n```json\n{"zones":[{"title":"Jeux","items":["steam.lnk","Inconnu.txt","STEAM.LNK"]},{"title":"Docs","items":["steam.lnk","cv.pdf"]},{"title":"Vide","items":[]}]}\n```';
+    expect(parseAiPlan(text, ['steam.lnk', 'cv.pdf'])).toEqual([
+      { title: 'Jeux', items: ['steam.lnk'] },
+      { title: 'Docs', items: ['cv.pdf'] }
+    ]);
+    expect(parseAiPlan('pas de json', ['a'])).toEqual([]);
   });
 });

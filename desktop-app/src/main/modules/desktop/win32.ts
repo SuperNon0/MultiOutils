@@ -152,6 +152,11 @@ function big(v: unknown): Hwnd {
   return typeof v === 'bigint' ? v : BigInt(Number(v) || 0);
 }
 
+/** Poignée de Progman : change quand l'Explorateur redémarre (0 si absent). */
+export function desktopHandle(): bigint {
+  return progman();
+}
+
 /** Fenêtre Progman (le bureau). */
 function progman(): Hwnd {
   if (!user32) return 0n;

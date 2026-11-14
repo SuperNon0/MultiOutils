@@ -53,6 +53,8 @@ import {
   normalizeZone,
   renameItem,
   shelfSweep,
+  parseAiPlan,
+  type AiPlanZone,
   ZONE_PRESETS,
   snapRect,
   sortEntries,
@@ -81,7 +83,7 @@ import type { MainHostContext, MainToolModule } from '../../module-registry';
 import { desktopDirs, listDesktop, listDir, transfer, watchDirs } from './files';
 import { createLayoutStore, type LayoutStore } from './layouts';
 import { createRulesEngine, type RulesEngine } from './rules';
-import { ensureWin32, foregroundExe, isKeyDown, setNativeIconsVisible, vkOfAccelerator, watchDesktopClicks, win32Error } from './win32';
+import { desktopHandle, ensureWin32, foregroundExe, isKeyDown, setNativeIconsVisible, vkOfAccelerator, watchDesktopClicks, win32Error } from './win32';
 import { absoluteBounds, displayFor, DrawOverlays, PageIndicator, PeekOverlays, ZoneWindow } from './windows';
 
 const SETTINGS_KEY = 'desktop.settings';
@@ -554,6 +556,95 @@ export function createDesktopMainModule(): MainToolModule {
           pageId: settings.activePage
         })
       );
+    }
+    setZones(ensureInbox(next, String(d.id)));
+  };
+
+  /* ------------------------------- clic droit du bureau (Windows) */
+  const MENU_KEYS: Array<[string, string, string]> = [
+    ['MultiOutils.NewZone', 'desktop.ctx.newZone', '--desktop-new-zone'],
+    ['MultiOutils.DesktopSettings', 'desktop.ctx.settings', '--desktop-settings']
+  ];
+  let menuApplied: boolean | null = null;
+  const applyContextMenu = (): void => {
+    if (process.platform !== 'win32' || !app.isPackaged) return;
+    const on = settings.enabled && settings.contextMenu;
+    if (menuApplied === on) return;
+    menuApplied = on;
+    const exe = process.execPath;
+    const reg = (args: string[]): void => void execFile('reg', args, { windowsHide: true }, () => undefined);
+    for (const [key, label, arg] of MENU_KEYS) {
+      const base = `HKCU\\Software\\Classes\\DesktopBackground\\Shell\\${key}`;
+      if (on) {
+        reg(['add', base, '/ve', '/d', t(label), '/f']);
+        reg(['add', base, '/v', 'Icon', '/d', exe, '/f']);
+        reg(['add', `${base}\\command`, '/ve', '/d', `"${exe}" ${arg}`, '/f']);
+      } else reg(['delete', base, '/f']);
+    }
+  };
+
+  /* ------------------------- reprise après plantage de l'Explorateur */
+  let shellHandle = 0n;
+  let shellTimer: ReturnType<typeof setInterval> | null = null;
+  const watchExplorer = (): void => {
+    if (!native) return;
+    shellHandle = desktopHandle();
+    shellTimer = setInterval(() => {
+      const h = desktopHandle();
+      if (h === shellHandle) return;
+      shellHandle = h;
+      if (!h) return; // Explorateur arrêté : on attend son retour
+      // Nouveau bureau : les fenêtres des zones sont recréées et rattachées.
+      setTimeout(() => {
+        for (const w of windows.values()) w.destroy();
+        windows.clear();
+        syncWindows();
+        iconsHidden = false; // le nouvel Explorateur réaffiche ses icônes
+        applyNativeIcons();
+        scheduleRefresh(0);
+      }, 1500);
+    }, 3000);
+  };
+
+  /* ------------------------------------------- rangement par l'IA */
+  const askAi = (system: string, prompt: string): Promise<string> =>
+    new Promise((resolve, reject) => {
+      if (ctx.events.listenerCount('ai:text') === 0) return reject(new Error('noAi'));
+      ctx.events.emit('ai:text', { system, prompt, resolve, reject });
+    });
+  const aiPlan = async (): Promise<{ ok: true; plan: AiPlanZone[] } | { ok: false; error: string }> => {
+    desktop = await listDesktop();
+    if (desktop.length === 0) return { ok: false, error: t('desktop.ai.emptyDesktop') };
+    const list = desktop
+      .slice(0, 400)
+      .map((e) => `${e.name}\t${e.kind}`)
+      .join('\n');
+    const lang = ctx.settings.get().language === 'en' ? 'English' : 'French';
+    const system =
+      'You organise a Windows desktop into a few labelled zones (groups of icons). Reply with JSON only: {"zones":[{"title":"short name","items":["exact file name", ...]}]}. ' +
+      `3 to 7 zones, titles in ${lang}, 1 to 3 words. Group by purpose (games, work, school, photos, tools…), not only by file type. Use the exact names given. Leave out items that fit nowhere.`;
+    try {
+      const plan = parseAiPlan(await askAi(system, `Desktop items (name<TAB>kind):\n${list}`), desktop.map((e) => e.name));
+      return plan.length ? { ok: true, plan } : { ok: false, error: t('desktop.ai.noPlan') };
+    } catch (err) {
+      const code = err instanceof Error ? ((err as { code?: string }).code ?? err.message) : String(err);
+      return { ok: false, error: code === 'noKey' ? t('desktop.ai.noKey') : code === 'noAi' ? t('desktop.ai.noKey') : String(code) };
+    }
+  };
+  const applyAiPlan = (plan: AiPlanZone[]): void => {
+    const d = screen.getPrimaryDisplay();
+    let next: Zone[] = [...zones];
+    const placed = (): Rect[] => next.filter((o) => o.enabled && o.bounds.displayId === String(d.id)).map((o) => absoluteBounds(o));
+    const names = new Set(desktop.map((e) => e.name));
+    for (const z of plan.slice(0, 8)) {
+      const items = z.items.filter((n) => typeof n === 'string' && names.has(n));
+      if (!items.length) continue;
+      const r = freeSpot({ width: 320, height: 230 }, placed(), d.workArea, Math.max(settings.gap, 12));
+      const zone = newZone(randomUUID(), 'shortcuts', String(z.title).slice(0, 40), toRelative(r), {
+        color: ZONE_COLORS[next.length % ZONE_COLORS.length],
+        pageId: settings.activePage
+      });
+      next = assignItems([...next, zone], zone.id, items);
     }
     setZones(ensureInbox(next, String(d.id)));
   };
@@ -1090,6 +1181,8 @@ export function createDesktopMainModule(): MainToolModule {
     }, 3_600_000);
     rewatch();
     syncWindows();
+    watchExplorer();
+    applyContextMenu();
     await refresh();
   };
 
@@ -1273,6 +1366,7 @@ export function createDesktopMainModule(): MainToolModule {
         }
         if (before.activePage !== settings.activePage) expanded.clear();
         if (settings.layoutPerScreens && !before.layoutPerScreens) layouts.remember(zones);
+        applyContextMenu();
         if (
           before.enabled !== settings.enabled ||
           before.dblClickHide !== settings.dblClickHide ||
@@ -1301,6 +1395,14 @@ export function createDesktopMainModule(): MainToolModule {
         saveZones();
       });
       ipcMain.handle('desktop:draw', () => draw.open());
+      ipcMain.handle('desktop:aiPlan', () => aiPlan());
+      // Le lanceur cherche aussi dans les dossiers affichés par les zones.
+      ctx.events.on('desktop:folders', (reply: (list: string[]) => void) => {
+        reply([...new Set(zones.filter((z) => z.kind === 'folder' && z.enabled).map((z) => folderPath(z)).filter((p): p is string => !!p))]);
+      });
+      ipcMain.handle('desktop:aiApply', (_e, plan: unknown) => {
+        if (Array.isArray(plan)) applyAiPlan(plan as AiPlanZone[]);
+      });
       ipcMain.handle('desktop:starter', () => starterLayout());
       ipcMain.handle('desktop:updateZone', (_e, id: string, patch: Partial<Zone>) => {
         if (typeof id === 'string' && zoneById(id) && patch && typeof patch === 'object') {
@@ -1527,6 +1629,7 @@ export function createDesktopMainModule(): MainToolModule {
     deactivate(): void {
       pageIndicator.close();
       if (dailyTimer) clearInterval(dailyTimer);
+      if (shellTimer) clearInterval(shellTimer);
       stopBehaviours();
       stopPeek();
       rules?.stop();

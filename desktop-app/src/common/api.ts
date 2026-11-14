@@ -70,6 +70,9 @@ export interface PreloadApi {
     draw(): Promise<void>;
     /** Rangement de départ (Programmes, Dossiers, Documents, Images, À trier). */
     starter(): Promise<void>;
+    /** Rangement proposé par l'IA (clé IA des Réglages), puis appliqué. */
+    aiPlan(): Promise<{ ok: true; plan: import('./desktop').AiPlanZone[] } | { ok: false; error: string }>;
+    aiApply(plan: import('./desktop').AiPlanZone[]): Promise<void>;
     updateZone(id: string, patch: Partial<import('./desktop').Zone>): Promise<import('./desktop').DesktopState>;
     deleteZone(id: string): Promise<void>;
     restoreZone(zone: import('./desktop').Zone): Promise<import('./desktop').DesktopState>;

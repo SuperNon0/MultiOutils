@@ -49,8 +49,13 @@ if (!app.requestSingleInstanceLock()) {
   void bootstrap();
 }
 
+/** Arguments venus du clic droit du bureau (Windows) : --desktop-new-zone, --desktop-settings. */
+let handleArgv: ((argv: string[]) => boolean) | null = null;
+
 async function bootstrap(): Promise<void> {
-  app.on('second-instance', () => showMainWindow());
+  app.on('second-instance', (_e, argv) => {
+    if (!handleArgv?.(argv)) showMainWindow();
+  });
   app.on('before-quit', () => setQuitting(true));
 
   await app.whenReady();
@@ -119,6 +124,18 @@ async function bootstrap(): Promise<void> {
   registry.register(createDesktopMainModule());
   registry.register(createFilesMainModule());
   await registry.activateAll(ctx);
+  handleArgv = (argv) => {
+    if (argv.includes('--desktop-new-zone')) {
+      void ctx.runLocalCommand?.('desktop.newZone');
+      return true;
+    }
+    if (argv.includes('--desktop-settings')) {
+      showMainWindow({ view: 'tool', toolId: 'desktop' });
+      return true;
+    }
+    return false;
+  };
+  const launchedFor = handleArgv(process.argv);
 
   registerHostIpc(ctx);
   setupUpdater(ctx);
@@ -154,7 +171,7 @@ async function bootstrap(): Promise<void> {
 
   // premier lancement : fenêtre visible pour l'assistant (docs/02 §2.3)
   const startHidden =
-    process.argv.includes('--hidden') && settings.get().firstRunDone;
+    (process.argv.includes('--hidden') || launchedFor) && settings.get().firstRunDone;
   createMainWindow(!startHidden);
 
   // Expose applySettings aux tests manuels de dev (garde une référence).

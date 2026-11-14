@@ -1,7 +1,7 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "Name": "MultiOutils",
-  "Version": "0.5.0.0",
+  "Version": "0.6.0.0",
   "Author": "SuperNon0",
   "UUID": "com.supernon0.multioutils",
   "Description": "Pilote MultiOutils : captures plein écran / zone / fenêtre / différée, ouverture de la bibliothèque, dernière capture dans le presse-papier. Nécessite l'application MultiOutils lancée.",
@@ -156,6 +156,72 @@
         {
           "Image": "imgs/key-autoclick-profile",
           "TitleAlignment": "bottom"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.desktop-peek",
+      "Name": "Bureau : aperçu des zones",
+      "Tooltip": "Montre les zones par-dessus les fenêtres (encore une fois pour revenir)",
+      "Icon": "imgs/desktop-peek",
+      "States": [
+        {
+          "Image": "imgs/key-desktop-peek"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.desktop-hide",
+      "Name": "Bureau : masquer les zones",
+      "Tooltip": "Masque ou réaffiche toutes les zones du bureau",
+      "Icon": "imgs/desktop-hide",
+      "States": [
+        {
+          "Image": "imgs/key-desktop-hide"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.desktop-sort",
+      "Name": "Bureau : ranger maintenant",
+      "Tooltip": "Applique toutes les règles de rangement du bureau",
+      "Icon": "imgs/desktop-sort",
+      "States": [
+        {
+          "Image": "imgs/key-desktop-sort"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.desktop-page-next",
+      "Name": "Bureau : page suivante",
+      "Tooltip": "Passe à la page de bureau suivante",
+      "Icon": "imgs/desktop-page-next",
+      "States": [
+        {
+          "Image": "imgs/key-desktop-page-next"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.desktop-page-prev",
+      "Name": "Bureau : page précédente",
+      "Tooltip": "Revient à la page de bureau précédente",
+      "Icon": "imgs/desktop-page-prev",
+      "States": [
+        {
+          "Image": "imgs/key-desktop-page-prev"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.desktop-show",
+      "Name": "Bureau : afficher le bureau",
+      "Tooltip": "Réduit les fenêtres pour voir le bureau et ses zones",
+      "Icon": "imgs/desktop-show",
+      "States": [
+        {
+          "Image": "imgs/key-desktop-show"
         }
       ]
     }

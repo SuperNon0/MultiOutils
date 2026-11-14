@@ -24,6 +24,8 @@ export interface LauncherEnv {
   userDataDir: string;
   history(): string[];
   ownPid: number;
+  /** Dossiers affichés par les zones du bureau (cherchés en plus). */
+  zoneFolders?(): string[];
 }
 
 /** Texte FR ou EN selon la langue de l'app. */
