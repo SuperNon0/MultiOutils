@@ -100,17 +100,17 @@ function WidgetDetail({ zone }: { zone: Zone }): ReactNode {
   const [err, setErr] = useState<string | null>(null);
   const [q, setQ] = useState('');
   useEffect(() => {
-    if (zone.widget !== 'ha' && zone.widget !== 'ha-sensor') return;
+    if (zone.widget !== 'ha' && zone.widget !== 'ha-sensor' && zone.widget !== 'ha-chart') return;
     void window.api.ha.entities().then((r) => (r.ok ? setEnts(r.list) : setErr(r.error)));
   }, [zone.widget]);
-  if (zone.widget === 'ha' || zone.widget === 'ha-sensor') {
+  if (zone.widget === 'ha' || zone.widget === 'ha-sensor' || zone.widget === 'ha-chart') {
     if (err) return <p className="muted petit">{t(err === 'not-configured' ? 'desktop.ha.notConfigured' : 'desktop.ha.error', { error: err })}</p>;
     if (!ents) return <p className="muted petit">…</p>;
     const low = q.trim().toLowerCase();
-    const list = ents.filter((e) => (zone.widget === 'ha-sensor' ? ['sensor', 'binary_sensor'].includes(e.domain) : !['sensor', 'binary_sensor'].includes(e.domain)) && (!low || e.name.toLowerCase().includes(low) || e.id.includes(low)));
+    const list = ents.filter((e) => ((zone.widget === 'ha-sensor' || zone.widget === 'ha-chart') ? ['sensor', 'binary_sensor'].includes(e.domain) : !['sensor', 'binary_sensor'].includes(e.domain)) && (!low || e.name.toLowerCase().includes(low) || e.id.includes(low)));
     const toggle = (id: string): void =>
       void window.api.desktop.updateZone(zone.id, {
-        entities: zone.entities.includes(id) ? zone.entities.filter((x) => x !== id) : [...zone.entities, id]
+        entities: zone.entities.includes(id) ? zone.entities.filter((x) => x !== id) : zone.widget === 'ha-chart' ? [id] : [...zone.entities, id]
       });
     return (
       <div className="bz-ha">
@@ -157,6 +157,13 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
       {zone.kind === 'widget' ? (
         <>
           <WidgetDetail zone={zone} />
+          {zone.widget === 'ha-chart' && (
+            <RegLigne titre="Période du graphique">
+              <select className="select sm" value={zone.chartHours} onChange={(e) => up({ chartHours: Number(e.target.value) as Zone['chartHours'] })}>
+                <option value={24}>24 heures</option><option value={168}>7 jours</option>
+              </select>
+            </RegLigne>
+          )}
           <RegLigne titre="Couleur d'accent du widget">
             <div className="bs-color">
               <input type="color" aria-label="Choisir une couleur libre" value={zone.color && /^#[0-9a-f]{6}$/i.test(zone.color) ? zone.color : '#a99bff'} onChange={(e) => up({ color: e.target.value })} />
@@ -294,6 +301,7 @@ const PRESETS: Array<[ZonePreset, string]> = [
   ['clips', 'clipboard'],
   ['ha', 'home'],
   ['ha-sensor', 'signal'],
+  ['ha-chart', 'signal'],
   ['search', 'search'],
   ['cloud', 'cloud']
 ];
