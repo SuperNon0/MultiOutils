@@ -1788,5 +1788,8 @@
   "desktop.ha.isOn": "Allumé",
   "desktop.ha.isOff": "Éteint",
   "desktop.ha.ready": "Prêt à lancer",
-  "desktop.ha.run": "Lancer"
+  "desktop.ha.run": "Lancer",
+  "desktop.style.originalAll": "Style d’origine sur toutes les zones",
+  "desktop.style.originalAllHelp": "Rétablit l’apparence Encre sur toutes les zones, sans changer leur position, leur taille ou leur contenu. Tu peux annuler juste après.",
+  "desktop.style.appliedOriginal": "Style d’origine appliqué aux zones"
 }

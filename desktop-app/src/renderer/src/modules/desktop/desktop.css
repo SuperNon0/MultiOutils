@@ -1410,3 +1410,9 @@ body[data-fenetre='zone-pages'] #root {
 
 .zw-chart { margin: 12px; padding: 12px; height: calc(100% - 24px); border: 1px solid var(--line2); border-radius: 14px;
   background: color-mix(in srgb, var(--card) 68%, transparent); }
+
+.ha-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.zw-body.wg, .ha-preview-frame { container-type: inline-size; }
+.ha-media-actions { gap: 8px; flex-wrap: wrap; }
+@container (max-width: 270px) { .ha-cards { grid-template-columns: minmax(0, 1fr); } }
+.ha-cards.compact { grid-template-columns: minmax(0, 1fr); }

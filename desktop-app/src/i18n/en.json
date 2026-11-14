@@ -1788,5 +1788,8 @@
   "desktop.ha.isOn": "On",
   "desktop.ha.isOff": "Off",
   "desktop.ha.ready": "Ready",
-  "desktop.ha.run": "Run"
+  "desktop.ha.run": "Run",
+  "desktop.style.originalAll": "Original style on all zones",
+  "desktop.style.originalAllHelp": "Restore Encre appearance on all zones without changing their positions, sizes or contents. Undo is available afterwards.",
+  "desktop.style.appliedOriginal": "Original zone style applied"
 }

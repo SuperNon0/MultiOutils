@@ -105,7 +105,14 @@ function WidgetDetail({ zone, full }: { zone: Zone; full: ZoneStyle & { opacity:
   const [q, setQ] = useState('');
   useEffect(() => {
     if (zone.widget !== 'ha' && zone.widget !== 'ha-sensor' && zone.widget !== 'ha-chart') return;
-    void window.api.ha.entities().then((r) => (r.ok ? setEnts(r.list) : setErr(r.error)));
+    let alive = true;
+    const refresh = (): void => { void window.api.ha.entities().then((r) => {
+      if (!alive) return;
+      if (r.ok) { setEnts(r.list); setErr(null); } else setErr(r.error);
+    }).catch(() => { if (alive) setErr('connection'); }); };
+    refresh();
+    const timer = setInterval(refresh, 20_000);
+    return () => { alive = false; clearInterval(timer); };
   }, [zone.widget]);
   if (zone.widget === 'ha' || zone.widget === 'ha-sensor' || zone.widget === 'ha-chart') {
     if (err) return <p className="muted petit">{t(err === 'not-configured' ? 'desktop.ha.notConfigured' : 'desktop.ha.error', { error: err })}</p>;
@@ -794,6 +801,18 @@ export function DesktopSettingsPanel(): ReactNode {
         onReset={() => set({ defaultStyle: defaultZoneStyle(), opacity: 90 })}
         onSaveStyle={() => void saveStyleAs(t, s.defaultStyle)}
       />
+      <div className="bs-act">
+        <button className="btn sm" onClick={async () => {
+          const previous = { defaultStyle: s.defaultStyle, opacity: s.opacity, zones: state.zones.map((z) => ({ id: z.id, style: z.style })) };
+          await window.api.desktop.setSettings({ defaultStyle: defaultZoneStyle(), opacity: 90 });
+          await Promise.all(state.zones.map((z) => window.api.desktop.updateZone(z.id, { style: {} })));
+          ui.toast(t('desktop.style.appliedOriginal'), { annuler: async () => {
+            await window.api.desktop.setSettings({ defaultStyle: previous.defaultStyle, opacity: previous.opacity });
+            await Promise.all(previous.zones.map((z) => window.api.desktop.updateZone(z.id, { style: z.style })));
+          } });
+        }}><Icon name="palette" size={16}/>{t('desktop.style.originalAll')}</button>
+      </div>
+      <p className="muted petit">{t('desktop.style.originalAllHelp')}</p>
       {s.savedStyles.length > 0 && (
         <RegLigne titre={t('desktop.style.savedList')} aide={<Aide titre={t('desktop.style.savedList')} texte={t('desktop.style.savedList.help')} />}>
           <div className="chips">
