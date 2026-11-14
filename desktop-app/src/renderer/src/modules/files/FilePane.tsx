@@ -18,7 +18,14 @@ export function FileIcon({ entry, large }: { entry: Pick<FileEntry, 'path' | 'mt
       if (icons.size > 4000) icons.clear();
       icons.set(key, p);
     }
-    void p.then((u) => alive && setUrl(u));
+    setUrl(null);
+    void p.then((u) => {
+      if (!u) icons.delete(key);
+      if (alive) setUrl(u);
+    }).catch(() => {
+      icons.delete(key);
+      if (alive) setUrl(null);
+    });
     return () => {
       alive = false;
     };
