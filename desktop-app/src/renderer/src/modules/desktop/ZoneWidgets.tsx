@@ -41,6 +41,8 @@ function NotesWidget({ zone }: { zone: Zone }): ReactNode {
   const [text, setText] = useState(zone.note);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latest = useRef(text);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   useEffect(() => {
     setText(zone.note);
     latest.current = zone.note;
@@ -56,6 +58,7 @@ function NotesWidget({ zone }: { zone: Zone }): ReactNode {
     []
   );
   return (
+    <div className="zw-note-editor">
     <textarea
       className="zw-note"
       value={text}
@@ -66,6 +69,7 @@ function NotesWidget({ zone }: { zone: Zone }): ReactNode {
       onChange={(e) => {
         const v = e.target.value;
         setText(v);
+        setSaved(false);
         latest.current = v;
         if (timer.current) clearTimeout(timer.current);
         timer.current = setTimeout(() => {
@@ -74,6 +78,20 @@ function NotesWidget({ zone }: { zone: Zone }): ReactNode {
         }, 500);
       }}
     />
+    <button className="btn xs zw-note-save" type="button" disabled={saving || !text.trim()} onPointerDown={(e) => e.stopPropagation()} onClick={async () => {
+      if (saving || !latest.current.trim()) return;
+      setSaving(true);
+      try {
+        const firstLine = latest.current.trim().split('\\n')[0].slice(0, 80);
+        await window.api.desktop.notes.save({ title: firstLine || 'Note rapide', body: latest.current });
+        setSaved(true);
+      } catch {
+        setSaved(false);
+      } finally {
+        setSaving(false);
+      }
+    }}><Icon name={saved ? 'check' : 'save'} size={14} /> {saved ? 'Enregistrée' : 'Enregistrer dans Mes notes'}</button>
+    </div>
   );
 }
 
