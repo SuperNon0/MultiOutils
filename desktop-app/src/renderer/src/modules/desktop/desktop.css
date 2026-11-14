@@ -1162,3 +1162,21 @@ body[data-fenetre='zone-pages'] #root {
 .zw-sensors.compact .zw-sensor { flex-direction: row; align-items: center; justify-content: space-between;
   border: 0; border-bottom: 1px solid var(--line); border-radius: 0; background: transparent; padding: 8px; }
 .zw-sensors.compact .zw-sensor-value { font-size: 14px; }
+
+/* Bibliothèque de notes Encre et bouton d'archivage du widget. */
+.zw-note-editor { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 8px; }
+.zw-note-editor .zw-note { flex: 1 1 auto; min-height: 65px; height: auto; }
+.zw-note-save { flex: 0 0 auto; align-self: flex-end; }
+.mo-notes-grid { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(220px, 2fr); gap: 16px; margin-top: 16px; }
+.mo-notes-list, .mo-notes-editor { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.mo-notes-list { max-height: 550px; overflow-y: auto; }
+.mo-note-item { appearance: none; display: flex; flex-direction: column; gap: 4px; padding: 10px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--text);
+  text-align: left; cursor: pointer; }
+.mo-note-item.on { border-color: var(--accent); }
+.mo-note-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font-size: 12px; }
+.mo-note-item small { color: var(--muted); font-size: 11px; }
+.mo-notes-editor .champ { width: 100%; box-sizing: border-box; }
+.mo-notes-editor textarea { resize: vertical; min-height: 150px; }
+.mo-note-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 650px) { .mo-notes-grid { grid-template-columns: 1fr; } }
