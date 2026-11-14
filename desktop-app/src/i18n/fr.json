@@ -1580,6 +1580,8 @@
   "desktop.preset.shelf": "Étagère",
   "desktop.preset.notes": "Notes",
   "desktop.preset.clips": "Presse-papiers épinglé",
+  "desktop.preset.ha-chart": "Graphique Home Assistant",
+  "desktop.preset.ha-chart.sub": "Courbe d’un capteur sur 24 h ou 7 jours",
   "desktop.preset.ha-sensor": "Capteurs Home Assistant",
   "desktop.preset.ha-sensor.sub": "Valeurs des capteurs et mesures",
   "desktop.preset.ha": "Home Assistant",
