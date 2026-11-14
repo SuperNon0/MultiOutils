@@ -8,7 +8,13 @@
  * des types et de la logique pure (testée dans desktop.test.ts).
  */
 
-export type ZoneKind = 'shortcuts' | 'folder';
+export type ZoneKind = 'shortcuts' | 'folder' | 'widget';
+/** Zones spéciales (étape 5) : contenu propre au lieu d'icônes. */
+export type WidgetType = 'notes' | 'clips' | 'ha' | 'search' | 'cloud';
+/** Modèles proposés à la création d'une zone. */
+export type ZonePreset = 'captures' | 'shelf' | WidgetType;
+export const WIDGET_TYPES: WidgetType[] = ['notes', 'clips', 'ha', 'search', 'cloud'];
+export const ZONE_PRESETS: ZonePreset[] = ['captures', 'shelf', 'notes', 'clips', 'ha', 'search', 'cloud'];
 export type ZoneView = 'icons' | 'list' | 'details';
 export type ZoneSort = 'manual' | 'name' | 'type' | 'size' | 'date' | 'opens';
 export type ZoneIconSize = 'small' | 'medium' | 'large';
@@ -60,6 +66,34 @@ export interface Zone {
   pageId: string;
   /** Présente sur toutes les pages. */
   allPages: boolean;
+  /** Zone spéciale : type de contenu (kind 'widget'). */
+  widget: WidgetType | null;
+  /** Zone « Notes » : texte. */
+  note: string;
+  /** Zone Home Assistant : entités affichées (boutons). */
+  entities: string[];
+  /** Étagère temporaire : fichiers envoyés à la corbeille après N jours (0 = jamais). */
+  shelfDays: number;
+  /** Nombre maximal d'éléments affichés (0 = tous), ex. « Dernières captures ». */
+  maxItems: number;
+}
+
+/** Entité Home Assistant pilotable, pour la zone Home Assistant. */
+export interface HaEntity {
+  id: string;
+  name: string;
+  domain: string;
+  state: string;
+  on: boolean;
+}
+
+/** Envoi vers le mini cloud (zone « Mini cloud »). */
+export interface CloudItem {
+  name: string;
+  size: number;
+  at: number;
+  state: 'sending' | 'sent' | 'error';
+  error?: string;
 }
 
 /** Apparence d'une zone (étape 3). */
@@ -184,6 +218,10 @@ export interface ZoneContent {
   canGoUp: boolean;
   entries: DesktopEntry[];
   error: 'missing' | 'unreachable' | null;
+  /** Mini cloud : envois récents. */
+  cloud?: CloudItem[];
+  /** Mini cloud : adresse du serveur configurée ? */
+  cloudReady?: boolean;
 }
 
 export interface DesktopState {
@@ -768,7 +806,7 @@ export function newZone(
     color: null,
     bounds,
     view: kind === 'folder' ? 'details' : 'icons',
-    sort: kind === 'folder' ? 'name' : 'manual',
+    sort: kind === 'shortcuts' ? 'manual' : 'name',
     sortDesc: false,
     iconSize: 'medium',
     items: [],
@@ -786,13 +824,19 @@ export function newZone(
     style: {},
     pageId: '',
     allPages: false,
+    widget: null,
+    note: '',
+    entities: [],
+    shelfDays: 0,
+    maxItems: 0,
     ...extra
   };
 }
 
 /** Valide une zone lue depuis la base (champs manquants = valeurs par défaut). */
 export function normalizeZone(raw: Partial<Zone> & { id: string }): Zone {
-  const kind: ZoneKind = raw.kind === 'folder' ? 'folder' : 'shortcuts';
+  const widget = raw.kind === 'widget' && WIDGET_TYPES.includes(raw.widget as WidgetType) ? (raw.widget as WidgetType) : null;
+  const kind: ZoneKind = raw.kind === 'folder' ? 'folder' : widget ? 'widget' : 'shortcuts';
   const b = raw.bounds ?? { displayId: '', x: 24, y: 24, width: 320, height: 240 };
   const base = newZone(raw.id, kind, String(raw.title ?? ''), {
     displayId: String(b.displayId ?? ''),
@@ -825,7 +869,12 @@ export function normalizeZone(raw: Partial<Zone> & { id: string }): Zone {
     keepOnHide: Boolean(raw.keepOnHide),
     style: normalizeStyle(raw.style),
     pageId: typeof raw.pageId === 'string' ? raw.pageId : '',
-    allPages: Boolean(raw.allPages)
+    allPages: Boolean(raw.allPages),
+    widget,
+    note: typeof raw.note === 'string' ? raw.note.slice(0, 20_000) : '',
+    entities: Array.isArray(raw.entities) ? raw.entities.filter((n): n is string => typeof n === 'string').slice(0, 40) : [],
+    shelfDays: kind === 'folder' ? Math.max(0, Math.min(365, Math.round(Number(raw.shelfDays) || 0))) : 0,
+    maxItems: Math.max(0, Math.min(500, Math.round(Number(raw.maxItems) || 0)))
   };
 }
 
@@ -1062,4 +1111,26 @@ export function normalizeRule(raw: Partial<Rule> & { id: string }): Rule {
     action,
     mode: raw.mode === 'once' ? 'once' : 'continuous'
   };
+}
+
+/* ------------------------------------------------- étagère temporaire */
+/**
+ * Étagère : date d'arrivée de chaque fichier (vu pour la première fois) et
+ * fichiers à envoyer à la corbeille. Renvoie la table à jour (fichiers
+ * disparus oubliés) et la liste des chemins expirés.
+ */
+export function shelfSweep(
+  present: string[],
+  seen: Record<string, number>,
+  days: number,
+  now = Date.now()
+): { seen: Record<string, number>; expired: string[] } {
+  const next: Record<string, number> = {};
+  const expired: string[] = [];
+  for (const p of present) {
+    const at = seen[p] ?? now;
+    if (days > 0 && now - at > days * 86_400_000) expired.push(p);
+    else next[p] = at;
+  }
+  return { seen: next, expired };
 }

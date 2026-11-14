@@ -10,6 +10,7 @@ import {
   nextPage,
   onActivePage,
   parseBundle,
+  shelfSweep,
   pruneDaily,
   screensKey,
   swapScreens,
@@ -317,5 +318,25 @@ describe('dispositions', () => {
     const kept = pruneDaily([...list, { id: 'm', name: 'x', at: 0, type: 'manual', bundle }], 7);
     expect(kept.filter((s) => s.type === 'daily').map((s) => s.id)).toEqual(['d3', 'd4', 'd5', 'd6', 'd7', 'd8', 'd9']);
     expect(kept.some((s) => s.id === 'm')).toBe(true);
+  });
+});
+
+describe('étape 5 : zones spéciales', () => {
+  it('normalise une zone spéciale et ses champs', () => {
+    const z = normalizeZone({ id: 'w', kind: 'widget', widget: 'ha', entities: ['light.salon', 3 as unknown as string], note: 'x', shelfDays: 5 } as never);
+    expect(z.kind).toBe('widget');
+    expect(z.widget).toBe('ha');
+    expect(z.entities).toEqual(['light.salon']);
+    expect(z.shelfDays).toBe(0);
+    const bad = normalizeZone({ id: 'b', kind: 'widget', widget: 'nope' } as never);
+    expect(bad.kind).toBe('shortcuts');
+    expect(bad.widget).toBeNull();
+  });
+  it('étagère : date d’arrivée, expiration, oubli des fichiers partis', () => {
+    const now = 10 * 86_400_000;
+    const r = shelfSweep(['a', 'b', 'c'], { a: now - 4 * 86_400_000, b: now - 86_400_000, gone: 1 }, 3, now);
+    expect(r.expired).toEqual(['a']);
+    expect(r.seen).toEqual({ b: now - 86_400_000, c: now });
+    expect(shelfSweep(['a'], { a: 0 }, 0, now).expired).toEqual([]);
   });
 });

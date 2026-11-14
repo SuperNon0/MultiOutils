@@ -444,6 +444,8 @@ export function createClipboardMainModule(): MainToolModule {
     const importItem = async (item: RemoteClip): Promise<boolean> => {
       const exists = () => ctx.db.prepare('SELECT 1 FROM clips WHERE remote_id = ?').get(item.id);
       if (exists()) return true;
+      // Fichiers envoyés par la zone « Mini cloud » du bureau : déjà sur ce PC.
+      if (item.source === 'minicloud') return true;
       if (item.kind === 'text') {
         insertText(item.text ?? '', 'remote', item.id);
       } else {
