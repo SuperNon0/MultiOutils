@@ -54,8 +54,20 @@ export class LocalService {
     this.server = http.createServer((req, res) => {
       res.setHeader('Content-Type', 'application/json');
       // Le panneau de configuration du plugin (webview) interroge ce service
-      // depuis une autre origine : CORS ouvert (service lié à 127.0.0.1 seulement).
-      res.setHeader('Access-Control-Allow-Origin', '*');
+      // depuis une origine file:// ; les origines web tierces sont refusées.
+      // Localhost alone does not protect against browser requests from other sites.
+      // Stream Deck's property inspector may have a file:// (null) origin.
+      const host = req.headers.host;
+      const origin = req.headers.origin;
+      const allowedHost = host === `127.0.0.1:${port}` || host === `localhost:${port}`;
+      const allowedOrigin = origin === undefined || origin === 'null';
+      if (!allowedHost || !allowedOrigin) {
+        res.statusCode = 403;
+        res.end(JSON.stringify({ error: 'origine non autorisée' }));
+        return;
+      }
+      res.setHeader('Vary', 'Origin');
+      if (origin === 'null') res.setHeader('Access-Control-Allow-Origin', 'null');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
       if (req.method === 'OPTIONS') {
