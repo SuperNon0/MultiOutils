@@ -68,6 +68,7 @@ import {
   type EntryKind,
   type Rect,
   type Rule,
+  type SavedNote,
   type Zone,
   type ZoneContent,
   type ZoneStyle,
@@ -88,6 +89,7 @@ import { absoluteBounds, displayFor, DrawOverlays, PageIndicator, PeekOverlays, 
 
 const SETTINGS_KEY = 'desktop.settings';
 const ZONES_KEY = 'desktop.zones';
+const NOTES_KEY = 'desktop.savedNotes';
 const OPENS_KEY = 'desktop.opens';
 /** Raccourcis globaux du module et réglage qui porte chacun. */
 const SHORTCUTS = {
@@ -1386,6 +1388,40 @@ export function createDesktopMainModule(): MainToolModule {
       ipcMain.handle('desktop:createZone', (_e, kind: ZoneKind | ZonePreset) =>
         ZONE_PRESETS.includes(kind as ZonePreset) ? createPreset(kind as ZonePreset, null) : createZone(kind === 'folder' ? 'folder' : 'shortcuts', null)
       );
+      /** Bibliothèque de notes archivée dans la base SQLite existante. */
+      const storedNotes = (): SavedNote[] => {
+        const raw = kvGet<unknown>(NOTES_KEY, []);
+        if (!Array.isArray(raw)) return [];
+        return raw.filter((n): n is SavedNote => Boolean(n && typeof n === 'object' &&
+          typeof n.id === 'string' && typeof n.title === 'string' && typeof n.body === 'string' &&
+          typeof n.createdAt === 'number' && typeof n.updatedAt === 'number')).slice(0, 1000);
+      };
+      ipcMain.handle('desktop:notes:list', () => storedNotes().sort((a, b) => b.updatedAt - a.updatedAt));
+      ipcMain.handle('desktop:notes:save', (_e, draft: unknown) => {
+        if (!draft || typeof draft !== 'object') throw new Error('Note invalide');
+        const input = draft as { id?: unknown; title?: unknown; body?: unknown };
+        if (typeof input.title !== 'string' || typeof input.body !== 'string') throw new Error('Note invalide');
+        const title = input.title.trim().slice(0, 120) || 'Sans titre';
+        const body = input.body.slice(0, 20_000);
+        if (!body.trim()) throw new Error('La note est vide');
+        const notes = storedNotes();
+        const old = typeof input.id === 'string' ? notes.find((n) => n.id === input.id) : undefined;
+        if (typeof input.id === 'string' && !old) throw new Error('Note introuvable');
+        if (!old && notes.length >= 1000) throw new Error('Limite de notes atteinte');
+        const now = Date.now();
+        const note: SavedNote = { id: old?.id ?? randomUUID(), title, body, createdAt: old?.createdAt ?? now, updatedAt: now };
+        kvSet(NOTES_KEY, old ? notes.map((n) => n.id === old.id ? note : n) : [...notes, note]);
+        ctx.broadcast('desktop:notes:changed');
+        return note;
+      });
+      ipcMain.handle('desktop:notes:remove', (_e, id: unknown) => {
+        if (typeof id !== 'string') return false;
+        const notes = storedNotes();
+        if (!notes.some((n) => n.id === id)) return false;
+        kvSet(NOTES_KEY, notes.filter((n) => n.id !== id));
+        ctx.broadcast('desktop:notes:changed');
+        return true;
+      });
       ipcMain.on('desktop:zone:note', (e, text: unknown) => {
         const host = hostOfSender(e);
         const z = host ? activeOf(host) : undefined;
