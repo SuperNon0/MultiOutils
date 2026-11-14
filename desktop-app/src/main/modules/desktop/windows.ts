@@ -7,7 +7,7 @@
 import { BrowserWindow, screen, type Display } from 'electron';
 import type { Rect, Zone, ZoneWindowMsg } from '../../../common/desktop';
 import { loadRenderer, preloadPath } from '../../windows';
-import { hwndOf, pinToDesktop, sendToBottom, unpinFromDesktop } from './win32';
+import { desktopAbove, hwndOf, pinToDesktop, sendToBottom, unpinFromDesktop } from './win32';
 
 /** Écran d'une zone (celui enregistré, sinon le principal). */
 export function displayFor(displayId: string): Display {
@@ -29,6 +29,8 @@ export class ZoneWindow {
   private ready = false;
   /** Aperçu en cours : la fenêtre reste au-dessus des autres. */
   private raised = false;
+  /** Bureau affiché (Win+D) : la zone passe devant le bureau, pas devant les fenêtres. */
+  private onTopOfDesktop = false;
   private last: ZoneWindowMsg | null = null;
 
   constructor(
@@ -91,7 +93,7 @@ export class ZoneWindow {
   }
 
   toBottom(): void {
-    if (this.raised || !this.native() || this.win.isDestroyed()) return;
+    if (this.raised || this.onTopOfDesktop || !this.native() || this.win.isDestroyed()) return;
     const h = this.hwnd();
     if (h) sendToBottom(h);
   }
@@ -111,8 +113,33 @@ export class ZoneWindow {
   lower(): void {
     if (this.win.isDestroyed()) return;
     this.raised = false;
+    this.onTopOfDesktop = false;
     this.win.setAlwaysOnTop(false);
     this.pin();
+  }
+
+  /**
+   * Win+D (« afficher le bureau ») passe le bureau devant toutes les fenêtres :
+   * la zone se met alors au premier plan, puis revient sur le bureau dès qu'une
+   * autre fenêtre reprend la main.
+   */
+  overDesktop(on: boolean): void {
+    if (this.raised || this.win.isDestroyed() || on === this.onTopOfDesktop) return;
+    this.onTopOfDesktop = on;
+    if (on) {
+      this.win.setAlwaysOnTop(true, 'normal');
+      this.win.moveTop();
+    } else {
+      this.win.setAlwaysOnTop(false);
+      this.toBottom();
+    }
+  }
+
+  /** Le bureau recouvre-t-il la zone (Win+D) ? */
+  coveredByDesktop(): boolean {
+    if (this.raised || this.onTopOfDesktop || !this.native() || this.win.isDestroyed() || !this.win.isVisible()) return false;
+    const h = this.hwnd();
+    return !!h && desktopAbove(h);
   }
 
   /** Masquage du bureau (double-clic, masquage automatique). */
