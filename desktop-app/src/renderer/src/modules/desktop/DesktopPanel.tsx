@@ -149,6 +149,16 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
       {zone.kind === 'widget' ? (
         <>
           <WidgetDetail zone={zone} />
+          <RegLigne titre="Couleur d'accent du widget">
+            <div className="bs-color">
+              <input type="color" aria-label="Choisir une couleur libre" value={zone.color && /^#[0-9a-f]{6}$/i.test(zone.color) ? zone.color : '#a99bff'} onChange={(e) => up({ color: e.target.value })} />
+              <input className="champ" style={{ width: 106 }} aria-label="Code hexadécimal" placeholder="#A99BFF" maxLength={7} value={zone.color ?? ''} onChange={(e) => {
+                const v = e.target.value;
+                if (v === '' || /^#[0-9a-f]{6}$/i.test(v)) up({ color: v || null });
+              }} />
+              <button className="btn xs" type="button" onClick={() => up({ color: null })}>Thème Encre</button>
+            </div>
+          </RegLigne>
           <RegLigne titre="Affichage du widget">
             <select className="select sm" value={zone.widgetLayout} onChange={(e) => up({ widgetLayout: e.target.value as Zone['widgetLayout'] })}>
               <option value="cards">Cartes</option>
