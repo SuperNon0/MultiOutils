@@ -422,6 +422,16 @@ export function createLauncherMainModule(): MainToolModule {
           return { ok: false, error: err instanceof Error ? err.message : String(err) };
         }
       });
+      ipcMain.handle('ha:series', async (_e, entityId: unknown, hours: unknown) => {
+        if (typeof entityId !== 'string' || ![24, 168].includes(Number(hours))) {
+          return { ok: false, error: 'Paramètres invalides' };
+        }
+        try {
+          return { ok: true, points: await haClient.series(entityId, Number(hours) as 24 | 168) };
+        } catch (error) {
+          return { ok: false, error: error instanceof Error ? error.message : String(error) };
+        }
+      });
       ipcMain.handle('ha:toggle', async (_e, entityId: unknown) => {
         if (typeof entityId !== 'string') return false;
         try {
