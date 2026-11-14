@@ -81,6 +81,15 @@ export interface Zone {
 }
 
 /** Entité Home Assistant pilotable, pour la zone Home Assistant. */
+/** Note archivée dans la bibliothèque Bureau, distincte du brouillon d'un widget. */
+export interface SavedNote {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
 export interface HaEntity {
   id: string;
   name: string;
