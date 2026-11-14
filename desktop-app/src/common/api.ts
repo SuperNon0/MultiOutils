@@ -406,6 +406,7 @@ export interface PreloadApi {
     /** Entités pilotables (zone Home Assistant du bureau). */
     entities(): Promise<{ ok: true; list: import('./desktop').HaEntity[] } | { ok: false; error: string }>;
     toggle(entityId: string): Promise<boolean>;
+    series(entityId: string, hours: 24 | 168): Promise<{ ok: true; points: Array<{ at: number; value: number }> } | { ok: false; error: string }>;
     status(): Promise<import('./launcher').HaLinkStatus>;
     onStatus(cb: (status: import('./launcher').HaLinkStatus) => void): Unsubscribe;
     /** Oublie l'enregistrement et se réenregistre (si la liaison est active). */
