@@ -17,11 +17,14 @@ import type { MainHostContext, MainToolModule } from '../../module-registry';
 import { CaptureRepo } from '../../storage/captures';
 import { canSendAsIs, candidateSizes, MAX_IMAGE_BYTES } from './image';
 import { AiKeyStore, type KeyValue } from './keys';
-import { AiError, cleanTargetLang, httpError, pickModel, resolveModel, type TranslateImage } from './provider';
+import { AiError, cleanTargetLang, pickModel, resolveModel, type TranslateImage } from './provider';
 import { pickGeminiModel } from './gemini';
 import { costOf, priceFor } from '../../../common/aiPricing';
 import { createProviders } from './providers';
 import { summarizeUsage } from './usage';
+import { textCall } from './text';
+import { runLoggedRequest, type MeasuredReply } from './request-log';
+import type { AiRequestEntry, AiRequestOperation } from '../../../common/types';
 
 /**
  * Traduction IA d'une capture (« Traduire (IA) » dans le menu ⋯ de la
@@ -81,15 +84,17 @@ export function createAiMainModule(): MainToolModule {
 
       ipcMain.handle('ai:testKey', async (_e, provider: unknown): Promise<AiSimpleResult> => {
         if (!isProvider(provider)) return { ok: false, error: 'api' };
-        const apiKey = keys.get(provider);
-        if (!apiKey) return { ok: false, error: 'noKey' };
         const p = providers[provider];
+        const model = resolveModel(p.info, ctx.settings.get().aiModels[provider]);
         try {
-          await p.testKey(apiKey, resolveModel(p.info, ctx.settings.get().aiModels[provider]));
+          await track(provider, model, 'keyTest', async () => {
+            const apiKey = keys.get(provider);
+            if (!apiKey) throw new AiError('noKey');
+            await p.testKey(apiKey, model);
+            return { model, usage: { inputTokens: 0, outputTokens: 0 } };
+          });
           return { ok: true };
-        } catch (err) {
-          return fail(err);
-        }
+        } catch (err) { return fail(err); }
       });
 
       /** Modèle de remplacement quand le modèle demandé n'existe plus. */
@@ -101,7 +106,7 @@ export function createAiMainModule(): MainToolModule {
         const p = providers[provider];
         if (p.info.fixedModels || !p.listModels) return null;
         try {
-          const available = await p.listModels(apiKey);
+          const available = (await track(provider, current, 'models', async () => ({ model: current, models: await p.listModels!(apiKey), usage: { inputTokens: 0, outputTokens: 0 } }))).result.models;
           const pick =
             provider === 'gemini'
               ? pickGeminiModel(available)
@@ -117,11 +122,12 @@ export function createAiMainModule(): MainToolModule {
         const apiKey = keys.get(provider);
         const p = providers[provider];
         if (!apiKey || !p.listModels) return [];
+        const model = resolveModel(p.info, ctx.settings.get().aiModels[provider]);
         try {
-          return await p.listModels(apiKey);
-        } catch {
-          return [];
-        }
+          return (await track(provider, model, 'models', async () => ({
+            model, models: await p.listModels!(apiKey), usage: { inputTokens: 0, outputTokens: 0 }
+          }))).result.models;
+        } catch { return []; }
       });
 
       const getSaved = ctx.db.prepare(
@@ -185,7 +191,7 @@ export function createAiMainModule(): MainToolModule {
          VALUES (?, ?, ?, ?, ?, ?)`
       );
       /** Compte une traduction réussie ; renvoie son coût estimé (null si prix inconnu). */
-      const record = (provider: AiProviderId, requested: string, r: AiTranslation): number | null => {
+      const record = (provider: AiProviderId, requested: string, r: MeasuredReply): number | null => {
         if (!r.usage) return null;
         const s = ctx.settings.get();
         const free = provider === 'gemini' && s.aiGeminiFreeTier;
@@ -200,6 +206,50 @@ export function createAiMainModule(): MainToolModule {
         }
         return cost;
       };
+
+
+      // Separate from spending totals: failures and requests without usage remain visible.
+      ctx.db.exec(`CREATE TABLE IF NOT EXISTS ai_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, provider TEXT NOT NULL, operation TEXT NOT NULL,
+        model TEXT NOT NULL, status TEXT NOT NULL, created_at TEXT NOT NULL,
+        duration_ms INTEGER, input_tokens INTEGER, output_tokens INTEGER, cost_usd REAL, error TEXT
+      )`);
+      ctx.db.prepare("UPDATE ai_requests SET status = 'interrupted' WHERE status = 'running'").run();
+      const notifyRequests = (): void => ctx.broadcast('ai:requestsChanged');
+      const track = <T extends MeasuredReply>(provider: AiProviderId, model: string, operation: AiRequestOperation, call: () => Promise<T>) =>
+        runLoggedRequest({
+          start: () => {
+            const row = ctx.db.prepare("INSERT INTO ai_requests (provider, operation, model, status, created_at) VALUES (?, ?, ?, 'running', ?)")
+              .run(provider, operation, model, new Date().toISOString());
+            // Bound the diagnostic journal, independently of cumulative consumption.
+            ctx.db.prepare("DELETE FROM ai_requests WHERE status != 'running' AND id NOT IN (SELECT id FROM ai_requests ORDER BY id DESC LIMIT 1000)").run();
+            notifyRequests();
+            return Number(row.lastInsertRowid);
+          },
+          record: (reply) => operation === 'keyTest' || operation === 'models' ? 0 : record(provider, model, reply),
+          finish: (id, result) => {
+            ctx.db.prepare("UPDATE ai_requests SET status = ?, model = COALESCE(?, model), duration_ms = ?, input_tokens = ?, output_tokens = ?, cost_usd = ?, error = ? WHERE id = ?")
+              .run(result.status, result.model ?? null, result.durationMs, result.usage?.inputTokens ?? null, result.usage?.outputTokens ?? null, result.costUsd, result.error, id);
+            notifyRequests();
+          }
+        }, call);
+
+      ipcMain.handle('ai:requests', (_e, provider?: unknown): AiRequestEntry[] => {
+        const rows = (isProvider(provider)
+          ? ctx.db.prepare('SELECT * FROM ai_requests WHERE provider = ? ORDER BY id DESC LIMIT 200').all(provider)
+          : ctx.db.prepare('SELECT * FROM ai_requests ORDER BY id DESC LIMIT 200').all()) as Array<{
+            id: number; provider: AiProviderId; operation: AiRequestOperation; model: string;
+            status: AiRequestEntry['status']; created_at: string; duration_ms: number | null;
+            input_tokens: number | null; output_tokens: number | null; cost_usd: number | null; error: AiRequestEntry['error'];
+          }>;
+        return rows.map((r) => ({ id: r.id, provider: r.provider, operation: r.operation, model: r.model,
+          status: r.status, createdAt: r.created_at, durationMs: r.duration_ms,
+          inputTokens: r.input_tokens, outputTokens: r.output_tokens, costUsd: r.cost_usd, error: r.error }));
+      });
+      ipcMain.handle('ai:clearRequests', () => {
+        ctx.db.prepare("DELETE FROM ai_requests WHERE status != 'running'").run();
+        notifyRequests();
+      });
 
       ipcMain.handle('ai:getUsage', (_e, provider?: unknown): AiUsageSummary => {
         const rows = (
@@ -236,50 +286,33 @@ export function createAiMainModule(): MainToolModule {
         else ctx.db.prepare('DELETE FROM ai_usage').run();
       });
 
-      ipcMain.handle(
-        'ai:translate',
-        async (_e, captureId: unknown, targetLang?: unknown): Promise<AiTranslateResult> => {
-          const settings = ctx.settings.get();
-          const provider = isProvider(settings.aiProvider) ? settings.aiProvider : 'anthropic';
-          const p = providers[provider];
-          const apiKey = keys.get(provider);
-          if (!apiKey) return { ok: false, error: 'noKey' };
-          const capture = typeof captureId === 'string' ? repo.get(captureId) : null;
-          if (!capture || !fs.existsSync(capture.path)) return { ok: false, error: 'notFound' };
-          try {
-            const image = prepareImage(capture.path);
-            const request = {
-              image,
-              apiKey,
-              model: resolveModel(p.info, settings.aiModels[provider]),
-              targetLang: cleanTargetLang(
-                typeof targetLang === 'string' ? targetLang : settings.aiTargetLang
-              )
-            };
-            try {
-              const result = await p.translate(request);
-              save(capture.id, request.targetLang, result);
-              const costUsd = record(provider, request.model, result);
-              return { ok: true, ...result, costUsd };
-            } catch (err) {
-              // Modèle retiré ou inconnu (champ libre) : on prend le plus récent
-              // proposé par le fournisseur, on réessaie une fois et on le garde.
-              const replacement =
-                err instanceof AiError && err.code === 'notFound'
-                  ? await findReplacement(provider, apiKey, request.model)
-                  : null;
-              if (!replacement) throw err;
-              const result = await p.translate({ ...request, model: replacement });
-              save(capture.id, request.targetLang, result);
-              const costUsd = record(provider, replacement, result);
-              ctx.settings.set({ aiModels: { [provider]: replacement } as AppSettings['aiModels'] });
-              return { ok: true, ...result, costUsd };
-            }
-          } catch (err) {
-            return fail(err);
+      ipcMain.handle('ai:translate', async (_e, captureId: unknown, targetLang?: unknown): Promise<AiTranslateResult> => {
+        const settings = ctx.settings.get();
+        const provider = isProvider(settings.aiProvider) ? settings.aiProvider : 'anthropic';
+        const p = providers[provider];
+        const model = resolveModel(p.info, settings.aiModels[provider]);
+        const apiKey = keys.get(provider);
+        const capture = typeof captureId === 'string' ? repo.get(captureId) : null;
+        const target = cleanTargetLang(typeof targetLang === 'string' ? targetLang : settings.aiTargetLang);
+        const attempt = (requested: string) => track(provider, requested, 'translation', async () => {
+          if (!apiKey) throw new AiError('noKey');
+          if (!capture || !fs.existsSync(capture.path)) throw new AiError('notFound');
+          return p.translate({ image: prepareImage(capture.path), apiKey, model: requested, targetLang: target });
+        });
+        try {
+          let reply;
+          try { reply = await attempt(model); }
+          catch (err) {
+            const replacement = apiKey && err instanceof AiError && err.code === 'notFound'
+              ? await findReplacement(provider, apiKey, model) : null;
+            if (!replacement) throw err;
+            reply = await attempt(replacement);
+            ctx.settings.set({ aiModels: { [provider]: replacement } as AppSettings['aiModels'] });
           }
-        }
-      );
+          if (capture) save(capture.id, target, reply.result);
+          return { ok: true, ...reply.result, costUsd: reply.costUsd };
+        } catch (err) { return fail(err); }
+      });
 
       // Texte libre pour les autres modules (ex. rangement du bureau proposé
       // par l'IA) : même fournisseur, même modèle et même clé que la traduction.
@@ -288,10 +321,14 @@ export function createAiMainModule(): MainToolModule {
           try {
             const provider = ctx.settings.get().aiProvider;
             const apiKey = keys.get(provider);
-            if (!apiKey) throw new AiError('noKey');
             const p = providers[provider];
             const model = resolveModel(p.info, ctx.settings.get().aiModels[provider]);
-            req.resolve(await textCall(provider, apiKey, model, req.system, req.prompt));
+            const { result } = await track(provider, model, req.operation === 'desktop' ? 'desktop' : 'text',
+              async () => {
+                if (!apiKey) throw new AiError('noKey');
+                return textCall(provider, apiKey, model, req.system, req.prompt);
+              });
+            req.resolve(result.text);
           } catch (err) {
             req.reject(err instanceof Error ? err : new Error(String(err)));
           }
@@ -303,46 +340,11 @@ export function createAiMainModule(): MainToolModule {
 
 /** Requête de texte libre envoyée par un autre module via ctx.events ('ai:text'). */
 export interface AiTextRequest {
+  operation?: 'desktop' | 'text';
   system: string;
   prompt: string;
   resolve(text: string): void;
   reject(err: Error): void;
-}
-
-async function textCall(provider: AiProviderId, apiKey: string, model: string, system: string, prompt: string): Promise<string> {
-  const post = async (url: string, headers: Record<string, string>, body: unknown): Promise<unknown> => {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...headers },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(120_000)
-    });
-    const json = await res.json().catch(() => null);
-    if (!res.ok) throw httpError(res.status, json);
-    return json;
-  };
-  if (provider === 'anthropic') {
-    const j = (await post(
-      'https://api.anthropic.com/v1/messages',
-      { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-      { model, max_tokens: 4000, system, messages: [{ role: 'user', content: prompt }] }
-    )) as { content?: Array<{ type: string; text?: string }> };
-    return (j.content ?? []).map((c) => c.text ?? '').join('');
-  }
-  if (provider === 'openai') {
-    const j = (await post(
-      'https://api.openai.com/v1/chat/completions',
-      { Authorization: `Bearer ${apiKey}` },
-      { model, messages: [{ role: 'system', content: system }, { role: 'user', content: prompt }] }
-    )) as { choices?: Array<{ message?: { content?: string } }> };
-    return j.choices?.[0]?.message?.content ?? '';
-  }
-  const j = (await post(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
-    { 'x-goog-api-key': apiKey },
-    { systemInstruction: { parts: [{ text: system }] }, contents: [{ role: 'user', parts: [{ text: prompt }] }] }
-  )) as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
-  return (j.candidates?.[0]?.content?.parts ?? []).map((x) => x.text ?? '').join('');
 }
 
 /**

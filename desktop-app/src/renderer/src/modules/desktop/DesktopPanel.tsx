@@ -13,13 +13,14 @@ import {
   type ZoneStyle,
   type ZoneView
 } from '../../../../common/desktop';
-import { ui } from '../../encre/ui';
+import { Aide, ui } from '../../encre/ui';
 import { Icon } from '../../host/Icon';
 import { RegLigne, RegSwitch } from '../../host/reglages';
 import { useI18n } from '../../i18n';
 import { LayoutsTab, PagesBar } from './LayoutsPanel';
 import { LogTab, RulesTab } from './RulesPanel';
 import { AiPlanSheet } from './AiPlanSheet';
+import { ZoneGeometry } from './ZoneGeometry';
 import { StyleEditor } from './StyleEditor';
 import { EncreColorPicker } from './EncreColorPicker';
 import { NotesLibraryPanel } from './NotesLibraryPanel';
@@ -148,20 +149,21 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
   return (
     <div className="carte bz-det">
       <div className="lbl-mono">{zone.title}</div>
+      <ZoneGeometry zone={zone} state={state} />
       {zone.kind === 'widget' ? (
         <>
           <WidgetDetail zone={zone} />
           {zone.widget === 'ha-chart' && (
-            <RegLigne titre="Période du graphique">
+            <RegLigne titre={t('desktop.widget.period')} aide={<Aide titre={t('desktop.widget.period')} texte={t('desktop.widget.period.help')} />}>
               <select className="select sm" value={zone.chartHours} onChange={(e) => up({ chartHours: Number(e.target.value) as Zone['chartHours'] })}>
                 <option value={24}>24 heures</option><option value={168}>7 jours</option>
               </select>
             </RegLigne>
           )}
-          <RegLigne titre="Couleur d'accent du widget">
+          <RegLigne titre={t('desktop.widget.color')} aide={<Aide titre={t('desktop.widget.color')} texte={t('desktop.widget.color.help')} />}>
             <EncreColorPicker value={zone.color} label="Couleur d'accent du widget" onChange={(color) => up({ color })} onPick={() => void window.api.desktop.pickColor(zone.id, 'color')} onReset={() => up({ color: null })} />
           </RegLigne>
-          <RegLigne titre="Affichage du widget">
+          <RegLigne titre={t('desktop.widget.layout')} aide={<Aide titre={t('desktop.widget.layout')} texte={t('desktop.widget.layout.help')} />}>
             <select className="select sm" value={zone.widgetLayout} onChange={(e) => up({ widgetLayout: e.target.value as Zone['widgetLayout'] })}>
               <option value="cards">Cartes</option>
               <option value="compact">Compact</option>
@@ -171,7 +173,7 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
         </>
       ) : (
         <>
-          <RegLigne titre={t('desktop.menu.view')}>
+          <RegLigne titre={t('desktop.menu.view')} aide={<Aide titre={t('desktop.menu.view')} texte={t('desktop.menu.view.help')} />}>
             <div className="seg">
               {(['icons', 'list', 'details'] as ZoneView[]).map((v) => (
                 <button key={v} className={zone.view === v ? 'on' : ''} onClick={() => up({ view: v })}>
@@ -180,7 +182,7 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
               ))}
             </div>
           </RegLigne>
-          <RegLigne titre={t('desktop.menu.sort')} htmlFor="bz-sort">
+          <RegLigne titre={t('desktop.menu.sort')} aide={<Aide titre={t('desktop.menu.sort')} texte={t('desktop.menu.sort.help')} />} htmlFor="bz-sort">
             <select id="bz-sort" className="select sm" style={{ width: 150 }} value={zone.sort} onChange={(e) => up({ sort: e.target.value as ZoneSort })}>
               {sorts.map((s) => (
                 <option key={s} value={s}>
@@ -189,7 +191,7 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
               ))}
             </select>
           </RegLigne>
-          <RegLigne titre={t('desktop.menu.iconSize')}>
+          <RegLigne titre={t('desktop.menu.iconSize')} aide={<Aide titre={t('desktop.menu.iconSize')} texte={t('desktop.menu.iconSize.help')} />}>
             <div className="seg">
               {(['small', 'medium', 'large'] as ZoneIconSize[]).map((v) => (
                 <button key={v} className={zone.iconSize === v ? 'on' : ''} onClick={() => up({ iconSize: v })}>
@@ -198,7 +200,7 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
               ))}
             </div>
           </RegLigne>
-          <RegLigne titre={t('desktop.detail.maxItems')} htmlFor="bz-max">
+          <RegLigne titre={t('desktop.detail.maxItems')} aide={<Aide titre={t('desktop.detail.maxItems')} texte={t('desktop.detail.maxItems.help')} />} htmlFor="bz-max">
             <select id="bz-max" className="select sm" style={{ width: 150 }} value={zone.maxItems} onChange={(e) => up({ maxItems: Number(e.target.value) })}>
               {[0, 6, 12, 24, 48].map((n) => (
                 <option key={n} value={n}>
@@ -209,19 +211,19 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
           </RegLigne>
         </>
       )}
-      <RegSwitch titre={t('desktop.menu.lock')} sous={t('desktop.detail.lockSub')} checked={zone.locked} onChange={(v) => up({ locked: v })} />
+      <RegSwitch titre={t('desktop.menu.lock')} aide={<Aide titre={t('desktop.menu.lock')} texte={t('desktop.menu.lock.help')} />} sous={t('desktop.detail.lockSub')} checked={zone.locked} onChange={(v) => up({ locked: v })} />
       {!zone.tabOf && (
         <>
-          <RegSwitch titre={t('desktop.menu.roll')} sous={t('desktop.detail.rollSub')} checked={zone.rolled} onChange={(v) => up({ rolled: v })} />
+          <RegSwitch titre={t('desktop.menu.roll')} aide={<Aide titre={t('desktop.menu.roll')} texte={t('desktop.menu.roll.help')} />} sous={t('desktop.detail.rollSub')} checked={zone.rolled} onChange={(v) => up({ rolled: v })} />
           <RegSwitch
-            titre={t('desktop.menu.keepOnHide')}
+            titre={t('desktop.menu.keepOnHide')} aide={<Aide titre={t('desktop.menu.keepOnHide')} texte={t('desktop.menu.keepOnHide.help')} />}
             sous={t('desktop.detail.keepOnHideSub')}
             checked={zone.keepOnHide}
             onChange={(v) => up({ keepOnHide: v })}
           />
           {state.settings.pages.length > 1 && (
             <>
-              <RegLigne titre={t('desktop.page.of')} htmlFor="bz-page">
+              <RegLigne titre={t('desktop.page.of')} aide={<Aide titre={t('desktop.page.of')} texte={t('desktop.page.of.help')} />} htmlFor="bz-page">
                 <select
                   id="bz-page"
                   className="select sm"
@@ -237,7 +239,7 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
                   ))}
                 </select>
               </RegLigne>
-              <RegSwitch titre={t('desktop.page.all')} sous={t('desktop.page.allSub')} checked={zone.allPages} onChange={(v) => up({ allPages: v })} />
+              <RegSwitch titre={t('desktop.page.all')} aide={<Aide titre={t('desktop.page.all')} texte={t('desktop.page.all.help')} />} sous={t('desktop.page.allSub')} checked={zone.allPages} onChange={(v) => up({ allPages: v })} />
             </>
           )}
           <button className="btn sm gh bs-toggle" aria-expanded={showStyle} onClick={() => setShowStyle(!showStyle)}>
@@ -260,8 +262,8 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
       )}
       {zone.kind === 'folder' ? (
         <>
-          <RegSwitch titre={t('desktop.menu.navigate')} sous={zone.folder ?? ''} checked={zone.navigate} onChange={(v) => up({ navigate: v })} />
-          <RegLigne titre={t('desktop.detail.shelf')} sous={t('desktop.detail.shelfSub')} htmlFor="bz-shelf">
+          <RegSwitch titre={t('desktop.menu.navigate')} aide={<Aide titre={t('desktop.menu.navigate')} texte={t('desktop.menu.navigate.help')} />} sous={zone.folder ?? ''} checked={zone.navigate} onChange={(v) => up({ navigate: v })} />
+          <RegLigne titre={t('desktop.detail.shelf')} aide={<Aide titre={t('desktop.detail.shelf')} texte={t('desktop.detail.shelf.help')} />} sous={t('desktop.detail.shelfSub')} htmlFor="bz-shelf">
             <select
               id="bz-shelf"
               className="select sm"
@@ -278,7 +280,7 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
           </RegLigne>
         </>
       ) : zone.kind === 'widget' ? null : (
-        <RegSwitch titre={t('desktop.menu.inbox')} sous={t('desktop.detail.inboxSub')} checked={zone.inbox} onChange={(v) => up({ inbox: v })} />
+        <RegSwitch titre={t('desktop.menu.inbox')} aide={<Aide titre={t('desktop.menu.inbox')} texte={t('desktop.menu.inbox.help')} />} sous={t('desktop.detail.inboxSub')} checked={zone.inbox} onChange={(v) => up({ inbox: v })} />
       )}
     </div>
   );
@@ -632,17 +634,17 @@ export function DesktopSettingsPanel(): ReactNode {
   const set = (patch: Partial<typeof s>): void => void window.api.desktop.setSettings(patch);
   return (
     <div>
-      <RegSwitch titre={t('desktop.set.enabled')} sous={t('desktop.set.enabledSub')} checked={s.enabled} onChange={(v) => set({ enabled: v })} />
+      <RegSwitch titre={t('desktop.set.enabled')} aide={<Aide titre={t('desktop.set.enabled')} texte={t('desktop.set.enabled.help')} />} sous={t('desktop.set.enabledSub')} checked={s.enabled} onChange={(v) => set({ enabled: v })} />
       <RegSwitch
-        titre={t('desktop.set.hideNative')}
+        titre={t('desktop.set.hideNative')} aide={<Aide titre={t('desktop.set.hideNative')} texte={t('desktop.set.hideNative.help')} />}
         sous={t('desktop.set.hideNativeSub')}
         checked={s.hideNativeIcons}
         disabled={!state.native}
         onChange={(v) => set({ hideNativeIcons: v })}
       />
-      <RegSwitch titre={t('desktop.set.contextMenu')} sous={t('desktop.set.contextMenuSub')} checked={s.contextMenu} onChange={(v) => set({ contextMenu: v })} />
-      <RegSwitch titre={t('desktop.set.snap')} sous={t('desktop.set.snapSub')} checked={s.snap} onChange={(v) => set({ snap: v })} />
-      <RegLigne titre={t('desktop.set.gap')} htmlFor="bz-gap">
+      <RegSwitch titre={t('desktop.set.contextMenu')} aide={<Aide titre={t('desktop.set.contextMenu')} texte={t('desktop.set.contextMenu.help')} />} sous={t('desktop.set.contextMenuSub')} checked={s.contextMenu} onChange={(v) => set({ contextMenu: v })} />
+      <RegSwitch titre={t('desktop.set.snap')} aide={<Aide titre={t('desktop.set.snap')} texte={t('desktop.set.snap.help')} />} sous={t('desktop.set.snapSub')} checked={s.snap} onChange={(v) => set({ snap: v })} />
+      <RegLigne titre={t('desktop.set.gap')} aide={<Aide titre={t('desktop.set.gap')} texte={t('desktop.set.gap.help')} />} htmlFor="bz-gap">
         <input id="bz-gap" type="range" min={0} max={40} step={2} value={s.gap} disabled={!s.snap} onChange={(e) => set({ gap: Number(e.target.value) })} />
         <span className="mono" style={{ width: 44, textAlign: 'right' }}>
           {s.gap} px
@@ -652,7 +654,7 @@ export function DesktopSettingsPanel(): ReactNode {
       <div className="lbl-mono" style={{ margin: '18px 0 6px' }}>
         {t('desktop.set.secRoll')}
       </div>
-      <RegLigne titre={t('desktop.set.rollOpen')} sous={t('desktop.set.rollOpenSub')}>
+      <RegLigne titre={t('desktop.set.rollOpen')} aide={<Aide titre={t('desktop.set.rollOpen')} texte={t('desktop.set.rollOpen.help')} />} sous={t('desktop.set.rollOpenSub')}>
         <div className="seg">
           {(['hover', 'delay', 'click'] as const).map((v) => (
             <button key={v} className={s.rollOpen === v ? 'on' : ''} onClick={() => set({ rollOpen: v })}>
@@ -662,7 +664,7 @@ export function DesktopSettingsPanel(): ReactNode {
         </div>
       </RegLigne>
       {s.rollOpen === 'delay' && (
-        <RegLigne titre={t('desktop.set.rollDelay')} htmlFor="bz-rd">
+        <RegLigne titre={t('desktop.set.rollDelay')} aide={<Aide titre={t('desktop.set.rollDelay')} texte={t('desktop.set.rollDelay.help')} />} htmlFor="bz-rd">
           <input id="bz-rd" type="range" min={100} max={2000} step={100} value={s.rollDelay} onChange={(e) => set({ rollDelay: Number(e.target.value) })} />
           <span className="mono" style={{ width: 60, textAlign: 'right' }}>
             {s.rollDelay} ms
@@ -670,12 +672,12 @@ export function DesktopSettingsPanel(): ReactNode {
         </RegLigne>
       )}
       <RegSwitch
-        titre={t('desktop.set.autoRollEdge')}
+        titre={t('desktop.set.autoRollEdge')} aide={<Aide titre={t('desktop.set.autoRollEdge')} texte={t('desktop.set.autoRollEdge.help')} />}
         sous={t('desktop.set.autoRollEdgeSub')}
         checked={s.autoRollEdge}
         onChange={(v) => set({ autoRollEdge: v })}
       />
-      <RegLigne titre={t('desktop.set.tabStyle')}>
+      <RegLigne titre={t('desktop.set.tabStyle')} aide={<Aide titre={t('desktop.set.tabStyle')} texte={t('desktop.set.tabStyle.help')} />}>
         <div className="seg">
           {(['tabs', 'segments', 'menu'] as const).map((v) => (
             <button key={v} className={s.tabStyle === v ? 'on' : ''} onClick={() => set({ tabStyle: v })}>
@@ -689,13 +691,13 @@ export function DesktopSettingsPanel(): ReactNode {
         {t('desktop.set.secHide')}
       </div>
       <RegSwitch
-        titre={t('desktop.set.dblClickHide')}
+        titre={t('desktop.set.dblClickHide')} aide={<Aide titre={t('desktop.set.dblClickHide')} texte={t('desktop.set.dblClickHide.help')} />}
         sous={t(state.native ? 'desktop.set.dblClickHideSub' : 'desktop.native.off')}
         checked={s.dblClickHide}
         disabled={!state.native}
         onChange={(v) => set({ dblClickHide: v })}
       />
-      <RegLigne titre={t('desktop.set.autoHide')} sous={t('desktop.set.autoHideSub')} htmlFor="bz-ah">
+      <RegLigne titre={t('desktop.set.autoHide')} aide={<Aide titre={t('desktop.set.autoHide')} texte={t('desktop.set.autoHide.help')} />} sous={t('desktop.set.autoHideSub')} htmlFor="bz-ah">
         <select id="bz-ah" className="select sm" style={{ width: 150 }} value={s.autoHideSec} onChange={(e) => set({ autoHideSec: Number(e.target.value) })}>
           {[0, 30, 60, 120, 300, 600].map((v) => (
             <option key={v} value={v}>
@@ -704,12 +706,12 @@ export function DesktopSettingsPanel(): ReactNode {
           ))}
         </select>
       </RegLigne>
-      <RegSwitch titre={t('desktop.set.edgeReveal')} sous={t('desktop.set.edgeRevealSub')} checked={s.edgeReveal} onChange={(v) => set({ edgeReveal: v })} />
+      <RegSwitch titre={t('desktop.set.edgeReveal')} aide={<Aide titre={t('desktop.set.edgeReveal')} texte={t('desktop.set.edgeReveal.help')} />} sous={t('desktop.set.edgeRevealSub')} checked={s.edgeReveal} onChange={(v) => set({ edgeReveal: v })} />
 
       <div className="lbl-mono" style={{ margin: '18px 0 6px' }}>
         {t('desktop.set.secPeek')}
       </div>
-      <RegLigne titre={t('desktop.set.peekShortcut')} sous={t('desktop.set.peekShortcutSub')}>
+      <RegLigne titre={t('desktop.set.peekShortcut')} aide={<Aide titre={t('desktop.set.peekShortcut')} texte={t('desktop.set.peekShortcut.help')} />} sous={t('desktop.set.peekShortcutSub')}>
         <span className="kbd">
           {s.peekShortcut
             .replace(/\+/g, ' + ')
@@ -717,7 +719,7 @@ export function DesktopSettingsPanel(): ReactNode {
             .replace('Space', lang === 'fr' ? 'Espace' : 'Space')}
         </span>
       </RegLigne>
-      <RegLigne titre={t('desktop.set.peekMode')}>
+      <RegLigne titre={t('desktop.set.peekMode')} aide={<Aide titre={t('desktop.set.peekMode')} texte={t('desktop.set.peekMode.help')} />}>
         <div className="seg">
           {(['hold', 'toggle'] as const).map((v) => (
             <button key={v} className={s.peekMode === v ? 'on' : ''} onClick={() => set({ peekMode: v })}>
@@ -726,7 +728,7 @@ export function DesktopSettingsPanel(): ReactNode {
           ))}
         </div>
       </RegLigne>
-      <RegLigne titre={t('desktop.set.hotCorner')} sous={t('desktop.set.hotCornerSub')} htmlFor="bz-hc">
+      <RegLigne titre={t('desktop.set.hotCorner')} aide={<Aide titre={t('desktop.set.hotCorner')} texte={t('desktop.set.hotCorner.help')} />} sous={t('desktop.set.hotCornerSub')} htmlFor="bz-hc">
         <select
           id="bz-hc"
           className="select sm"
@@ -746,19 +748,19 @@ export function DesktopSettingsPanel(): ReactNode {
         {t('desktop.set.secPages')}
       </div>
       <RegSwitch
-        titre={t('desktop.set.pageWheel')}
+        titre={t('desktop.set.pageWheel')} aide={<Aide titre={t('desktop.set.pageWheel')} texte={t('desktop.set.pageWheel.help')} />}
         sous={t('desktop.set.pageWheelSub')}
         checked={s.pageWheel}
         disabled={!state.native}
         onChange={(v) => set({ pageWheel: v })}
       />
       <RegSwitch
-        titre={t('desktop.set.pageIndicator')}
+        titre={t('desktop.set.pageIndicator')} aide={<Aide titre={t('desktop.set.pageIndicator')} texte={t('desktop.set.pageIndicator.help')} />}
         sous={t('desktop.set.pageIndicatorSub')}
         checked={s.pageIndicator}
         onChange={(v) => set({ pageIndicator: v })}
       />
-      <RegLigne titre={t('desktop.set.pageKeys')} sous={t('desktop.set.peekShortcutSub')}>
+      <RegLigne titre={t('desktop.set.pageKeys')} aide={<Aide titre={t('desktop.set.pageKeys')} texte={t('desktop.set.pageKeys.help')} />} sous={t('desktop.set.peekShortcutSub')}>
         <span className="kbd">{keyLabel(s.pagePrevShortcut)}</span>
         <span className="kbd">{keyLabel(s.pageNextShortcut)}</span>
       </RegLigne>
@@ -780,7 +782,7 @@ export function DesktopSettingsPanel(): ReactNode {
         onSaveStyle={() => void saveStyleAs(t, s.defaultStyle)}
       />
       {s.savedStyles.length > 0 && (
-        <RegLigne titre={t('desktop.style.savedList')}>
+        <RegLigne titre={t('desktop.style.savedList')} aide={<Aide titre={t('desktop.style.savedList')} texte={t('desktop.style.savedList.help')} />}>
           <div className="chips">
             {s.savedStyles.map((st) => (
               <button

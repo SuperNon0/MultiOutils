@@ -336,7 +336,7 @@ export function createDesktopMainModule(): MainToolModule {
       if (!wanted.has(z.id)) continue;
       const bounds = windowBounds(z);
       let w = windows.get(z.id);
-      if (w) w.setBounds(bounds);
+      if (w) w.setBounds(bounds, w.current()?.host.rolled !== z.rolled);
       else {
         w = new ZoneWindow(z.id, bounds, () => native);
         if (desktopFront) w.overDesktop(true);
@@ -633,7 +633,7 @@ export function createDesktopMainModule(): MainToolModule {
   const askAi = (system: string, prompt: string): Promise<string> =>
     new Promise((resolve, reject) => {
       if (ctx.events.listenerCount('ai:text') === 0) return reject(new Error('noAi'));
-      ctx.events.emit('ai:text', { system, prompt, resolve, reject });
+      ctx.events.emit('ai:text', { operation: 'desktop', system, prompt, resolve, reject });
     });
   const aiPlan = async (): Promise<{ ok: true; plan: AiPlanZone[] } | { ok: false; error: string }> => {
     desktop = await listDesktop();
@@ -935,7 +935,7 @@ export function createDesktopMainModule(): MainToolModule {
     if (!host || !host.rolled || expanded.has(hostId) === on) return;
     if (on) expanded.add(hostId);
     else expanded.delete(hostId);
-    windows.get(hostId)?.setBounds(windowBounds(host));
+    windows.get(hostId)?.setBounds(windowBounds(host), true);
     sendAll();
   };
 

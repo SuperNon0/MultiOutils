@@ -6,6 +6,7 @@ import type {
   AppSettings
 } from '../../../common/types';
 import { Aide, ui } from '../encre/ui';
+import { JournalIA } from './JournalIA';
 import { DepensesIA } from './DepensesIA';
 import { useI18n } from '../i18n';
 import { Icon } from './Icon';
@@ -120,7 +121,7 @@ export function TraductionSection({
       <p className="intro">{t('ai.intro')}</p>
 
       <RegSec>
-        <RegLigne titre={t('ai.provider')}>
+        <RegLigne titre={t('ai.provider')} aide={<Aide titre={t('ai.provider')} texte={t('ai.provider.help')} />}>
           <div className="seg reg-seg" role="group" aria-label={t('ai.provider')}>
             {config.providers.map((p) => (
               <button
@@ -137,7 +138,7 @@ export function TraductionSection({
         </RegLigne>
 
         {provider.fixedModels ? (
-          <RegLigne titre={t('ai.model')}>
+          <RegLigne titre={t('ai.model')} aide={<Aide titre={t('ai.model')} texte={t('ai.model.help.anthropic')} />}>
             <select
               className="select reg-select"
               value={model}
@@ -181,7 +182,7 @@ export function TraductionSection({
           </RegLigne>
         )}
 
-        <RegLigne titre={t('ai.target')} sous={t('ai.target.sub')}>
+        <RegLigne titre={t('ai.target')} sous={t('ai.target.sub')} aide={<Aide titre={t('ai.target')} texte={t('ai.target.help')} />}>
           <input
             className="input reg-select"
             list="ai-langues"
@@ -266,6 +267,7 @@ export function TraductionSection({
       </div>
 
       <DepensesIA provider={provider} model={model} settings={settings} update={update} />
+      <JournalIA />
     </>
   );
 }

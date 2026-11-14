@@ -51,8 +51,12 @@ export function DepensesIA({
 
   const reload = (): Promise<void> => window.api.ai.getUsage(provider.id).then(setUsage);
   useEffect(() => {
-    void reload();
-  }, [provider.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    let alive = true;
+    const refresh = (): void => { void window.api.ai.getUsage(provider.id).then((s) => { if (alive) setUsage(s); }); };
+    refresh();
+    const off = window.api.ai.onRequestsChanged(refresh);
+    return () => { alive = false; off(); };
+  }, [provider.id, settings.aiPrices]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     setInPrice(custom ? String(custom.input) : '');
     setOutPrice(custom ? String(custom.output) : '');

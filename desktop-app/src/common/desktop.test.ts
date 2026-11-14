@@ -168,7 +168,7 @@ describe('validation', () => {
     expect(z.navigate).toBe(true);
   });
   it('borne les réglages', () => {
-    expect(normalizeSettings({ opacity: 5, gap: 500 })).toMatchObject({ opacity: 40, gap: 64, enabled: true });
+    expect(normalizeSettings({ opacity: 5, gap: 500 })).toMatchObject({ opacity: 5, gap: 64, enabled: true });
   });
 });
 

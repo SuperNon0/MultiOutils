@@ -232,6 +232,9 @@ export interface PreloadApi {
   };
   /** Traduction IA d'une capture (la clé API ne quitte jamais le process main). */
   ai: {
+    requests(provider?: import('./types').AiProviderId): Promise<import('./types').AiRequestEntry[]>;
+    clearRequests(): Promise<void>;
+    onRequestsChanged(cb: () => void): Unsubscribe;
     getConfig(): Promise<import('./types').AiConfig>;
     /** '' efface la clé ; refusé si le chiffrement du système est indisponible. */
     setKey(provider: import('./types').AiProviderId, key: string): Promise<import('./types').AiSimpleResult>;
