@@ -65,7 +65,7 @@ export interface PreloadApi {
     getState(): Promise<import('./desktop').DesktopState>;
     setSettings(patch: Partial<import('./desktop').DesktopSettings>): Promise<import('./desktop').DesktopState>;
     /** Crée une zone à un emplacement libre (zone-dossier : choix du dossier). */
-    createZone(kind: import('./desktop').ZoneKind): Promise<import('./desktop').Zone | null>;
+    createZone(kind: import('./desktop').ZoneKind | import('./desktop').ZonePreset): Promise<import('./desktop').Zone | null>;
     /** Ouvre le calque pour dessiner une zone sur l'écran. */
     draw(): Promise<void>;
     /** Rangement de départ (Programmes, Dossiers, Documents, Images, À trier). */
@@ -139,6 +139,8 @@ export interface PreloadApi {
       renameItem(path: string, name: string): Promise<boolean>;
       startDrag(paths: string[]): void;
       menu(target: { path?: string } | null): void;
+      /** Zone « Notes » : enregistre le texte. */
+      note(text: string): void;
     };
     /** Calque de dessin. */
     drawDone(payload: { displayId: string; rect: import('./desktop').Rect; kind: import('./desktop').ZoneKind }): void;
@@ -382,6 +384,9 @@ export interface PreloadApi {
   };
   /** Liaison PC ↔ Home Assistant (pop-ups, mini tableau de bord, capteurs). */
   ha: {
+    /** Entités pilotables (zone Home Assistant du bureau). */
+    entities(): Promise<{ ok: true; list: import('./desktop').HaEntity[] } | { ok: false; error: string }>;
+    toggle(entityId: string): Promise<boolean>;
     status(): Promise<import('./launcher').HaLinkStatus>;
     onStatus(cb: (status: import('./launcher').HaLinkStatus) => void): Unsubscribe;
     /** Oublie l'enregistrement et se réenregistre (si la liaison est active). */

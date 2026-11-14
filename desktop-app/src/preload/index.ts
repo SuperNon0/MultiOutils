@@ -121,7 +121,8 @@ const api: PreloadApi = {
       rename: (title, tabId) => ipcRenderer.invoke('desktop:zone:rename', title, tabId),
       renameItem: (p, name) => ipcRenderer.invoke('desktop:zone:renameItem', p, name),
       startDrag: (paths) => ipcRenderer.send('desktop:zone:startDrag', paths),
-      menu: (target) => ipcRenderer.send('desktop:zone:menu', target)
+      menu: (target) => ipcRenderer.send('desktop:zone:menu', target),
+      note: (text) => ipcRenderer.send('desktop:zone:note', text)
     },
     drawDone: (payload) => ipcRenderer.send('desktop:draw:done', payload),
     drawCancel: () => ipcRenderer.send('desktop:draw:cancel')
@@ -308,6 +309,8 @@ const api: PreloadApi = {
     onState: (cb) => subscribe('launcher:state', cb)
   },
   ha: {
+    entities: () => ipcRenderer.invoke('ha:entities'),
+    toggle: (entityId) => ipcRenderer.invoke('ha:toggle', entityId),
     status: () => ipcRenderer.invoke('ha:status'),
     onStatus: (cb) => subscribe('ha:status', cb),
     forget: () => ipcRenderer.invoke('ha:forget'),

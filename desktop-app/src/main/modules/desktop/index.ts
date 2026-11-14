@@ -23,6 +23,7 @@ import {
   Menu,
   nativeImage,
   powerMonitor,
+  safeStorage,
   screen,
   shell,
   type IpcMainEvent,
@@ -51,10 +52,13 @@ import {
   normalizeSettings,
   normalizeZone,
   renameItem,
+  shelfSweep,
+  ZONE_PRESETS,
   snapRect,
   sortEntries,
   ZONE_COLORS,
   ZONE_TITLE_HEIGHT,
+  type CloudItem,
   type DesktopBundle,
   type DesktopEntry,
   type DesktopSettings,
@@ -67,6 +71,7 @@ import {
   type ZoneStyle,
   type ZoneIconSize,
   type ZoneKind,
+  type ZonePreset,
   type ZoneSort,
   type ZoneTab,
   type ZoneView,
@@ -219,14 +224,19 @@ export function createDesktopMainModule(): MainToolModule {
   /* ---------------------------------------------------------- contenu */
   const folderPath = (z: Zone): string | null => (z.kind === 'folder' ? (nav.get(z.id) ?? z.folder) : null);
 
+  const cap = <T>(list: T[], z: Zone): T[] => (z.maxItems > 0 ? list.slice(0, z.maxItems) : list);
   const contentFor = (z: Zone, dist: Map<string, DesktopEntry[]>): ZoneContent => {
+    if (z.kind === 'widget') {
+      const base: ZoneContent = { zoneId: z.id, path: null, canGoUp: false, entries: [], error: null };
+      return z.widget === 'cloud' ? { ...base, cloud: cloudLog, cloudReady: remoteConfig() !== null } : base;
+    }
     if (z.kind === 'shortcuts') {
-      const entries = sortEntries(dist.get(z.id) ?? [], z.sort, z.sortDesc, { manual: z.items, opens });
+      const entries = cap(sortEntries(dist.get(z.id) ?? [], z.sort, z.sortDesc, { manual: z.items, opens }), z);
       return { zoneId: z.id, path: null, canGoUp: false, entries, error: null };
     }
     const p = folderPath(z);
     const cached = p ? folderCache.get(p) : undefined;
-    const entries = sortEntries(cached?.entries ?? [], z.sort === 'manual' ? 'name' : z.sort, z.sortDesc, { opens });
+    const entries = cap(sortEntries(cached?.entries ?? [], z.sort === 'manual' ? 'name' : z.sort, z.sortDesc, { opens }), z);
     const canGoUp = !!p && !!z.folder && path.resolve(p).toLowerCase() !== path.resolve(z.folder).toLowerCase();
     return { zoneId: z.id, path: p, canGoUp, entries, error: p ? (cached?.error ?? null) : 'missing' };
   };
@@ -247,7 +257,7 @@ export function createDesktopMainModule(): MainToolModule {
       title: z.title,
       color: z.color,
       kind: z.kind,
-      count: z.kind === 'shortcuts' ? (dist.get(z.id)?.length ?? 0) : (folderCache.get(folderPath(z) ?? '')?.entries.length ?? 0)
+      count: z.kind === 'shortcuts' ? (dist.get(z.id)?.length ?? 0) : z.kind === 'widget' ? 0 : (folderCache.get(folderPath(z) ?? '')?.entries.length ?? 0)
     }));
 
   let lastDist = new Map<string, DesktopEntry[]>();
@@ -396,6 +406,129 @@ export function createDesktopMainModule(): MainToolModule {
     return zone;
   };
 
+  /** Zones toutes prêtes (étape 5) : captures, étagère et zones spéciales. */
+  const createPreset = (preset: ZonePreset, bounds: Zone['bounds'] | null): Zone => {
+    const b = bounds ?? placeNew(null);
+    const extra: Partial<Zone> = { color: ZONE_COLORS[zones.length % ZONE_COLORS.length], pageId: settings.activePage };
+    const title = t(`desktop.preset.${preset}`);
+    let zone: Zone;
+    if (preset === 'captures') {
+      const dir = ctx.settings.get().storageDir;
+      fs.mkdirSync(dir, { recursive: true });
+      zone = newZone(randomUUID(), 'folder', title, b, { ...extra, folder: dir, sort: 'date', sortDesc: true, view: 'icons', iconSize: 'large', maxItems: 12, navigate: false });
+    } else if (preset === 'shelf') {
+      const dir = path.join(app.getPath('userData'), 'etagere');
+      fs.mkdirSync(dir, { recursive: true });
+      zone = newZone(randomUUID(), 'folder', title, b, { ...extra, folder: dir, shelfDays: 3, view: 'list', sort: 'date', sortDesc: true, navigate: false });
+    } else {
+      zone = newZone(randomUUID(), 'widget', title, b, { ...extra, widget: preset });
+    }
+    setZones([...zones, zone]);
+    return zone;
+  };
+
+  /* ------------------------------------------------------- étagère */
+  const SHELF_KEY = 'desktop.shelfSeen';
+  const sweepShelves = async (): Promise<void> => {
+    const shelves = zones.filter((z) => z.kind === 'folder' && z.shelfDays > 0 && z.folder);
+    if (shelves.length === 0) return;
+    let seen = kvGet<Record<string, number>>(SHELF_KEY, {});
+    const all: Record<string, number> = {};
+    let trashed = 0;
+    for (const z of shelves) {
+      let names: string[] = [];
+      try {
+        names = await fs.promises.readdir(z.folder as string);
+      } catch {
+        continue;
+      }
+      const present = names.map((n) => path.join(z.folder as string, n));
+      const r = shelfSweep(present, seen, z.shelfDays);
+      for (const p of r.expired) {
+        try {
+          await shell.trashItem(p);
+          trashed++;
+        } catch {
+          r.seen[p] = seen[p] ?? Date.now();
+        }
+      }
+      Object.assign(all, r.seen);
+    }
+    seen = all;
+    kvSet(SHELF_KEY, seen);
+    if (trashed > 0) scheduleRefresh(0);
+  };
+
+  /* ---------------------------------------------------- mini cloud */
+  const CLOUD_KEY = 'desktop.cloudLog';
+  let cloudLog: CloudItem[] = [];
+  const rawKv = (key: string): string | null => {
+    const row = ctx.db.prepare('SELECT value FROM settings WHERE key = ?').get(key) as { value: string } | undefined;
+    return row?.value ?? null;
+  };
+  /** Adresse et jeton du serveur MultiOutils (réglés dans Paramètres → Serveur). */
+  const remoteConfig = (): { url: string; token: string } | null => {
+    const url = rawKv('remote.url');
+    const stored = rawKv('remote.tokenEnc');
+    if (!url || !stored) return null;
+    let token: string | null = null;
+    if (stored.startsWith('enc:')) {
+      try {
+        token = safeStorage.decryptString(Buffer.from(stored.slice(4), 'base64'));
+      } catch {
+        token = null;
+      }
+    } else if (stored.startsWith('plain:')) token = stored.slice(6);
+    return token ? { url, token } : null;
+  };
+  const MIME: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.gif': 'image/gif', '.pdf': 'application/pdf' };
+  const cloudUpload = async (paths: string[]): Promise<void> => {
+    const remote = remoteConfig();
+    if (!remote) {
+      ctx.notify(t('desktop.cloud.title'), t('desktop.cloud.notConfigured'));
+      return;
+    }
+    for (const p of paths) {
+      let size = 0;
+      try {
+        const st = await fs.promises.stat(p);
+        if (st.isDirectory()) {
+          ctx.notify(t('desktop.cloud.title'), t('desktop.cloud.noFolders'));
+          continue;
+        }
+        size = st.size;
+      } catch {
+        continue;
+      }
+      const item: CloudItem = { name: path.basename(p), size, at: Date.now(), state: 'sending' };
+      cloudLog = [item, ...cloudLog].slice(0, 30);
+      sendAll();
+      try {
+        const buffer = await fs.promises.readFile(p);
+        const form = new FormData();
+        form.append('file', new Blob([buffer], { type: MIME[path.extname(p).toLowerCase()] ?? 'application/octet-stream' }), item.name);
+        form.append('source', 'minicloud');
+        form.append('folder', 'Mini cloud');
+        form.append('tags', '[]');
+        const res = await fetch(`${remote.url}/api/clips`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${remote.token}` },
+          body: form,
+          signal: AbortSignal.timeout(600_000)
+        });
+        if (res.status === 413) throw new Error(t('desktop.cloud.tooLarge'));
+        if (res.status === 401) throw new Error(t('desktop.cloud.badToken'));
+        if (res.status !== 201) throw new Error(`HTTP ${res.status}`);
+        item.state = 'sent';
+      } catch (err) {
+        item.state = 'error';
+        item.error = err instanceof Error ? err.message : String(err);
+      }
+      kvSet(CLOUD_KEY, cloudLog);
+      sendAll();
+    }
+  };
+
   /** Rangement de départ : Programmes, Dossiers, Documents, Images + « À trier ». */
   const starterLayout = async (): Promise<void> => {
     desktop = await listDesktop();
@@ -433,6 +566,10 @@ export function createDesktopMainModule(): MainToolModule {
   const dropInto = async (z: Zone, paths: string[], copy: boolean, before?: string): Promise<void> => {
     const valid = paths.filter((p) => typeof p === 'string' && fs.existsSync(p));
     if (valid.length === 0) return;
+    if (z.kind === 'widget') {
+      if (z.widget === 'cloud') await cloudUpload(valid);
+      return;
+    }
     if (z.kind === 'folder') {
       const dir = folderPath(z);
       if (!dir) return;
@@ -495,7 +632,8 @@ export function createDesktopMainModule(): MainToolModule {
       }))
     });
     const sorts: ZoneSort[] = z.kind === 'folder' ? ['name', 'type', 'size', 'date', 'opens'] : ['manual', 'name', 'type', 'size', 'date', 'opens'];
-    const items: MenuItemConstructorOptions[] = [
+    const widget = z.kind === 'widget';
+    const items: MenuItemConstructorOptions[] = widget ? [] : [
       radio<ZoneView>('desktop.menu.view', z.view, ['icons', 'list', 'details'], 'view'),
       {
         label: t('desktop.menu.sort'),
@@ -510,7 +648,9 @@ export function createDesktopMainModule(): MainToolModule {
           { label: t('desktop.menu.sortDesc'), type: 'checkbox' as const, checked: z.sortDesc, click: () => patchZone(z.id, { sortDesc: !z.sortDesc }) }
         ]
       },
-      radio<ZoneIconSize>('desktop.menu.iconSize', z.iconSize, ['small', 'medium', 'large'], 'iconSize'),
+      radio<ZoneIconSize>('desktop.menu.iconSize', z.iconSize, ['small', 'medium', 'large'], 'iconSize')
+    ];
+    items.push(
       {
         label: t('desktop.menu.color'),
         submenu: [
@@ -538,8 +678,26 @@ export function createDesktopMainModule(): MainToolModule {
         checked: host.keepOnHide,
         click: () => patchZone(host.id, { keepOnHide: !host.keepOnHide })
       }
-    ];
-    if (z.kind === 'shortcuts') {
+    );
+    if (widget) {
+      if (z.widget === 'cloud') {
+        const remote = remoteConfig();
+        items.push(
+          { type: 'separator' },
+          { label: t('desktop.cloud.openSite'), enabled: !!remote, click: () => remote && void shell.openExternal(remote.url) },
+          {
+            label: t('desktop.cloud.clear'),
+            enabled: cloudLog.length > 0,
+            click: () => {
+              cloudLog = cloudLog.filter((c) => c.state === 'sending');
+              kvSet(CLOUD_KEY, cloudLog);
+              sendAll();
+            }
+          }
+        );
+      }
+      if (z.widget === 'ha') items.push({ type: 'separator' }, { label: t('desktop.ha.pick'), click: () => ctx.showMainWindow({ view: 'tool', toolId: 'desktop' }) });
+    } else if (z.kind === 'shortcuts') {
       items.push({
         label: t('desktop.menu.inbox'),
         type: 'checkbox',
@@ -924,7 +1082,12 @@ export function createDesktopMainModule(): MainToolModule {
     rules.start();
     startBehaviours();
     layouts.daily();
-    dailyTimer = setInterval(() => layouts.daily(), 3_600_000);
+    cloudLog = kvGet<CloudItem[]>(CLOUD_KEY, []).map((c) => (c.state === 'sending' ? { ...c, state: 'error' as const, error: '—' } : c));
+    void sweepShelves();
+    dailyTimer = setInterval(() => {
+      layouts.daily();
+      void sweepShelves();
+    }, 3_600_000);
     rewatch();
     syncWindows();
     await refresh();
@@ -1126,7 +1289,17 @@ export function createDesktopMainModule(): MainToolModule {
         pushState();
         return state();
       });
-      ipcMain.handle('desktop:createZone', (_e, kind: ZoneKind) => createZone(kind === 'folder' ? 'folder' : 'shortcuts', null));
+      ipcMain.handle('desktop:createZone', (_e, kind: ZoneKind | ZonePreset) =>
+        ZONE_PRESETS.includes(kind as ZonePreset) ? createPreset(kind as ZonePreset, null) : createZone(kind === 'folder' ? 'folder' : 'shortcuts', null)
+      );
+      ipcMain.on('desktop:zone:note', (e, text: unknown) => {
+        const host = hostOfSender(e);
+        const z = host ? activeOf(host) : undefined;
+        if (!z || z.widget !== 'notes' || typeof text !== 'string') return;
+        // Pas de setZones : la fenêtre a déjà le texte ; on enregistre seulement.
+        zones = zones.map((o) => (o.id === z.id ? { ...o, note: text.slice(0, 20_000) } : o));
+        saveZones();
+      });
       ipcMain.handle('desktop:draw', () => draw.open());
       ipcMain.handle('desktop:starter', () => starterLayout());
       ipcMain.handle('desktop:updateZone', (_e, id: string, patch: Partial<Zone>) => {

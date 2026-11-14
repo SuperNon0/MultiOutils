@@ -21,6 +21,7 @@ import {
 } from '../../../../common/desktop';
 import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
+import { WIDGET_ICONS, WidgetBody } from './ZoneWidgets';
 import './desktop.css';
 
 const ICON_PX: Record<ZoneIconSize, number> = { small: 28, medium: 40, large: 64 };
@@ -287,15 +288,16 @@ export function ZoneWindow(): ReactNode {
     const paths = sel.has(p) ? [...sel] : [p];
     window.api.desktop.zone.startDrag(paths);
   };
+  const noDrop = zone.kind === 'widget' && zone.widget !== 'cloud';
   const dragOver = (e: ReactDragEvent): void => {
-    if (!e.dataTransfer.types.includes('Files')) return;
+    if (!e.dataTransfer.types.includes('Files') || noDrop) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = e.ctrlKey ? 'copy' : 'move';
     const target = (e.target as HTMLElement).closest<HTMLElement>('[data-name]');
     setBefore(zone.kind === 'shortcuts' && zone.sort === 'manual' ? (target?.dataset.name ?? null) : null);
   };
   const dragEnter = (e: ReactDragEvent): void => {
-    if (!e.dataTransfer.types.includes('Files')) return;
+    if (!e.dataTransfer.types.includes('Files') || noDrop) return;
     dragDepth.current++;
     setDropOn(true);
     if (collapsed) window.api.desktop.zone.expand(true);
@@ -364,7 +366,9 @@ export function ZoneWindow(): ReactNode {
   });
 
   let body: ReactNode;
-  if (content.error) {
+  if (zone.kind === 'widget') {
+    body = <WidgetBody zone={zone} content={content} />;
+  } else if (content.error) {
     body = (
       <div className="zw-vide">
         <span>{t(content.error === 'missing' ? 'desktop.zone.missing' : 'desktop.zone.unreachable')}</span>
@@ -548,7 +552,7 @@ export function ZoneWindow(): ReactNode {
           if (!(e.target as HTMLElement).closest('button,input,select')) window.api.desktop.zone.roll();
         }}
       >
-        {zone.kind === 'folder' ? <Icon name="folderopen" size={16} /> : <span className="zw-dot" />}
+        {zone.kind === 'folder' ? <Icon name="folderopen" size={16} /> : zone.widget ? <Icon name={WIDGET_ICONS[zone.widget]} size={16} /> : <span className="zw-dot" />}
         {heading}
         {host.locked && <Icon name="lock" size={14} />}
         <button className="zw-ib" title={t('desktop.zone.menu')} onClick={(e) => menuAt(e)}>
@@ -571,8 +575,8 @@ export function ZoneWindow(): ReactNode {
       )}
       <div
         ref={bodyRef}
-        className="zw-body"
-        onPointerDown={(e) => (e.altKey ? startGeom('move', {})(e) : startLasso(e))} onContextMenu={(e) => menuAt(e)}>
+        className={`zw-body${zone.kind === 'widget' ? ` wg ${zone.widget}` : ''}`}
+        onPointerDown={(e) => (e.altKey ? startGeom('move', {})(e) : zone.kind !== 'widget' && startLasso(e))} onContextMenu={(e) => menuAt(e)}>
         {body}
         {lasso && <div className="zw-lasso" style={{ left: lasso.x, top: lasso.y, width: lasso.width, height: lasso.height }} />}
       </div>

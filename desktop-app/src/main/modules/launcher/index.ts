@@ -8,7 +8,7 @@
  * Ce module ne référence aucun autre module : les outils de l'app sont lancés
  * via les commandes locales enregistrées auprès de l'hôte.
  */
-import { app, clipboard, ipcMain, safeStorage, shell } from 'electron';
+import { app, clipboard, ipcMain, safeStorage, shell, type WebContents } from 'electron';
 import os from 'node:os';
 import path from 'node:path';
 import type {
@@ -45,6 +45,7 @@ import {
   createWinSettingsProvider
 } from './providers/system';
 import { LauncherWindow } from './window';
+import { isControllable, isOn } from './core/homeassistant';
 import { createHaIntegration, HA_DASHBOARD_SHORTCUT_ID, type HaIntegration } from './homeassistant';
 
 const SETTINGS_KEY = 'launcher.settings';
@@ -65,6 +66,7 @@ export function createLauncherMainModule(): MainToolModule {
   let history: string[] = [];
   let shellHistory: Array<{ cmd: string; count: number }> = [];
   let lastQuery = '';
+  let resultsTarget: WebContents | null = null;
   let shortcutOk = true;
   let reindexTimer: ReturnType<typeof setInterval> | null = null;
   let saveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -338,7 +340,11 @@ export function createLauncherMainModule(): MainToolModule {
         providers: [],
         usage,
         limit: () => settings.maxResults,
-        emit: (queryId, results, done) => launcher.send('launcher:results', { queryId, results, done }),
+        emit: (queryId, results, done) => {
+          // Réponse à la fenêtre qui a posé la question (lanceur ou zone « Recherche » du bureau).
+          if (resultsTarget && !resultsTarget.isDestroyed()) resultsTarget.send('launcher:results', { queryId, results, done });
+          else launcher.send('launcher:results', { queryId, results, done });
+        },
         onError: (id, err) => {
           if (!app.isPackaged) console.warn(`[lanceur] ${id} :`, err);
         }
@@ -377,7 +383,8 @@ export function createLauncherMainModule(): MainToolModule {
       });
 
       ipcMain.handle('launcher:getState', () => state());
-      ipcMain.handle('launcher:query', (_e, text: string, queryId: number) => {
+      ipcMain.handle('launcher:query', (e, text: string, queryId: number) => {
+        resultsTarget = e.sender;
         lastQuery = typeof text === 'string' ? text : '';
         engine.query(lastQuery, queryId);
       });
@@ -395,6 +402,30 @@ export function createLauncherMainModule(): MainToolModule {
           return handleOutcome(outcome);
         }
       );
+      ipcMain.handle('ha:entities', async () => {
+        try {
+          const list = (await haClient.states()).filter(isControllable).map((st) => ({
+            id: st.entity_id,
+            name: String(st.attributes?.friendly_name ?? st.entity_id),
+            domain: st.entity_id.split('.')[0],
+            state: st.state,
+            on: isOn(st)
+          }));
+          return { ok: true, list };
+        } catch (err) {
+          return { ok: false, error: err instanceof Error ? err.message : String(err) };
+        }
+      });
+      ipcMain.handle('ha:toggle', async (_e, entityId: unknown) => {
+        if (typeof entityId !== 'string') return false;
+        try {
+          const st = (await haClient.states()).find((x) => x.entity_id === entityId);
+          await haClient.run(entityId, 'toggle', st ? isOn(st) : false);
+          return true;
+        } catch {
+          return false;
+        }
+      });
       ipcMain.handle('launcher:actions', (_e, resultId: string) => engine.actions(resultId));
       ipcMain.handle('launcher:runAction', async (_e, resultId: string, actionId: string, query: string) => {
         if (typeof query === 'string' && query.trim()) history = pushHistory(history, query);
