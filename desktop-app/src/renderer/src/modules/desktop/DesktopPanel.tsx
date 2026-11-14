@@ -21,6 +21,7 @@ import { LayoutsTab, PagesBar } from './LayoutsPanel';
 import { LogTab, RulesTab } from './RulesPanel';
 import { AiPlanSheet } from './AiPlanSheet';
 import { StyleEditor } from './StyleEditor';
+import { NotesLibraryPanel } from './NotesLibraryPanel';
 import { WIDGET_ICONS } from './ZoneWidgets';
 import './desktop.css';
 
@@ -303,7 +304,7 @@ export function DesktopPanel(): ReactNode {
   const { t } = useI18n();
   const [state] = useDesktopState();
   const [selected, setSelected] = useState<string | null>(null);
-  const [section, setSection] = useState<'zones' | 'rules' | 'log' | 'layouts'>('zones');
+  const [section, setSection] = useState<'zones' | 'rules' | 'log' | 'layouts' | 'notes'>('zones');
   const [aiOpen, setAiOpen] = useState(false);
 
   useEffect(
@@ -422,9 +423,9 @@ export function DesktopPanel(): ReactNode {
       )}
 
       <div className="chips" role="tablist" style={{ marginBottom: 14 }}>
-        {(['zones', 'rules', 'log', 'layouts'] as const).map((k) => (
+        {(['zones', 'notes', 'rules', 'log', 'layouts'] as const).map((k) => (
           <button key={k} role="tab" aria-selected={section === k} className={`chip${section === k ? ' on' : ''}`} onClick={() => setSection(k)}>
-            {t(`desktop.section.${k}`)}
+            {k === 'notes' ? 'Mes notes' : t(`desktop.section.${k}`)}
           </button>
         ))}
       </div>
@@ -432,7 +433,9 @@ export function DesktopPanel(): ReactNode {
       {aiOpen && <AiPlanSheet onClose={() => setAiOpen(false)} />}
       {section === 'zones' && <PagesBar state={state} />}
 
-      {section === 'rules' ? (
+      {section === 'notes' ? (
+        <NotesLibraryPanel />
+      ) : section === 'rules' ? (
         <RulesTab state={state} />
       ) : section === 'layouts' ? (
         <LayoutsTab state={state} />
