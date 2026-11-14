@@ -29,12 +29,13 @@ function toHex({ h, s, v }: HSV): string {
 
 /** Sélecteur Encre : teinte + saturation/luminosité + HEX + historique existant de la pipette. */
 export function EncreColorPicker({
-  value, onChange, onPick, onReset, label = 'Couleur'
+  value, onChange, onPick, onReset, resetLabel = 'Thème Encre', label = 'Couleur'
 }: {
   value: string | null;
   onChange(color: string): void;
   onPick?: () => void;
   onReset?: () => void;
+  resetLabel?: string;
   label?: string;
 }): ReactNode {
   const [open, setOpen] = useState(false);
@@ -77,10 +78,10 @@ export function EncreColorPicker({
     <div className="encre-picker">
       <div className="encre-picker-tools">
         <button type="button" className="encre-picker-current" title={label} aria-label={`Personnaliser : ${label}`} aria-expanded={open} onClick={() => setOpen(!open)}>
-          <span style={{ background: color }} /><Icon name="palette" size={15}/>
+          <span style={{ background: value === null ? 'var(--accent)' : color }} /><Icon name="palette" size={15}/>
         </button>
         {onPick && <button className="btn xs" type="button" onClick={onPick} title="Prélever à l'écran"><Icon name="palette" size={14}/> Pipette</button>}
-        {onReset && <button className="btn xs" type="button" onClick={onReset}>Thème Encre</button>}
+        {onReset && <button className="btn xs" type="button" onClick={onReset} >{resetLabel}</button>}
       </div>
       {open && <div className="encre-picker-panel">
         <div className="encre-picker-sv" role="slider" tabIndex={0} aria-label="Saturation et luminosité" aria-valuetext={`${Math.round(hsv.s * 100)} %, ${Math.round(hsv.v * 100)} %`}
