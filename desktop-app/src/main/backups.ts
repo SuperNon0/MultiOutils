@@ -57,9 +57,19 @@ export function applyPendingRestore(): void {
       old.close();
     }
     fs.copyFileSync(target, backup, fs.constants.COPYFILE_EXCL);
+    validate(backup);
   }
-  fs.copyFileSync(pending, target);
-  fs.rmSync(pending);
+  // Préparer un nouveau fichier avant de remplacer la base actuelle. Si la
+  // copie échoue, la base active reste intacte.
+  const replacement = `${target}.restoring`;
+  fs.copyFileSync(pending, replacement);
+  try {
+    validate(replacement);
+    fs.renameSync(replacement, target);
+    fs.rmSync(pending);
+  } finally {
+    if (fs.existsSync(replacement)) fs.rmSync(replacement);
+  }
 }
 
 export function registerBackups(db: Database.Database): void {
@@ -72,11 +82,15 @@ export function registerBackups(db: Database.Database): void {
     const dest = path.join(dir, name);
     if (fs.existsSync(dest)) return;
     busy = true;
+    const temporary = path.join(dir, `${name}.tmp`);
     try {
-      await db.backup(dest);
+      await db.backup(temporary);
+      validate(temporary);
+      fs.renameSync(temporary, dest);
       const names = (await fs.promises.readdir(dir)).filter((v) => /^multioutils-auto-\d{4}-\d{2}-\d{2}\.sqlite$/.test(v)).sort().reverse();
       for (const old of names.slice(KEEP)) await fs.promises.rm(path.join(dir, old));
     } finally {
+      if (fs.existsSync(temporary)) await fs.promises.rm(temporary, { force: true });
       busy = false;
     }
   };
