@@ -1580,6 +1580,8 @@
   "desktop.preset.shelf": "Shelf",
   "desktop.preset.notes": "Notes",
   "desktop.preset.clips": "Pinned clipboard",
+  "desktop.preset.ha-sensor": "Home Assistant sensors",
+  "desktop.preset.ha-sensor.sub": "Sensor readings and measurements",
   "desktop.preset.ha": "Home Assistant",
   "desktop.preset.search": "Search",
   "desktop.preset.cloud": "Mini cloud",
