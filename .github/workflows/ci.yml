@@ -43,17 +43,15 @@ jobs:
           node-version: 20
           cache: npm
 
-      - name: Installer les dépendances
-        run: npm ci --ignore-scripts
+      # Comme le workflow de publication, recalculer les dépendances natives Windows.
+      # Le lockfile généré sous Linux peut omettre le binaire optionnel Rollup Windows.
+      - name: Installer les dépendances Windows
+        shell: bash
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install --ignore-scripts --no-audit --no-fund
         env:
           ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
-
-      # Le lockfile créé sur Linux peut manquer le binaire Rollup Windows.
-      - name: Installer le binaire Rollup Windows
-        shell: pwsh
-        run: |
-          $version = node -p "require('rollup/package.json').version"
-          npm install --no-save --ignore-scripts --package-lock=false "@rollup/rollup-win32-x64-msvc@$version"
 
       - name: Tests
         run: npm run test
