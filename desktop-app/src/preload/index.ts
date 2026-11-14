@@ -199,6 +199,13 @@ const api: PreloadApi = {
     extract: (captureId, lang) => ipcRenderer.invoke('ocr:extract', captureId, lang)
   },
   ai: {
+    requests: (provider) => ipcRenderer.invoke('ai:requests', provider),
+    clearRequests: () => ipcRenderer.invoke('ai:clearRequests'),
+    onRequestsChanged: (cb) => {
+      const listener = (): void => cb();
+      ipcRenderer.on('ai:requestsChanged', listener);
+      return () => ipcRenderer.removeListener('ai:requestsChanged', listener);
+    },
     getConfig: () => ipcRenderer.invoke('ai:getConfig'),
     setKey: (provider, key) => ipcRenderer.invoke('ai:setKey', provider, key),
     testKey: (provider) => ipcRenderer.invoke('ai:testKey', provider),

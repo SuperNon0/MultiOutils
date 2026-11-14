@@ -137,6 +137,21 @@ export interface AiPrice {
   output: number;
 }
 
+export type AiRequestOperation = 'translation' | 'desktop' | 'text' | 'keyTest' | 'models';
+export interface AiRequestEntry {
+  id: number;
+  provider: AiProviderId;
+  operation: AiRequestOperation;
+  model: string;
+  status: 'running' | 'success' | 'error' | 'interrupted';
+  createdAt: string;
+  durationMs: number | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  costUsd: number | null;
+  error: AiErrorCode | null;
+}
+
 /** Une traduction comptée dans le suivi des dépenses. */
 export interface AiUsageEntry {
   id: number;

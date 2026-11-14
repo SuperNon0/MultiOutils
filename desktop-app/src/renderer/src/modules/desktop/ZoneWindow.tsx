@@ -354,6 +354,7 @@ export function ZoneWindow(): ReactNode {
   const style = {
     '--zc': zone.color ?? 'var(--accent)',
     '--zo': `${st.opacity}%`,
+    '--zalpha': st.opacity / 100,
     '--zbg': st.bg ?? 'var(--pop)',
     '--zr': `${st.radius}px`,
     '--ztf': FONTS[st.titleFont],

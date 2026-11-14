@@ -155,7 +155,7 @@ export interface DesktopSettings {
   enabled: boolean;
   /** Masque les icônes natives de Windows (elles sont alors affichées par les zones). */
   hideNativeIcons: boolean;
-  /** Opacité du fond des zones, 40 à 100 %. */
+  /** Opacité du fond des zones, 0 à 100 %. */
   opacity: number;
   /** Aimantation entre zones et aux bords de l'écran. */
   snap: boolean;
@@ -551,7 +551,7 @@ export function normalizeSettings(raw: Partial<DesktopSettings> | null | undefin
   return {
     enabled: Boolean(s.enabled),
     hideNativeIcons: Boolean(s.hideNativeIcons),
-    opacity: clamp(Math.round(Number(s.opacity) || d.opacity), 40, 100),
+    opacity: clamp(Number.isFinite(Number(s.opacity)) ? Math.round(Number(s.opacity)) : d.opacity, 0, 100),
     snap: Boolean(s.snap),
     gap: clamp(Math.round(Number(s.gap) || 0), 0, 64),
     rollOpen: oneOf(s.rollOpen, ['hover', 'delay', 'click'] as const, d.rollOpen),

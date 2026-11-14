@@ -27,6 +27,8 @@ export function absoluteBounds(zone: Zone, collapsedHeight?: number): Rect {
 export class ZoneWindow {
   readonly win: BrowserWindow;
   private ready = false;
+  private motion: ReturnType<typeof setInterval> | null = null;
+  private motionTarget: Rect | null = null;
   /** Aperçu en cours : la fenêtre reste au-dessus des autres. */
   private raised = false;
   /** Bureau affiché (Win+D) : la zone passe devant le bureau, pas devant les fenêtres. */
@@ -167,11 +169,32 @@ export class ZoneWindow {
     return this.last;
   }
 
-  setBounds(r: Rect): void {
+  setBounds(r: Rect, animate = false): void {
     if (this.win.isDestroyed()) return;
+    const same = (a: Rect, b: Rect): boolean => a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+    if (this.motionTarget && same(this.motionTarget, r)) return;
+    if (this.motion) clearInterval(this.motion);
+    this.motion = null;
+    this.motionTarget = null;
     const b = this.win.getBounds();
-    if (b.x === r.x && b.y === r.y && b.width === r.width && b.height === r.height) return;
-    this.win.setBounds(r);
+    if (same(b, r)) return;
+    if (!animate || b.x !== r.x || b.y !== r.y || b.width !== r.width) {
+      this.win.setBounds(r);
+      return;
+    }
+    const started = Date.now();
+    this.motionTarget = r;
+    this.motion = setInterval(() => {
+      if (this.win.isDestroyed()) { if (this.motion) clearInterval(this.motion); this.motion = null; return; }
+      const progress = Math.min(1, (Date.now() - started) / 220);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      this.win.setBounds({ ...r, height: Math.round(b.height + (r.height - b.height) * ease) });
+      if (progress === 1) {
+        if (this.motion) clearInterval(this.motion);
+        this.motion = null;
+        this.motionTarget = null;
+      }
+    }, 16);
   }
 
   isSender(id: number): boolean {
@@ -179,6 +202,8 @@ export class ZoneWindow {
   }
 
   destroy(): void {
+    if (this.motion) clearInterval(this.motion);
+    this.motion = null;
     if (!this.win.isDestroyed()) this.win.destroy();
   }
 }

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { SavedStyle, ZoneStyle } from '../../../../common/desktop';
-import { ui } from '../../encre/ui';
+import { Aide, ui } from '../../encre/ui';
 import { Icon } from '../../host/Icon';
 import { RegLigne, RegSwitch } from '../../host/reglages';
 import { useI18n } from '../../i18n';
@@ -66,17 +66,17 @@ export function StyleEditor({
   const { t } = useI18n();
   return (
     <div className="bs">
-      <RegLigne titre={t('desktop.style.bg')} sous={t('desktop.style.bgSub')}>
+      <RegLigne titre={t('desktop.style.bg')} aide={<Aide titre={t('desktop.style.bg')} texte={t('desktop.style.bg.help')} />} sous={t('desktop.style.bgSub')}>
         <ColorPick label={t('desktop.style.bg')} value={full.bg} fallbackLabel={t('desktop.style.theme')} onChange={(bg) => onChange({ bg })} onPick={() => onPick('bg')} />
       </RegLigne>
-      <RegLigne titre={t('desktop.set.opacity')} htmlFor={`${idPrefix}-op`}>
+      <RegLigne titre={t('desktop.set.opacity')} aide={<Aide titre={t('desktop.set.opacity')} texte={t('desktop.set.opacity.help')} />} htmlFor={`${idPrefix}-op`}>
         <Slider id={`${idPrefix}-op`} value={full.opacity} min={0} max={100} step={1} unit="%" onChange={(opacity) => onChange({ opacity })} />
       </RegLigne>
-      <RegSwitch titre={t('desktop.style.invisible')} sous={t('desktop.style.invisibleSub')} checked={full.invisible} onChange={(invisible) => onChange({ invisible })} />
-      <RegLigne titre={t('desktop.style.radius')} htmlFor={`${idPrefix}-r`}>
+      <RegSwitch titre={t('desktop.style.invisible')} aide={<Aide titre={t('desktop.style.invisible')} texte={t('desktop.style.invisible.help')} />} sous={t('desktop.style.invisibleSub')} checked={full.invisible} onChange={(invisible) => onChange({ invisible })} />
+      <RegLigne titre={t('desktop.style.radius')} aide={<Aide titre={t('desktop.style.radius')} texte={t('desktop.style.radius.help')} />} htmlFor={`${idPrefix}-r`}>
         <Slider id={`${idPrefix}-r`} value={full.radius} min={0} max={24} step={1} unit="px" onChange={(radius) => onChange({ radius })} />
       </RegLigne>
-      <RegLigne titre={t('desktop.style.titleBar')}>
+      <RegLigne titre={t('desktop.style.titleBar')} aide={<Aide titre={t('desktop.style.titleBar')} texte={t('desktop.style.titleBar.help')} />}>
         <div className="seg">
           {(['visible', 'hover', 'hidden'] as const).map((v) => (
             <button key={v} className={full.titleBar === v ? 'on' : ''} onClick={() => onChange({ titleBar: v })}>
@@ -86,7 +86,7 @@ export function StyleEditor({
         </div>
       </RegLigne>
       {full.titleBar === 'hidden' && <p className="muted petit bs-note">{t('desktop.style.altMove')}</p>}
-      <RegLigne titre={t('desktop.style.titleLook')}>
+      <RegLigne titre={t('desktop.style.titleLook')} aide={<Aide titre={t('desktop.style.titleLook')} texte={t('desktop.style.titleLook.help')} />}>
         <div className="seg">
           {(['flat', 'bold'] as const).map((v) => (
             <button key={v} className={full.titleLook === v ? 'on' : ''} onClick={() => onChange({ titleLook: v })}>
@@ -95,7 +95,7 @@ export function StyleEditor({
           ))}
         </div>
       </RegLigne>
-      <RegLigne titre={t('desktop.style.titleFont')} htmlFor={`${idPrefix}-f`}>
+      <RegLigne titre={t('desktop.style.titleFont')} aide={<Aide titre={t('desktop.style.titleFont')} texte={t('desktop.style.titleFont.help')} />} htmlFor={`${idPrefix}-f`}>
         <select id={`${idPrefix}-f`} className="select sm" style={{ width: 140 }} value={full.titleFont} onChange={(e) => onChange({ titleFont: e.target.value as ZoneStyle['titleFont'] })}>
           {(['ui', 'mono', 'serif'] as const).map((v) => (
             <option key={v} value={v}>
@@ -104,10 +104,10 @@ export function StyleEditor({
           ))}
         </select>
       </RegLigne>
-      <RegLigne titre={t('desktop.style.titleSize')} htmlFor={`${idPrefix}-ts`}>
+      <RegLigne titre={t('desktop.style.titleSize')} aide={<Aide titre={t('desktop.style.titleSize')} texte={t('desktop.style.titleSize.help')} />} htmlFor={`${idPrefix}-ts`}>
         <Slider id={`${idPrefix}-ts`} value={full.titleSize} min={10} max={22} step={0.5} unit="px" onChange={(titleSize) => onChange({ titleSize })} />
       </RegLigne>
-      <RegLigne titre={t('desktop.style.titleColor')}>
+      <RegLigne titre={t('desktop.style.titleColor')} aide={<Aide titre={t('desktop.style.titleColor')} texte={t('desktop.style.titleColor.help')} />}>
         <ColorPick
           label={t('desktop.style.titleColor')}
           value={full.titleColor}
@@ -116,7 +116,7 @@ export function StyleEditor({
           onPick={() => onPick('titleColor')}
         />
       </RegLigne>
-      <RegLigne titre={t('desktop.style.iconTint')} sous={t('desktop.style.iconTintSub')}>
+      <RegLigne titre={t('desktop.style.iconTint')} aide={<Aide titre={t('desktop.style.iconTint')} texte={t('desktop.style.iconTint.help')} />} sous={t('desktop.style.iconTintSub')}>
         <ColorPick
           label={t('desktop.style.iconTint')}
           value={full.iconTint}
@@ -125,8 +125,8 @@ export function StyleEditor({
           onPick={() => onPick('iconTint')}
         />
       </RegLigne>
-      <RegSwitch titre={t('desktop.style.iconFade')} sous={t('desktop.style.iconFadeSub')} checked={full.iconFade} onChange={(iconFade) => onChange({ iconFade })} />
-      <RegSwitch titre={t('desktop.style.stripe')} sous={t('desktop.style.stripeSub')} checked={full.stripe} onChange={(stripe) => onChange({ stripe })} />
+      <RegSwitch titre={t('desktop.style.iconFade')} aide={<Aide titre={t('desktop.style.iconFade')} texte={t('desktop.style.iconFade.help')} />} sous={t('desktop.style.iconFadeSub')} checked={full.iconFade} onChange={(iconFade) => onChange({ iconFade })} />
+      <RegSwitch titre={t('desktop.style.stripe')} aide={<Aide titre={t('desktop.style.stripe')} texte={t('desktop.style.stripe.help')} />} sous={t('desktop.style.stripeSub')} checked={full.stripe} onChange={(stripe) => onChange({ stripe })} />
       <div className="bs-act">
         {saved.length > 0 && (
           <select

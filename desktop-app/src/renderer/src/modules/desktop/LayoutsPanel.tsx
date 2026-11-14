@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { DesktopState } from '../../../../common/desktop';
-import { ui } from '../../encre/ui';
+import { Aide, ui } from '../../encre/ui';
 import { Icon } from '../../host/Icon';
 import { RegSwitch } from '../../host/reglages';
 import { useI18n } from '../../i18n';
@@ -202,7 +202,7 @@ export function LayoutsTab({ state }: { state: DesktopState }): ReactNode {
       </div>
       <div className="carte" style={{ padding: '4px 14px' }}>
         <RegSwitch
-          titre={t('desktop.layout.perScreens')}
+          titre={t('desktop.layout.perScreens')} aide={<Aide titre={t('desktop.layout.perScreens')} texte={t('desktop.layout.perScreens.help')} />}
           sous={t('desktop.layout.perScreensSub')}
           checked={state.settings.layoutPerScreens}
           onChange={(v) => void window.api.desktop.setSettings({ layoutPerScreens: v })}
