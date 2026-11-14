@@ -21,6 +21,7 @@ import { LayoutsTab, PagesBar } from './LayoutsPanel';
 import { LogTab, RulesTab } from './RulesPanel';
 import { AiPlanSheet } from './AiPlanSheet';
 import { StyleEditor } from './StyleEditor';
+import { EncreColorPicker } from './EncreColorPicker';
 import { NotesLibraryPanel } from './NotesLibraryPanel';
 import { WIDGET_ICONS } from './ZoneWidgets';
 import './desktop.css';
@@ -142,15 +143,7 @@ function WidgetDetail({ zone }: { zone: Zone }): ReactNode {
 function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): ReactNode {
   const { t } = useI18n();
   const [showStyle, setShowStyle] = useState(false);
-  const [colorDraft, setColorDraft] = useState(zone.color ?? '');
-  useEffect(() => setColorDraft(zone.color ?? ''), [zone.id, zone.color]);
   const up = (patch: Partial<Zone>): void => void window.api.desktop.updateZone(zone.id, patch);
-  const commitColor = (): void => {
-    const next = colorDraft.trim();
-    if (next === '') up({ color: null });
-    else if (/^#[0-9a-f]{6}$/i.test(next)) up({ color: next });
-    else setColorDraft(zone.color ?? '');
-  };
   const sorts: ZoneSort[] = zone.kind === 'folder' ? ['name', 'type', 'size', 'date', 'opens'] : ['manual', 'name', 'type', 'size', 'date', 'opens'];
   return (
     <div className="carte bz-det">
@@ -159,11 +152,7 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
         <>
           <WidgetDetail zone={zone} />
           <RegLigne titre="Couleur d'accent du widget">
-            <div className="bs-color">
-              <input type="color" aria-label="Choisir une couleur libre" value={zone.color && /^#[0-9a-f]{6}$/i.test(zone.color) ? zone.color : '#a99bff'} onChange={(e) => up({ color: e.target.value })} />
-              <input className="champ" style={{ width: 106 }} aria-label="Code hexadécimal" placeholder="#A99BFF" maxLength={7} value={colorDraft} onChange={(e) => setColorDraft(e.target.value)} onBlur={commitColor} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} />
-              <button className="btn xs" type="button" onClick={() => up({ color: null })}>Thème Encre</button>
-            </div>
+            <EncreColorPicker value={zone.color} label="Couleur d'accent du widget" onChange={(color) => up({ color })} onPick={() => void window.api.desktop.pickColor(zone.id, 'color')} onReset={() => up({ color: null })} />
           </RegLigne>
           <RegLigne titre="Affichage du widget">
             <select className="select sm" value={zone.widgetLayout} onChange={(e) => up({ widgetLayout: e.target.value as Zone['widgetLayout'] })}>
