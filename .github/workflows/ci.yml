@@ -31,3 +31,28 @@ jobs:
 
       - name: Build de l'app (bundles main/preload/renderer)
         run: npm run build:app
+
+  windows-check:
+    name: Tests et compilation sous Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Installer les dépendances
+        run: npm ci --ignore-scripts
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+      - name: Tests
+        run: npm run test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build de l'app (bundles main/preload/renderer)
+        run: npm run build:app
