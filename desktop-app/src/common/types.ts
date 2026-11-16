@@ -55,6 +55,8 @@ export interface AppSettings {
   /** Vidage auto de la corbeille après N jours (0 = jamais, docs/03 §7). */
   trashRetentionDays: number;
   firstRunDone: boolean;
+  /** Dernière version dont l'utilisateur a vu « Quoi de neuf » ('' = inconnue). */
+  lastSeenVersion: string;
   shortcuts: Record<ShortcutId, string>;
   /** Langue de l'OCR (« Extraire le texte » d'une capture, Tesseract). */
   ocrLang: OcrLang;

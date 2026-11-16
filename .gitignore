@@ -17,3 +17,4 @@ server/data/
 Thumbs.db
 *.log
 .env
+desktop-app/resources/release-notes.md

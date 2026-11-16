@@ -25,6 +25,7 @@ import { displayAccelerator } from '../lib/format';
 import { eventToAccelerator } from '../lib/shortcuts';
 import { Brand } from './Sidebar';
 import { Icon } from './Icon';
+import { HistoriqueVersions } from './Nouveautes';
 import { RegLigne, RegSec, RegSwitch } from './reglages';
 import { TraductionSection } from './TraductionReglages';
 import { HaSettingsPage } from '../modules/launcher/ha/HaSettingsPage';
@@ -147,7 +148,7 @@ export function settingsSections(modules: ToolModule[]): SectionDef[] {
       title: 'settings.section.updates',
       sub: 'reglages.sub.updates',
       icon: 'refresh',
-      keywords: ['settings.updates.check', 'settings.sd.title', 'settings.sd.update']
+      keywords: ['settings.updates.check', 'changelog.history', 'settings.sd.title', 'settings.sd.update']
     },
     {
       id: 'about',
@@ -529,7 +530,15 @@ function UpdatesSection({ version }: { version: string }): ReactNode {
       {status.state === 'available' ? (
         <div className="bloc maj-bloc">
           <p className="acc">{t('settings.updates.available', { v: status.version })}</p>
-          {status.notes && <p className="muted petit maj-notes">{status.notes}</p>}
+          {status.notes && (
+            <div className="maj-notes-bloc">
+              <div className="lbl-mono">
+                <Icon name="sparkle" size={14} />
+                {t('settings.updates.notes')}
+              </div>
+              <p className="petit maj-notes">{status.notes}</p>
+            </div>
+          )}
           <button type="button" className="btn pri" onClick={() => void window.api.update.download()}>
             <Icon name="download" />
             {t('settings.updates.download')}
@@ -581,6 +590,7 @@ function UpdatesSection({ version }: { version: string }): ReactNode {
           </div>
         </div>
       )}
+      <HistoriqueVersions current={version} />
       <StreamDeckPluginBlock />
     </>
   );

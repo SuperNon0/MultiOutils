@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode
 } from 'react';
+import { changelogToShow, type ChangelogEntry } from '../../../common/changelog';
 import type { AppSettings, NavAction } from '../../../common/types';
 import { EncreLayer, ui, type PaletteItem } from '../encre/ui';
 import { I18nProvider, translate } from '../i18n';
@@ -14,6 +15,7 @@ import { HostServicesContext, type HostServices } from './context';
 import { FirstRunWizard } from './FirstRunWizard';
 import { Feuille } from './Feuille';
 import { Icon } from './Icon';
+import { NouveautesFeuille } from './Nouveautes';
 import { settingsSections, SettingsView } from './SettingsView';
 import { Brand, Sidebar } from './Sidebar';
 import type { HostContext } from './types';
@@ -34,6 +36,9 @@ export function App(): ReactNode {
   const [navCaptureId, setNavCaptureId] = useState<string | null>(null);
   const [navAction, setNavAction] = useState<NavAction>('select');
   const [plusOpen, setPlusOpen] = useState(false);
+  /** « Quoi de neuf » : versions installées depuis la dernière ouverture. */
+  const [nouveautes, setNouveautes] = useState<ChangelogEntry[] | null>(null);
+  const nouveautesCheckedRef = useRef(false);
   const settingsRef = useRef<AppSettings | null>(null);
   const activatedRef = useRef(false);
   settingsRef.current = settings;
@@ -93,6 +98,21 @@ export function App(): ReactNode {
     };
     for (const module of modules) void module.activate(hostCtx);
   }, [settings, notify]);
+
+  // « Quoi de neuf » une fois après chaque mise à jour. Première installation :
+  // rien à montrer, on retient juste la version.
+  useEffect(() => {
+    if (!settings || version === '0.0.0' || nouveautesCheckedRef.current) return;
+    nouveautesCheckedRef.current = true;
+    const entries = changelogToShow(settings.lastSeenVersion, version, !settings.firstRunDone);
+    if (entries.length) setNouveautes(entries);
+    else if (settings.lastSeenVersion !== version) void window.api.settings.set({ lastSeenVersion: version });
+  }, [settings, version]);
+
+  const closeNouveautes = useCallback(() => {
+    setNouveautes(null);
+    void window.api.settings.set({ lastSeenVersion: version });
+  }, [version]);
 
   // Recherche rapide (Ctrl K) : outils, sections des réglages, actions de capture.
   const lang = settings?.language ?? 'fr';
@@ -239,6 +259,17 @@ export function App(): ReactNode {
                 {t('ui.more')}
               </button>
             </nav>
+            {nouveautes && (
+              <NouveautesFeuille
+                entries={nouveautes}
+                current={version}
+                onClose={closeNouveautes}
+                onHistory={() => {
+                  closeNouveautes();
+                  openSettings('updates');
+                }}
+              />
+            )}
             {plusOpen && (
               <Feuille titre={t('ui.more')} onClose={() => setPlusOpen(false)}>
                 <div className="q-tuiles plus-t">

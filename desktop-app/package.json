@@ -1,7 +1,7 @@
 {
   "name": "@multioutils/desktop-app",
   "productName": "MultiOutils",
-  "version": "0.11.0",
+  "version": "0.12.0",
   "private": true,
   "description": "MultiOutils — boîte à outils modulaire pour Windows (capture d'écran)",
   "author": "SuperNon0",
@@ -12,8 +12,8 @@
     "start": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "test": "vitest run",
-    "dist": "electron-vite build && electron-builder --win --publish never",
-    "release": "electron-vite build && electron-builder --win --publish always"
+    "dist": "node scripts/release-notes.mjs && electron-vite build && electron-builder --win --publish never",
+    "release": "node scripts/release-notes.mjs && electron-vite build && electron-builder --win --publish always"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.4.0",

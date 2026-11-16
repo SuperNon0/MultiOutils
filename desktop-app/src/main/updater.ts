@@ -1,5 +1,6 @@
 import { app, ipcMain } from 'electron';
 import electronUpdater from 'electron-updater';
+import { releaseNotesToText } from '../common/changelog';
 import type { UpdateStatus } from '../common/types';
 import type { MainHostContext } from './module-registry';
 import { setQuitting } from './windows';
@@ -39,7 +40,8 @@ export function setupUpdater(ctx: MainHostContext): void {
     set({
       state: 'available',
       version: info.version,
-      notes: typeof info.releaseNotes === 'string' ? info.releaseNotes : undefined
+      // Notes de la release GitHub (HTML) → texte simple, affiché tel quel.
+      notes: releaseNotesToText(info.releaseNotes)
     })
   );
   autoUpdater.on('update-not-available', () =>
