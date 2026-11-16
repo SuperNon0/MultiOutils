@@ -12,6 +12,7 @@ import { MainModuleRegistry } from './module-registry';
 import { createAutoclickerMainModule } from './modules/autoclicker';
 import { createClipboardMainModule } from './modules/clipboard';
 import { createColorPickerMainModule } from './modules/color-picker';
+import { createIconsMainModule } from './modules/icons';
 import { createDesktopMainModule } from './modules/desktop';
 import { createFilesMainModule } from './modules/files';
 import { createLauncherMainModule } from './modules/launcher';
@@ -121,6 +122,7 @@ async function bootstrap(): Promise<void> {
   // Modules : la capture est le premier outil, l'hôte n'en code aucun en dur.
   registry.register(createScreenshotMainModule());
   registry.register(createColorPickerMainModule());
+  registry.register(createIconsMainModule());
   registry.register(createOcrMainModule());
   registry.register(createAiMainModule());
   registry.register(createClipboardMainModule());
