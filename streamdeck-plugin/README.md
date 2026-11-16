@@ -10,6 +10,32 @@ Boutons Stream Deck pour piloter l'application MultiOutils (docs/00 §8) :
 | Ouvrir le presse-papiers | Ouvre le module Presse-papiers de l'app |
 | Copier le dernier clip | Recopie le dernier élément de l'historique (y compris venus de l'iPhone) |
 | Garder le clip courant | Épingle le contenu actuel du presse-papiers (jamais supprimé) |
+| **Home Assistant** | Une touche qui s'adapte à l'entité choisie : basculer, allumer/éteindre, préréglage (luminosité, couleur, position, consigne…), parcourir une liste, ajuster d'un pas, lecteur, caméra, service libre, événement, modèle affiché |
+| PC : veille / verrouiller / éteindre / redémarrer | Commandes du PC (confirmation sur la touche pour éteindre et redémarrer) |
+
+## Home Assistant
+
+La touche **Home Assistant** se règle entièrement dans le panneau du logiciel
+Stream Deck : recherche d'entité (pièce, étage, type), action à l'appui,
+formulaire du service généré à partir de Home Assistant (ou YAML/JSON),
+bouton « Tester », apparence (style, couleurs allumé/éteint, icône Material
+Design, nom, valeur, jauge, couleur réelle de la lampe, pochette), règles
+d'affichage (couleur, icône, clignotement selon l'état), modèles de touches
+prêts à l'emploi et copier/coller des réglages.
+
+Connexion :
+
+1. **Via MultiOutils** (recommandé) : l'app utilise l'adresse et le jeton déjà
+   réglés dans Réglages › Home Assistant (jeton chiffré, jamais transmis au
+   plugin). Les états arrivent en direct (WebSocket de HA → app → plugin par
+   attente longue sur `/ha/wait`). Une adresse distante peut être ajoutée,
+   essayée quand l'adresse locale ne répond pas.
+2. **Connexion directe en secours** : si l'app n'est pas lancée, le plugin se
+   connecte lui-même avec l'adresse et le jeton saisis dans « Connexion
+   directe » (réglages globaux du plugin, gardés par le logiciel Stream Deck).
+
+Un point orange sur une touche = Home Assistant injoignable ; rouge = entité
+indisponible.
 
 Le plugin parle **uniquement à l'app locale** via son service localhost
 (`http://127.0.0.1:41320`, lié à la boucle locale — inaccessible depuis le

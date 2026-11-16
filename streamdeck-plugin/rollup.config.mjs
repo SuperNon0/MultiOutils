@@ -12,8 +12,13 @@ export default {
   },
   external: [/^node:/],
   plugins: [
-    typescript({ tsconfig: './tsconfig.json' }),
-    nodeResolve({ preferBuiltins: true }),
+    typescript({
+      tsconfig: './tsconfig.json',
+      // le modèle Home Assistant est partagé avec l'app (packages/shared/src/ha)
+      include: ['src/**/*.ts', '../packages/shared/src/ha/*.ts'],
+      exclude: ['**/*.test.ts']
+    }),
+    nodeResolve({ preferBuiltins: true, extensions: ['.mjs', '.js', '.json', '.node', '.ts'] }),
     commonjs()
   ]
 };

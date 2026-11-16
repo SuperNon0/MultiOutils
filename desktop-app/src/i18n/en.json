@@ -848,6 +848,8 @@
   "launcher.steam.rescan": "Scan again",
   "launcher.ha.connection": "Connection",
   "launcher.ha.url": "Home Assistant address",
+  "launcher.ha.remoteUrl": "Remote address (optional)",
+  "launcher.ha.remoteUrlDesc": "Used by the Stream Deck when the local address does not answer, for example away from home.",
   "launcher.ha.urlDesc": "The address you open in your browser.",
   "launcher.ha.urlHelp": "The local or remote address of your Home Assistant, with the port.",
   "launcher.ha.token": "Access token",

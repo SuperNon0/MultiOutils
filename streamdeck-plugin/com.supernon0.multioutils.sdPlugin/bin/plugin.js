@@ -3110,12 +3110,19 @@ function requireWebsocket () {
 	        }
 	      }
 
-	      initAsClient(this, address, protocols, options);
+	      options = initAsClient(this, address, protocols, options);
 	    } else {
-	      this._autoPong = options.autoPong;
-	      this._closeTimeout = options.closeTimeout;
 	      this._isServer = true;
 	    }
+
+	    if (options.autoPong) {
+	      this._autoPong = true;
+	      this._autoPongComplete = () => autoPongComplete(this);
+	      this._pendingAutoPongs = 0;
+	      this._maxPendingAutoPongs = options.maxPendingAutoPongs | 0;
+	    }
+
+	    this._closeTimeout = options.closeTimeout;
 	  }
 
 	  /**
@@ -3677,6 +3684,8 @@ function requireWebsocket () {
 	 *     fragments
 	 * @param {Number} [options.maxPayload=104857600] The maximum allowed message
 	 *     size
+	 * @param {Number} [options.maxPendingAutoPongs=60] The maximum number of
+	 *     pending automatic pongs
 	 * @param {Number} [options.maxRedirects=10] The maximum number of redirects
 	 *     allowed
 	 * @param {String} [options.origin] Value of the `Origin` or
@@ -3687,6 +3696,7 @@ function requireWebsocket () {
 	 *     `Sec-WebSocket-Version` header
 	 * @param {Boolean} [options.skipUTF8Validation=false] Specifies whether or
 	 *     not to skip UTF-8 validation for text and close messages
+	 * @return {Object} The resolved options object used for initialization
 	 * @private
 	 */
 	function initAsClient(websocket, address, protocols, options) {
@@ -3698,6 +3708,7 @@ function requireWebsocket () {
 	    maxBufferedChunks: 256 * 1024,
 	    maxFragments: 16 * 1024,
 	    maxPayload: 100 * 1024 * 1024,
+	    maxPendingAutoPongs: 60,
 	    skipUTF8Validation: false,
 	    perMessageDeflate: true,
 	    followRedirects: false,
@@ -3713,9 +3724,6 @@ function requireWebsocket () {
 	    path: undefined,
 	    port: undefined
 	  };
-
-	  websocket._autoPong = opts.autoPong;
-	  websocket._closeTimeout = opts.closeTimeout;
 
 	  if (!protocolVersions.includes(opts.protocolVersion)) {
 	    throw new RangeError(
@@ -4074,6 +4082,8 @@ function requireWebsocket () {
 	  } else {
 	    req.end();
 	  }
+
+	  return opts;
 	}
 
 	/**
@@ -4292,8 +4302,29 @@ function requireWebsocket () {
 	function receiverOnPing(data) {
 	  const websocket = this[kWebSocket];
 
-	  if (websocket._autoPong) websocket.pong(data, !this._isServer, NOOP);
+	  if (websocket._autoPong && websocket.readyState === WebSocket.OPEN) {
+	    if (
+	      websocket._maxPendingAutoPongs > 0 &&
+	      websocket._pendingAutoPongs >= websocket._maxPendingAutoPongs
+	    ) {
+	      websocket.terminate();
+	    } else {
+	      websocket._pendingAutoPongs++;
+	      websocket.pong(data, !this._isServer, websocket._autoPongComplete);
+	    }
+	  }
+
 	  websocket.emit('ping', data);
+	}
+
+	/**
+	 * The callback for automatic pong responses.
+	 *
+	 * @param {WebSocket} websocket The WebSocket instance
+	 * @private
+	 */
+	function autoPongComplete(websocket) {
+	  websocket._pendingAutoPongs--;
 	}
 
 	/**
@@ -4763,6 +4794,8 @@ function requireWebsocketServer () {
 	   *     fragments
 	   * @param {Number} [options.maxPayload=104857600] The maximum allowed message
 	   *     size
+	   * @param {Number} [options.maxPendingAutoPongs=60] The maximum number of
+	   *     pending automatic pongs
 	   * @param {Boolean} [options.noServer=false] Enable no server mode
 	   * @param {String} [options.path] Accept only connections matching this path
 	   * @param {(Boolean|Object)} [options.perMessageDeflate=false] Enable/disable
@@ -4786,6 +4819,7 @@ function requireWebsocketServer () {
 	      maxBufferedChunks: 256 * 1024,
 	      maxFragments: 16 * 1024,
 	      maxPayload: 100 * 1024 * 1024,
+	      maxPendingAutoPongs: 60,
 	      skipUTF8Validation: false,
 	      perMessageDeflate: false,
 	      handleProtocols: null,
@@ -8415,6 +8449,1919 @@ if (streamDeck.manifest.SDKVersion >= 3) {
     process.exit(errorCode.incompatibleSdkVersion);
 }
 
+const haDomainOf = (entityId) => entityId.split('.')[0] ?? '';
+/** Construit le catalogue à partir des états et des registres (optionnels). */
+function buildCatalog(states, reg = {}) {
+    const floors = (reg.floors ?? []).map((f) => ({ id: f.floor_id, name: f.name, level: f.level ?? undefined }));
+    const floorName = new Map(floors.map((f) => [f.id, f.name]));
+    const areas = (reg.areas ?? []).map((a) => ({ id: a.area_id, name: a.name, floor: a.floor_id ?? undefined }));
+    const areaById = new Map(areas.map((a) => [a.id, a]));
+    const devById = new Map((reg.devices ?? []).map((d) => [d.id, d]));
+    const entReg = new Map((reg.entities ?? []).map((e) => [e.entity_id, e]));
+    const entities = [];
+    for (const s of states) {
+        const r = entReg.get(s.entity_id);
+        if (r?.disabled_by)
+            continue;
+        const attrs = s.attributes ?? {};
+        const areaId = r?.area_id ?? (r?.device_id ? devById.get(r.device_id)?.area_id : undefined) ?? undefined;
+        const area = areaId ? areaById.get(areaId) : undefined;
+        const name = (typeof attrs.friendly_name === 'string' && attrs.friendly_name) ||
+            r?.name ||
+            r?.original_name ||
+            s.entity_id.split('.')[1]?.replace(/_/g, ' ') ||
+            s.entity_id;
+        entities.push({
+            id: s.entity_id,
+            name,
+            domain: haDomainOf(s.entity_id),
+            state: s.state,
+            area: area?.id,
+            areaName: area?.name,
+            floorName: area?.floor ? floorName.get(area.floor) : undefined,
+            icon: (typeof attrs.icon === 'string' && attrs.icon) || r?.icon || undefined,
+            unit: typeof attrs.unit_of_measurement === 'string' ? attrs.unit_of_measurement : undefined,
+            deviceClass: typeof attrs.device_class === 'string' ? attrs.device_class : undefined
+        });
+    }
+    entities.sort((a, b) => a.name.localeCompare(b.name, 'fr'));
+    return { entities, areas: areas.sort((a, b) => a.name.localeCompare(b.name, 'fr')), floors };
+}
+const norm = (s) => s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '');
+/** Recherche « salon lampe » dans nom, id, pièce et étage. */
+function searchEntities(list, query, filter = {}, limit = 60) {
+    const words = norm(query).split(/\s+/).filter(Boolean);
+    const out = [];
+    for (const e of list) {
+        if (filter.area && e.area !== filter.area)
+            continue;
+        if (filter.floor && e.floorName !== filter.floor)
+            continue;
+        if (filter.domain && e.domain !== filter.domain)
+            continue;
+        const hay = norm(`${e.name} ${e.id} ${e.areaName ?? ''} ${e.floorName ?? ''}`);
+        if (!words.every((w) => hay.includes(w)))
+            continue;
+        const n = norm(e.name);
+        const score = words.length === 0 ? 0 : (n.startsWith(words[0]) ? 0 : 1) + (n.includes(words.join(' ')) ? 0 : 1);
+        out.push({ e, score });
+    }
+    out.sort((a, b) => a.score - b.score || a.e.name.localeCompare(b.e.name, 'fr'));
+    return out.slice(0, limit).map((x) => x.e);
+}
+/* ───────── états ───────── */
+const ON_STATES = new Set([
+    'on',
+    'open',
+    'opening',
+    'playing',
+    'unlocked',
+    'unlocking',
+    'cleaning',
+    'heat',
+    'cool',
+    'auto',
+    'heat_cool',
+    'dry',
+    'fan_only',
+    'home',
+    'armed_home',
+    'armed_away',
+    'armed_night',
+    'armed_vacation',
+    'armed_custom_bypass',
+    'triggered',
+    'active',
+    'detected'
+]);
+const isUnavailable = (s) => !s || s.state === 'unavailable' || s.state === 'unknown';
+function isOnState(s) {
+    if (!s)
+        return false;
+    const d = haDomainOf(s.entity_id);
+    if (d === 'cover')
+        return s.state === 'open' || s.state === 'opening';
+    if (d === 'lock')
+        return s.state === 'unlocked' || s.state === 'unlocking' || s.state === 'open';
+    if (d === 'media_player')
+        return s.state === 'playing';
+    if (d === 'climate')
+        return s.state !== 'off' && !isUnavailable(s);
+    if (d === 'alarm_control_panel')
+        return s.state !== 'disarmed' && !isUnavailable(s);
+    return ON_STATES.has(s.state);
+}
+/** Domaines qu'on bascule d'un appui. */
+const TOGGLE_DOMAINS = new Set([
+    'light',
+    'switch',
+    'fan',
+    'input_boolean',
+    'automation',
+    'cover',
+    'lock',
+    'media_player',
+    'climate',
+    'humidifier',
+    'siren',
+    'vacuum',
+    'remote',
+    'water_heater',
+    'valve',
+    'group'
+]);
+/** Service appelé par un appui « automatique » sur une entité. */
+function defaultPress(s, entityId) {
+    const d = haDomainOf(entityId);
+    const target = { entity_id: entityId };
+    const on = isOnState(s);
+    switch (d) {
+        case 'scene':
+        case 'script':
+            return { kind: 'service', domain: d, service: 'turn_on', target };
+        case 'button':
+        case 'input_button':
+            return { kind: 'service', domain: d, service: 'press', target };
+        case 'automation':
+            return { kind: 'service', domain: d, service: 'trigger', target };
+        case 'cover':
+            return { kind: 'service', domain: 'cover', service: 'toggle', target };
+        case 'valve':
+            return { kind: 'service', domain: 'valve', service: 'toggle', target };
+        case 'lock':
+            return { kind: 'service', domain: 'lock', service: on ? 'lock' : 'unlock', target };
+        case 'media_player':
+            return { kind: 'service', domain: 'media_player', service: 'media_play_pause', target };
+        case 'vacuum':
+            return { kind: 'service', domain: 'vacuum', service: s?.state === 'cleaning' ? 'return_to_base' : 'start', target };
+        case 'input_select':
+        case 'select':
+            return { kind: 'service', domain: d, service: 'select_next', data: { cycle: true }, target };
+        case 'alarm_control_panel':
+            return { kind: 'none' };
+        default:
+            return TOGGLE_DOMAINS.has(d) ? { kind: 'service', domain: 'homeassistant', service: 'toggle', target } : { kind: 'none' };
+    }
+}
+/** Formate la valeur d'un état : « 21,5 °C », « 340 W », « Allumé »… */
+function formatState(s, decimals, lang = 'fr') {
+    if (!s)
+        return '—';
+    if (s.state === 'unavailable')
+        return 'Indisponible';
+    if (s.state === 'unknown')
+        return '?';
+    const unit = typeof s.attributes?.unit_of_measurement === 'string' ? s.attributes.unit_of_measurement : '';
+    const num = Number(s.state);
+    if (s.state.trim() !== '' && Number.isFinite(num)) {
+        const fmt = new Intl.NumberFormat(lang, decimals == null ? { maximumFractionDigits: 2 } : { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+        const v = fmt.format(num);
+        if (!unit)
+            return v;
+        return unit === '%' ? `${v} %` : `${v} ${unit}`;
+    }
+    const d = haDomainOf(s.entity_id);
+    if (d === 'climate') {
+        const cur = s.attributes?.current_temperature;
+        if (typeof cur === 'number')
+            return `${new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(cur)} °`;
+    }
+    return STATE_FR[s.state] ?? s.state;
+}
+const STATE_FR = {
+    on: 'Allumé',
+    off: 'Éteint',
+    open: 'Ouvert',
+    closed: 'Fermé',
+    opening: 'Ouverture',
+    closing: 'Fermeture',
+    locked: 'Verrouillé',
+    unlocked: 'Ouvert',
+    playing: 'Lecture',
+    paused: 'Pause',
+    idle: 'Inactif',
+    standby: 'Veille',
+    home: 'Maison',
+    not_home: 'Absent',
+    heat: 'Chauffe',
+    cool: 'Clim',
+    auto: 'Auto',
+    cleaning: 'Nettoie',
+    docked: 'Base',
+    returning: 'Retour',
+    disarmed: 'Désarmée',
+    armed_home: 'Armée',
+    armed_away: 'Armée',
+    armed_night: 'Nuit',
+    triggered: 'Alarme',
+    above_horizon: 'Jour',
+    below_horizon: 'Nuit',
+    sunny: 'Soleil',
+    cloudy: 'Nuageux',
+    partlycloudy: 'Éclaircies',
+    rainy: 'Pluie',
+    pouring: 'Averses',
+    snowy: 'Neige',
+    fog: 'Brouillard',
+    'clear-night': 'Nuit claire',
+    windy: 'Vent',
+    lightning: 'Orage'
+};
+/** Valeur en pourcentage pour la jauge (luminosité, position, batterie…). */
+function gaugePercent(s, range) {
+    if (!s || isUnavailable(s))
+        return null;
+    const a = s.attributes ?? {};
+    const d = haDomainOf(s.entity_id);
+    if (d === 'light')
+        return s.state === 'on' && typeof a.brightness === 'number' ? Math.round(a.brightness / 2.55) : s.state === 'on' ? 100 : 0;
+    if (d === 'cover' && typeof a.current_position === 'number')
+        return a.current_position;
+    if (d === 'media_player' && typeof a.volume_level === 'number')
+        return Math.round(a.volume_level * 100);
+    if (d === 'fan' && typeof a.percentage === 'number')
+        return a.percentage;
+    const n = Number(s.state);
+    if (!Number.isFinite(n))
+        return null;
+    const min = (typeof a.min === 'number' ? a.min : 0);
+    const max = (typeof a.max === 'number' ? a.max : a.unit_of_measurement === '%' ? 100 : NaN);
+    if (!Number.isFinite(max) || max === min)
+        return null;
+    return Math.max(0, Math.min(100, ((n - min) / (max - min)) * 100));
+}
+/** Couleur réelle d'une lumière allumée (#rrggbb), si connue. */
+function lightColor(s) {
+    if (!s || haDomainOf(s.entity_id) !== 'light' || s.state !== 'on')
+        return null;
+    const rgb = s.attributes?.rgb_color;
+    if (Array.isArray(rgb) && rgb.length >= 3 && rgb.every((x) => typeof x === 'number')) {
+        return '#' + rgb.slice(0, 3).map((x) => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0')).join('');
+    }
+    const k = s.attributes?.color_temp_kelvin;
+    if (typeof k === 'number')
+        return kelvinToHex(k);
+    return null;
+}
+/** Approximation de la couleur d'un blanc (2000 K à 6500 K). */
+function kelvinToHex(k) {
+    const t = Math.max(1000, Math.min(40000, k)) / 100;
+    const r = t <= 66 ? 255 : 329.698727446 * Math.pow(t - 60, -0.1332047592);
+    const g = t <= 66 ? 99.4708025861 * Math.log(t) - 161.1195681661 : 288.1221695283 * Math.pow(t - 60, -0.0755148492);
+    const b = t >= 66 ? 255 : t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307;
+    const c = (x) => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0');
+    return `#${c(r)}${c(g)}${c(b)}`;
+}
+/* ───────── icônes par défaut (noms Material Design Icons) ───────── */
+const DOMAIN_ICONS = {
+    light: ['mdi:lightbulb', 'mdi:lightbulb-outline'],
+    switch: ['mdi:toggle-switch-variant', 'mdi:toggle-switch-variant-off'],
+    input_boolean: ['mdi:toggle-switch', 'mdi:toggle-switch-off-outline'],
+    fan: ['mdi:fan', 'mdi:fan-off'],
+    cover: ['mdi:window-shutter-open', 'mdi:window-shutter'],
+    lock: ['mdi:lock-open-variant', 'mdi:lock'],
+    media_player: ['mdi:play-circle', 'mdi:speaker'],
+    climate: ['mdi:thermostat', 'mdi:thermostat'],
+    scene: ['mdi:palette'],
+    script: ['mdi:script-text-play'],
+    automation: ['mdi:robot', 'mdi:robot-off'],
+    button: ['mdi:gesture-tap-button'],
+    input_button: ['mdi:gesture-tap-button'],
+    input_select: ['mdi:format-list-bulleted'],
+    select: ['mdi:format-list-bulleted'],
+    input_number: ['mdi:ray-vertex'],
+    number: ['mdi:ray-vertex'],
+    vacuum: ['mdi:robot-vacuum'],
+    camera: ['mdi:cctv'],
+    person: ['mdi:account', 'mdi:account-outline'],
+    device_tracker: ['mdi:account', 'mdi:account-outline'],
+    sun: ['mdi:white-balance-sunny', 'mdi:weather-night'],
+    weather: ['mdi:weather-partly-cloudy'],
+    alarm_control_panel: ['mdi:shield-lock', 'mdi:shield-off'],
+    siren: ['mdi:bullhorn', 'mdi:bullhorn-outline'],
+    humidifier: ['mdi:air-humidifier', 'mdi:air-humidifier-off'],
+    water_heater: ['mdi:water-boiler', 'mdi:water-boiler-off'],
+    remote: ['mdi:remote', 'mdi:remote-off'],
+    valve: ['mdi:valve-open', 'mdi:valve-closed'],
+    update: ['mdi:package-up', 'mdi:package'],
+    calendar: ['mdi:calendar'],
+    sensor: ['mdi:eye'],
+    binary_sensor: ['mdi:checkbox-marked-circle', 'mdi:checkbox-blank-circle-outline'],
+    zone: ['mdi:map-marker-radius'],
+    group: ['mdi:google-circles-communities']
+};
+const SENSOR_ICONS = {
+    temperature: 'mdi:thermometer',
+    humidity: 'mdi:water-percent',
+    power: 'mdi:flash',
+    energy: 'mdi:lightning-bolt',
+    battery: 'mdi:battery',
+    illuminance: 'mdi:brightness-5',
+    pressure: 'mdi:gauge',
+    voltage: 'mdi:sine-wave',
+    current: 'mdi:current-ac',
+    carbon_dioxide: 'mdi:molecule-co2',
+    pm25: 'mdi:blur',
+    signal_strength: 'mdi:wifi',
+    timestamp: 'mdi:clock-outline',
+    monetary: 'mdi:cash',
+    gas: 'mdi:meter-gas',
+    water: 'mdi:water',
+    speed: 'mdi:speedometer',
+    distance: 'mdi:arrow-left-right',
+    duration: 'mdi:timer-outline'
+};
+const BINARY_ICONS = {
+    door: ['mdi:door-open', 'mdi:door-closed'],
+    garage_door: ['mdi:garage-open', 'mdi:garage'],
+    window: ['mdi:window-open', 'mdi:window-closed'],
+    motion: ['mdi:motion-sensor', 'mdi:motion-sensor-off'],
+    occupancy: ['mdi:home-account', 'mdi:home-outline'],
+    presence: ['mdi:home', 'mdi:home-outline'],
+    moisture: ['mdi:water-alert', 'mdi:water-off'],
+    smoke: ['mdi:smoke-detector-alert', 'mdi:smoke-detector'],
+    plug: ['mdi:power-plug', 'mdi:power-plug-off'],
+    connectivity: ['mdi:check-network', 'mdi:close-network'],
+    battery: ['mdi:battery-alert', 'mdi:battery'],
+    lock: ['mdi:lock-open-variant', 'mdi:lock'],
+    light: ['mdi:brightness-7', 'mdi:brightness-5'],
+    sound: ['mdi:music-note', 'mdi:music-note-off'],
+    vibration: ['mdi:vibrate', 'mdi:crop-portrait']
+};
+const COVER_ICONS = {
+    garage: ['mdi:garage-open', 'mdi:garage'],
+    door: ['mdi:door-open', 'mdi:door-closed'],
+    gate: ['mdi:gate-open', 'mdi:gate'],
+    blind: ['mdi:blinds-open', 'mdi:blinds'],
+    curtain: ['mdi:curtains', 'mdi:curtains-closed'],
+    window: ['mdi:window-open', 'mdi:window-closed'],
+    awning: ['mdi:awning-outline', 'mdi:awning-outline']
+};
+/** Icône à afficher : celle de l'entité dans HA, sinon celle de son type. */
+function defaultIcon(s, entityId, on) {
+    const own = s?.attributes?.icon;
+    if (typeof own === 'string' && own.includes(':'))
+        return own;
+    const d = haDomainOf(entityId);
+    const dc = typeof s?.attributes?.device_class === 'string' ? s.attributes.device_class : '';
+    const isOn = on ?? isOnState(s);
+    if (d === 'sensor' && SENSOR_ICONS[dc])
+        return SENSOR_ICONS[dc];
+    if (d === 'binary_sensor' && BINARY_ICONS[dc])
+        return BINARY_ICONS[dc][isOn ? 0 : 1];
+    if (d === 'cover' && COVER_ICONS[dc])
+        return COVER_ICONS[dc][isOn ? 0 : 1];
+    const pair = DOMAIN_ICONS[d];
+    if (!pair)
+        return 'mdi:home-assistant';
+    return isOn || !pair[1] ? pair[0] : pair[1];
+}
+/** Normalise la réponse de get_services en une liste triée. */
+function normalizeServices(raw) {
+    const out = [];
+    if (!raw || typeof raw !== 'object')
+        return out;
+    for (const [domain, services] of Object.entries(raw)) {
+        if (!services || typeof services !== 'object')
+            continue;
+        for (const [service, def] of Object.entries(services)) {
+            const d = (def ?? {});
+            const ent = d.target?.entity;
+            const entList = Array.isArray(ent) ? ent : ent ? [ent] : [];
+            const targetDomains = entList.flatMap((e) => (Array.isArray(e.domain) ? e.domain : e.domain ? [e.domain] : []));
+            out.push({
+                domain,
+                service,
+                name: d.name || service.replace(/_/g, ' '),
+                description: d.description,
+                target: !!d.target,
+                targetDomains,
+                fields: normalizeFields(d.fields ?? {})
+            });
+        }
+    }
+    return out.sort((a, b) => `${a.domain}.${a.service}`.localeCompare(`${b.domain}.${b.service}`));
+}
+function normalizeFields(fields, advanced = false) {
+    const out = [];
+    for (const [key, raw] of Object.entries(fields)) {
+        const f = (raw ?? {});
+        // sections repliables (« advanced_fields ») : on aplatit
+        if (f.fields && !f.selector) {
+            out.push(...normalizeFields(f.fields, advanced || !!f.collapsed));
+            continue;
+        }
+        const sel = f.selector ?? {};
+        const kind = Object.keys(sel)[0] ?? 'text';
+        const cfg = (sel[kind] ?? {});
+        const base = { key, name: f.name || key.replace(/_/g, ' '), description: f.description, required: !!f.required, example: f.example, advanced: advanced || !!f.advanced };
+        if (kind === 'number') {
+            out.push({ ...base, kind: 'number', min: num(cfg.min), max: num(cfg.max), step: typeof cfg.step === 'number' ? cfg.step : undefined, unit: typeof cfg.unit_of_measurement === 'string' ? cfg.unit_of_measurement : undefined });
+        }
+        else if (kind === 'boolean' || kind === 'constant') {
+            out.push({ ...base, kind: 'boolean' });
+        }
+        else if (kind === 'select') {
+            const opts = Array.isArray(cfg.options) ? cfg.options : [];
+            out.push({
+                ...base,
+                kind: 'select',
+                options: opts.map((o) => (typeof o === 'string' ? { value: o, label: o } : { value: String(o.value), label: String(o.label ?? o.value) }))
+            });
+        }
+        else if (kind === 'color_rgb') {
+            out.push({ ...base, kind: 'color' });
+        }
+        else if (kind === 'color_temp') {
+            out.push({ ...base, kind: 'kelvin', min: num(cfg.min) ?? num(cfg.min_mireds) ?? 2000, max: num(cfg.max) ?? 6500, unit: 'K' });
+        }
+        else if (kind === 'entity') {
+            out.push({ ...base, kind: 'entity' });
+        }
+        else if (kind === 'time' || kind === 'duration') {
+            out.push({ ...base, kind: 'time' });
+        }
+        else if (kind === 'text' || kind === 'icon' || kind === 'template') {
+            out.push({ ...base, kind: 'text' });
+        }
+        else {
+            out.push({ ...base, kind: 'object' });
+        }
+    }
+    return out;
+}
+const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
+/** Première règle qui s'applique à l'état, ou null. */
+function matchRule(rules, s) {
+    if (!rules?.length || !s)
+        return null;
+    for (const r of rules) {
+        if (!r || typeof r.value !== 'string')
+            continue;
+        if (r.when === 'is' && s.state === r.value.trim())
+            return r;
+        if (r.when === 'not' && s.state !== r.value.trim())
+            return r;
+        const n = Number(s.state);
+        const v = Number(r.value.replace(',', '.'));
+        if (!Number.isFinite(n) || !Number.isFinite(v))
+            continue;
+        if (r.when === 'above' && n > v)
+            return r;
+        if (r.when === 'below' && n < v)
+            return r;
+    }
+    return null;
+}
+/* ───────── données de service saisies à la main ───────── */
+/**
+ * Lit les données d'un service écrites en JSON ou en YAML simple
+ * (« brightness_pct: 40 » une clé par ligne, listes [1, 2, 3]).
+ */
+function parseServiceData(text) {
+    const t = text.trim();
+    if (!t)
+        return {};
+    if (t.startsWith('{')) {
+        const v = JSON.parse(t);
+        if (!v || typeof v !== 'object' || Array.isArray(v))
+            throw new Error('Il faut un objet { … }');
+        return v;
+    }
+    const out = {};
+    for (const line of t.split(/\r?\n/)) {
+        if (!line.trim() || line.trim().startsWith('#'))
+            continue;
+        const m = /^\s*([A-Za-z0-9_]+)\s*:\s*(.*)$/.exec(line);
+        if (!m)
+            throw new Error(`Ligne non comprise : « ${line.trim()} »`);
+        out[m[1]] = yamlScalar(m[2]);
+    }
+    return out;
+}
+function yamlScalar(raw) {
+    const v = raw.trim();
+    if (v === '')
+        return null;
+    if (/^(true|yes|on)$/i.test(v))
+        return true;
+    if (/^(false|no|off)$/i.test(v))
+        return false;
+    if (/^-?\d+(\.\d+)?$/.test(v))
+        return Number(v);
+    if (v.startsWith('[') || v.startsWith('{')) {
+        try {
+            return JSON.parse(v);
+        }
+        catch {
+            if (v.startsWith('[') && v.endsWith(']'))
+                return v
+                    .slice(1, -1)
+                    .split(',')
+                    .map((x) => yamlScalar(x));
+        }
+    }
+    if ((v.startsWith('"') && v.endsWith('"')) || (v.startsWith("'") && v.endsWith("'")))
+        return v.slice(1, -1);
+    return v;
+}
+
+/**
+ * Client WebSocket Home Assistant, sans dépendance : le constructeur WebSocket
+ * est fourni par l'appelant (`ws` dans l'app Electron et dans le plugin
+ * Stream Deck). Utilisé par le pont Stream Deck de l'app et par la connexion
+ * directe de secours du plugin.
+ *
+ *  - authentification par jeton longue durée ;
+ *  - états en direct (abonnement state_changed) ;
+ *  - reconnexion automatique avec attente croissante (veille du PC,
+ *    redémarrage de HA, coupure Wi-Fi) ;
+ *  - adresse locale puis adresse distante si la première ne répond pas.
+ */
+class HaError extends Error {
+    code;
+    constructor(message, code) {
+        super(message);
+        this.code = code;
+    }
+}
+/** ws://hôte/api/websocket depuis http(s)://hôte. */
+function haSocketUrl(base) {
+    return base.replace(/^http/i, 'ws').replace(/\/+$/, '') + '/api/websocket';
+}
+/** Adresse de base nettoyée (« homeassistant.local:8123 » → http://…). */
+function cleanHaUrl(raw) {
+    let v = (raw ?? '').trim().replace(/\/+$/, '');
+    if (!v)
+        return null;
+    if (!/^https?:\/\//i.test(v))
+        v = `http://${v}`;
+    try {
+        const u = new URL(v);
+        return `${u.protocol}//${u.host}${u.pathname.replace(/\/+$/, '')}`;
+    }
+    catch {
+        return null;
+    }
+}
+const OPEN = 1;
+class HaSocket {
+    opts;
+    ws = null;
+    seq = 0;
+    pending = new Map();
+    subs = new Map();
+    states = new Map();
+    readyWaiters = [];
+    retry = 0;
+    retryTimer = null;
+    urlIndex = 0;
+    wanted = false;
+    listeners = new Set();
+    statusListeners = new Set();
+    _state = 'off';
+    /** Adresse effectivement connectée. */
+    base = null;
+    /** Incrémenté à chaque changement d'état reçu (pour l'attente longue). */
+    version = 0;
+    constructor(opts) {
+        this.opts = opts;
+    }
+    get state() {
+        return this._state;
+    }
+    setState(s) {
+        if (this._state === s)
+            return;
+        this._state = s;
+        for (const l of this.statusListeners)
+            l(s);
+    }
+    onStatus(fn) {
+        this.statusListeners.add(fn);
+        return () => this.statusListeners.delete(fn);
+    }
+    /** Changements d'états (déjà appliqués au cache). */
+    onChange(fn) {
+        this.listeners.add(fn);
+        return () => this.listeners.delete(fn);
+    }
+    /** Démarre (ou garde) la connexion. */
+    start() {
+        this.wanted = true;
+        if (this.ws || this.retryTimer)
+            return;
+        this.open();
+    }
+    /** Coupe et oublie tout (réglages changés). */
+    stop() {
+        this.wanted = false;
+        if (this.retryTimer)
+            clearTimeout(this.retryTimer);
+        this.retryTimer = null;
+        const ws = this.ws;
+        this.ws = null;
+        if (ws) {
+            ws.onclose = null;
+            ws.onerror = null;
+            ws.onmessage = null;
+            try {
+                ws.close();
+            }
+            catch {
+                /* déjà fermé */
+            }
+        }
+        this.failAll(new HaError('Connexion fermée', 'closed'));
+        this.states.clear();
+        this.subs.clear();
+        this.base = null;
+        this.setState('off');
+    }
+    /** Reconnexion immédiate (sortie de veille). */
+    nudge() {
+        if (!this.wanted)
+            return;
+        if (this._state === 'connected' && this.ws?.readyState === OPEN)
+            return;
+        if (this.retryTimer)
+            clearTimeout(this.retryTimer);
+        this.retryTimer = null;
+        this.retry = 0;
+        if (!this.ws)
+            this.open();
+    }
+    /** Attend la connexion (et le chargement des états). */
+    ready(timeoutMs = 8000) {
+        if (this._state === 'connected')
+            return Promise.resolve();
+        this.start();
+        return new Promise((resolve, reject) => {
+            const w = { resolve: () => (clearTimeout(t), resolve()), reject: (e) => (clearTimeout(t), reject(e)) };
+            const t = setTimeout(() => {
+                this.readyWaiters = this.readyWaiters.filter((x) => x !== w);
+                reject(new HaError(this._state === 'auth_failed' ? 'Jeton refusé par Home Assistant' : 'Home Assistant ne répond pas', this._state === 'auth_failed' ? 'auth' : 'timeout'));
+            }, timeoutMs);
+            this.readyWaiters.push(w);
+        });
+    }
+    allStates() {
+        return [...this.states.values()];
+    }
+    getState(id) {
+        return this.states.get(id);
+    }
+    /** Commande WebSocket brute (type + champs). */
+    async command(msg) {
+        await this.ready();
+        return this.send(msg);
+    }
+    callService(domain, service, data, target) {
+        const msg = { type: 'call_service', domain, service };
+        if (data && Object.keys(data).length)
+            msg.service_data = data;
+        if (target && Object.keys(target).length)
+            msg.target = target;
+        return this.command(msg);
+    }
+    fireEvent(eventType, data) {
+        return this.command({ type: 'fire_event', event_type: eventType, ...(data ? { event_data: data } : {}) });
+    }
+    /** Rend un modèle une fois (abonnement puis désabonnement). */
+    async renderTemplate(template, timeoutMs = 6000) {
+        await this.ready();
+        return new Promise((resolve, reject) => {
+            const id = ++this.seq;
+            const done = (fn) => {
+                clearTimeout(timer);
+                this.subs.delete(id);
+                this.pending.delete(id);
+                if (this.ws?.readyState === OPEN)
+                    this.raw({ id: ++this.seq, type: 'unsubscribe_events', subscription: id });
+                fn();
+            };
+            const timer = setTimeout(() => done(() => reject(new HaError('Modèle sans réponse', 'timeout'))), timeoutMs);
+            this.pending.set(id, {
+                resolve: () => undefined,
+                reject: (e) => done(() => reject(e)),
+                timer
+            });
+            this.subs.set(id, (ev) => {
+                const e = ev;
+                if (e && typeof e.error === 'string')
+                    done(() => reject(new HaError(e.error, 'template')));
+                else
+                    done(() => resolve(e?.result == null ? '' : typeof e.result === 'string' ? e.result : JSON.stringify(e.result)));
+            });
+            this.raw({ id, type: 'render_template', template, report_errors: true });
+        });
+    }
+    /* ───────── interne ───────── */
+    raw(msg) {
+        if (this.ws?.readyState === OPEN)
+            this.ws.send(JSON.stringify(msg));
+    }
+    send(msg) {
+        return new Promise((resolve, reject) => {
+            if (!this.ws || this.ws.readyState !== OPEN)
+                return reject(new HaError('Home Assistant non connecté', 'offline'));
+            const id = ++this.seq;
+            const timer = setTimeout(() => {
+                this.pending.delete(id);
+                reject(new HaError('Home Assistant ne répond pas', 'timeout'));
+            }, this.opts.timeout ?? 10_000);
+            this.pending.set(id, { resolve: resolve, reject, timer });
+            this.ws.send(JSON.stringify({ id, ...msg }));
+        });
+    }
+    failAll(err) {
+        for (const p of this.pending.values()) {
+            clearTimeout(p.timer);
+            p.reject(err);
+        }
+        this.pending.clear();
+    }
+    open() {
+        const urls = this.opts.urls().map(cleanHaUrl).filter((u) => !!u);
+        const token = this.opts.token();
+        if (!urls.length || !token) {
+            this.setState('off');
+            for (const w of this.readyWaiters.splice(0))
+                w.reject(new HaError('Home Assistant n’est pas configuré', 'not_configured'));
+            return;
+        }
+        const base = urls[this.urlIndex % urls.length];
+        this.setState('connecting');
+        let ws;
+        try {
+            ws = new this.opts.WebSocket(haSocketUrl(base));
+        }
+        catch (e) {
+            this.opts.log?.('[ha] ouverture impossible', e);
+            this.scheduleRetry(urls.length);
+            return;
+        }
+        this.ws = ws;
+        let authed = false;
+        ws.onmessage = (ev) => {
+            let msg;
+            try {
+                msg = JSON.parse(typeof ev.data === 'string' ? ev.data : String(ev.data));
+            }
+            catch {
+                return;
+            }
+            const type = msg.type;
+            if (type === 'auth_required') {
+                ws.send(JSON.stringify({ type: 'auth', access_token: token }));
+            }
+            else if (type === 'auth_invalid') {
+                this.setState('auth_failed');
+                this.wanted = false;
+                for (const w of this.readyWaiters.splice(0))
+                    w.reject(new HaError('Jeton refusé par Home Assistant', 'auth'));
+                try {
+                    ws.close();
+                }
+                catch {
+                    /* rien */
+                }
+            }
+            else if (type === 'auth_ok') {
+                authed = true;
+                this.retry = 0;
+                this.base = base;
+                void this.afterAuth();
+            }
+            else if (type === 'result') {
+                const p = this.pending.get(msg.id);
+                if (!p)
+                    return;
+                if (this.subs.has(msg.id)) {
+                    // abonnement : on attend l'événement, l'échec seul compte ici
+                    if (!msg.success) {
+                        const err = msg.error;
+                        p.reject(new HaError(err?.message ?? 'Erreur Home Assistant', err?.code ?? 'error'));
+                    }
+                    return;
+                }
+                clearTimeout(p.timer);
+                this.pending.delete(msg.id);
+                if (msg.success)
+                    p.resolve(msg.result);
+                else {
+                    const err = msg.error;
+                    p.reject(new HaError(err?.message ?? 'Erreur Home Assistant', err?.code ?? 'error'));
+                }
+            }
+            else if (type === 'event') {
+                const sub = this.subs.get(msg.id);
+                if (sub)
+                    sub(msg.event);
+            }
+        };
+        ws.onclose = () => {
+            if (this.ws !== ws)
+                return;
+            this.ws = null;
+            this.failAll(new HaError('Connexion perdue', 'closed'));
+            this.subs.clear();
+            if (!this.wanted)
+                return;
+            if (this._state !== 'auth_failed')
+                this.setState('error');
+            // la locale n'a jamais répondu : on essaie l'adresse suivante
+            if (!authed)
+                this.urlIndex++;
+            this.scheduleRetry(urls.length);
+        };
+        ws.onerror = () => {
+            /* onclose suit */
+        };
+    }
+    scheduleRetry(urlCount) {
+        if (!this.wanted || this.retryTimer)
+            return;
+        // essai rapide de l'autre adresse, puis attente croissante (max 60 s)
+        const quick = urlCount > 1 && this.urlIndex % urlCount !== 0;
+        const delay = quick ? 300 : Math.min(60_000, 1000 * 2 ** Math.min(this.retry++, 6));
+        this.retryTimer = setTimeout(() => {
+            this.retryTimer = null;
+            if (this.wanted && !this.ws)
+                this.open();
+        }, delay);
+    }
+    async afterAuth() {
+        try {
+            const subId = ++this.seq;
+            this.subs.set(subId, (ev) => this.onStateChanged(ev));
+            this.pending.set(subId, {
+                resolve: () => undefined,
+                reject: (e) => this.opts.log?.('[ha] abonnement refusé', e),
+                timer: setTimeout(() => undefined, 0)
+            });
+            this.raw({ id: subId, type: 'subscribe_events', event_type: 'state_changed' });
+            const list = await this.send({ type: 'get_states' });
+            this.states = new Map((Array.isArray(list) ? list : []).filter((s) => s && typeof s.entity_id === 'string').map((s) => [s.entity_id, s]));
+            this.version++;
+            this.setState('connected');
+            for (const w of this.readyWaiters.splice(0))
+                w.resolve();
+            const all = [...this.states.values()];
+            for (const l of this.listeners)
+                l(all);
+        }
+        catch (e) {
+            this.opts.log?.('[ha] chargement des états', e);
+        }
+    }
+    onStateChanged(ev) {
+        const data = ev?.data;
+        if (!data?.entity_id)
+            return;
+        if (data.new_state)
+            this.states.set(data.entity_id, data.new_state);
+        else
+            this.states.delete(data.entity_id);
+        this.version++;
+        const changed = data.new_state ? [data.new_state] : [];
+        for (const l of this.listeners)
+            l(changed);
+    }
+}
+
+/**
+ * Accès à Home Assistant depuis le plugin.
+ *
+ *  1. Par MultiOutils (recommandé) : l'app garde la connexion et le jeton
+ *     chiffré ; le plugin lui parle sur 127.0.0.1:41320 (attente longue des
+ *     changements d'état).
+ *  2. En secours, si l'app n'est pas lancée : connexion directe du plugin à
+ *     HA, avec l'adresse et le jeton saisis dans le panneau « Connexion »
+ *     (réglages globaux du plugin, gardés par le logiciel Stream Deck).
+ */
+const APP = 'http://127.0.0.1:41320';
+async function appFetch(path, init = {}) {
+    const res = await fetch(APP + path, {
+        ...init,
+        headers: init.body ? { 'Content-Type': 'application/json' } : undefined,
+        signal: AbortSignal.timeout(init.timeout ?? 5000)
+    });
+    const data = (await res.json().catch(() => null));
+    if (!res.ok)
+        throw new Error((data && typeof data.error === 'string' && data.error) || `HTTP ${res.status}`);
+    return data;
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+class HaHub {
+    log;
+    states = new Map();
+    watched = new Map();
+    version = -1;
+    direct = null;
+    directCfg = {};
+    listeners = new Set();
+    iconCache = new Map();
+    iconWaiting = new Set();
+    iconTimer = null;
+    status = { mode: 'off', state: 'off', app: false };
+    running = false;
+    constructor(log = () => undefined) {
+        this.log = log;
+    }
+    /** Changement d'état (ids) ou de connexion (null). */
+    onChange(fn) {
+        this.listeners.add(fn);
+        return () => this.listeners.delete(fn);
+    }
+    emit(ids) {
+        for (const l of this.listeners)
+            l(ids);
+    }
+    get(id) {
+        return this.states.get(id);
+    }
+    watch(id) {
+        if (!id)
+            return;
+        const n = this.watched.get(id) ?? 0;
+        this.watched.set(id, n + 1);
+        if (n === 0)
+            void this.fetchNow([id]);
+        this.start();
+    }
+    unwatch(id) {
+        const n = this.watched.get(id) ?? 0;
+        if (n <= 1)
+            this.watched.delete(id);
+        else
+            this.watched.set(id, n - 1);
+    }
+    setDirect(cfg) {
+        const same = cfg.url === this.directCfg.url && cfg.remoteUrl === this.directCfg.remoteUrl && cfg.token === this.directCfg.token;
+        this.directCfg = { url: cfg.url ?? '', remoteUrl: cfg.remoteUrl ?? '', token: cfg.token ?? '' };
+        if (!same && this.direct) {
+            this.direct.stop();
+            this.direct = null;
+        }
+    }
+    directConfigured() {
+        return !!(cleanHaUrl(this.directCfg.url) || cleanHaUrl(this.directCfg.remoteUrl)) && !!this.directCfg.token;
+    }
+    start() {
+        if (this.running)
+            return;
+        this.running = true;
+        void this.loop();
+    }
+    setStatus(next) {
+        const changed = next.mode !== this.status.mode || next.state !== this.status.state || next.app !== this.status.app;
+        this.status = next;
+        if (changed)
+            this.emit(null);
+    }
+    async loop() {
+        for (;;) {
+            let app = null;
+            try {
+                app = await appFetch('/ha/status', { timeout: 2500 });
+            }
+            catch {
+                app = null;
+            }
+            if (app && app.configured) {
+                this.stopDirect();
+                this.setStatus({ mode: 'app', state: app.state, app: true });
+                try {
+                    const ids = [...this.watched.keys()].join(',');
+                    const r = await appFetch(`/ha/wait?since=${this.version}&ids=${encodeURIComponent(ids)}`, { timeout: 30_000 });
+                    this.version = r.version;
+                    this.setStatus({ mode: 'app', state: r.state, app: true });
+                    this.applyStates(r.states);
+                    if (r.state !== 'connected')
+                        await sleep(1500);
+                }
+                catch (e) {
+                    this.log('[ha] attente', e);
+                    await sleep(1500);
+                }
+                continue;
+            }
+            if (this.directConfigured()) {
+                const s = this.ensureDirect();
+                this.setStatus({ mode: 'direct', state: s.state, app: !!app });
+                await sleep(4000); // on revérifie régulièrement si l'app est revenue
+                continue;
+            }
+            this.stopDirect();
+            this.setStatus({ mode: 'off', state: app ? 'not_configured' : 'off', app: !!app });
+            await sleep(3000);
+        }
+    }
+    applyStates(states) {
+        if (!states)
+            return;
+        const changed = [];
+        for (const [id, s] of Object.entries(states)) {
+            const prev = this.states.get(id);
+            if (!prev || prev.last_updated !== s.last_updated || prev.state !== s.state)
+                changed.push(id);
+            this.states.set(id, s);
+        }
+        if (changed.length)
+            this.emit(changed);
+    }
+    async fetchNow(ids) {
+        if (this.status.mode === 'direct' && this.direct) {
+            const out = {};
+            for (const id of ids) {
+                const s = this.direct.getState(id);
+                if (s)
+                    out[id] = s;
+            }
+            this.applyStates(out);
+            return;
+        }
+        try {
+            const r = await appFetch(`/ha/states?ids=${encodeURIComponent(ids.join(','))}`);
+            this.applyStates(r.states);
+        }
+        catch {
+            /* la boucle s'en chargera */
+        }
+    }
+    ensureDirect() {
+        if (!this.direct) {
+            const cfg = this.directCfg;
+            this.direct = new HaSocket({
+                urls: () => [cfg.url ?? '', cfg.remoteUrl ?? ''],
+                token: () => cfg.token || null,
+                WebSocket: WebSocket,
+                log: this.log
+            });
+            this.direct.onChange((changed) => {
+                const watchedChanged = changed.filter((s) => this.watched.has(s.entity_id));
+                for (const s of watchedChanged)
+                    this.states.set(s.entity_id, s);
+                if (changed.length > 50) {
+                    // premier chargement : tout ce qui est suivi
+                    for (const id of this.watched.keys()) {
+                        const s = this.direct?.getState(id);
+                        if (s)
+                            this.states.set(id, s);
+                    }
+                    this.emit([...this.watched.keys()]);
+                }
+                else if (watchedChanged.length)
+                    this.emit(watchedChanged.map((s) => s.entity_id));
+            });
+            this.direct.onStatus((st) => this.setStatus({ mode: 'direct', state: st, app: this.status.app }));
+        }
+        this.direct.start();
+        return this.direct;
+    }
+    stopDirect() {
+        if (this.direct) {
+            this.direct.stop();
+            this.direct = null;
+        }
+    }
+    /** Sortie de veille, réglages changés : on repart tout de suite. */
+    nudge() {
+        this.direct?.nudge();
+    }
+    /* ───────── appels ───────── */
+    async call(domain, service, data, target) {
+        if (this.status.mode === 'direct' && this.direct) {
+            await this.direct.callService(domain, service, data, target);
+            return;
+        }
+        await appFetch('/ha/call', { method: 'POST', body: JSON.stringify({ domain, service, data, target }), timeout: 12_000 });
+    }
+    async event(type, data) {
+        if (this.status.mode === 'direct' && this.direct) {
+            await this.direct.fireEvent(type, data);
+            return;
+        }
+        await appFetch('/ha/event', { method: 'POST', body: JSON.stringify({ type, data }) });
+    }
+    async template(template) {
+        if (this.status.mode === 'direct' && this.direct)
+            return this.direct.renderTemplate(template);
+        const r = await appFetch('/ha/template', { method: 'POST', body: JSON.stringify({ template }), timeout: 8000 });
+        return r.result;
+    }
+    async catalog() {
+        if (this.status.mode === 'direct' && this.direct) {
+            await this.direct.ready();
+            const soft = (p) => p.catch(() => undefined);
+            const [entities, devices, areas, floors] = await Promise.all([
+                soft(this.direct.command({ type: 'config/entity_registry/list' })),
+                soft(this.direct.command({ type: 'config/device_registry/list' })),
+                soft(this.direct.command({ type: 'config/area_registry/list' })),
+                soft(this.direct.command({ type: 'config/floor_registry/list' }))
+            ]);
+            return buildCatalog(this.direct.allStates(), { entities, devices, areas, floors });
+        }
+        return appFetch('/ha/catalog', { timeout: 12_000 });
+    }
+    async services() {
+        if (this.status.mode === 'direct' && this.direct)
+            return normalizeServices(await this.direct.command({ type: 'get_services' }));
+        return appFetch('/ha/services', { timeout: 12_000 });
+    }
+    /** Image de caméra ou pochette (data URL), via l'app uniquement. */
+    async image(src, size = 144) {
+        if (this.status.mode !== 'app')
+            return null;
+        try {
+            const r = await appFetch(`/ha/image?src=${encodeURIComponent(src)}&size=${size}`, { timeout: 10_000 });
+            return r.image ?? null;
+        }
+        catch {
+            return null;
+        }
+    }
+    async openCamera(id) {
+        await appFetch('/ha/camera/open', { method: 'POST', body: JSON.stringify({ id }) });
+    }
+    /* ───────── icônes Material Design (fournies par l'app) ───────── */
+    /** Tracé SVG d'une icône mdi:… ; undefined = en cours de chargement. */
+    icon(name) {
+        if (this.iconCache.has(name))
+            return this.iconCache.get(name);
+        this.iconWaiting.add(name);
+        if (!this.iconTimer)
+            this.iconTimer = setTimeout(() => void this.loadIcons(), 30);
+        return undefined;
+    }
+    async loadIcons() {
+        this.iconTimer = null;
+        const names = [...this.iconWaiting].slice(0, 100);
+        for (const n of names)
+            this.iconWaiting.delete(n);
+        try {
+            const r = await appFetch(`/ha/icons?names=${encodeURIComponent(names.join(','))}`);
+            for (const n of names)
+                this.iconCache.set(n, r[n] ?? null);
+        }
+        catch {
+            // app absente : glyphe de secours ; on réessaiera plus tard
+            setTimeout(() => {
+                for (const n of names)
+                    if (this.iconCache.get(n) === null)
+                        this.iconCache.delete(n);
+            }, 30_000);
+            for (const n of names)
+                this.iconCache.set(n, null);
+        }
+        this.emit(null);
+        if (this.iconWaiting.size)
+            this.iconTimer = setTimeout(() => void this.loadIcons(), 30);
+    }
+}
+
+/**
+ * Dessin des touches Home Assistant (SVG 144×144) : icône, couleur selon
+ * l'état, nom, valeur, jauge, indicateur de connexion, image (caméra,
+ * pochette). Même allure que les autres touches MultiOutils.
+ */
+const esc = (s) => s.replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c]);
+function hexToRgb$1(hex) {
+    const n = parseInt(hex.slice(1, 7), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+const alpha = (hex, a) => {
+    const [r, g, b] = hexToRgb$1(hex);
+    return `rgba(${r},${g},${b},${a})`;
+};
+function luminance(hex) {
+    const [r, g, b] = hexToRgb$1(hex);
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+/** Texte tronqué pour tenir sur la touche. */
+function fit(text, max) {
+    const t = text.trim();
+    return t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t;
+}
+function renderKey(k) {
+    const fg0 = k.dark ? '#f0ede6' : '#1b1d22';
+    const muted = k.dark ? '#8a94aa' : '#666b77';
+    let bg = k.background;
+    let glyph = k.color;
+    let text = fg0;
+    let bgExtra = '';
+    const active = k.on && !k.unavailable;
+    switch (k.style) {
+        case 'plein':
+            bg = active ? k.color : alpha(k.color, k.dark ? 0.28 : 0.22);
+            glyph = active ? (luminance(k.color) > 0.62 ? '#15161a' : '#ffffff') : k.dark ? '#ffffff' : '#1b1d22';
+            text = glyph;
+            break;
+        case 'teinte':
+            bgExtra = `<rect width="144" height="144" rx="22" fill="url(#t)"/>`;
+            glyph = active ? k.color : alpha(k.color, 0.7);
+            break;
+        case 'symbole':
+            bg = k.dark ? '#0c0d10' : '#ffffff';
+            glyph = active ? k.color : alpha(k.color, 0.5);
+            break;
+        default:
+            // « comme l'app » : fond de l'app, symbole coloré, atténué à l'arrêt
+            glyph = active ? k.color : muted;
+    }
+    if (k.unavailable)
+        glyph = muted;
+    const hasTitle = !!k.title;
+    const hasValue = !!k.value;
+    // place de l'icône selon le texte autour
+    const iconSize = hasTitle && hasValue ? 52 : hasTitle || hasValue ? 62 : 76;
+    const iconY = hasValue && !k.image ? 44 : 22;
+    const iconTop = hasTitle ? Math.min(iconY, 104 - iconSize - 4) : (144 - iconSize) / 2;
+    const scale = iconSize / 24;
+    const ix = (144 - iconSize) / 2;
+    let icon = '';
+    if (!k.image) {
+        if (k.iconPath)
+            icon = `<path transform="translate(${ix} ${iconTop}) scale(${scale})" d="${esc(k.iconPath)}" fill="${glyph}"/>`;
+        else if (k.fallback)
+            icon = `<g transform="translate(${ix} ${iconTop}) scale(${scale})" fill="none" stroke="${glyph}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${k.fallback}</g>`;
+    }
+    const parts = [];
+    parts.push(`<defs><linearGradient id="t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${alpha(k.color, active ? 0.5 : 0.22)}"/><stop offset="1" stop-color="${alpha(k.color, active ? 0.16 : 0.06)}"/></linearGradient>` +
+        `<linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset=".45" stop-color="rgba(0,0,0,0)"/><stop offset="1" stop-color="rgba(0,0,0,.78)"/></linearGradient>` +
+        `<clipPath id="c"><rect width="144" height="144" rx="22"/></clipPath></defs>`);
+    parts.push(`<rect width="144" height="144" rx="22" fill="${bg}"/>`);
+    if (bgExtra)
+        parts.push(bgExtra);
+    if (k.image) {
+        parts.push(`<image href="${k.image}" width="144" height="144" preserveAspectRatio="xMidYMid slice" clip-path="url(#c)"/>`);
+        parts.push(`<rect width="144" height="144" rx="22" fill="url(#s)"/>`);
+        text = '#ffffff';
+    }
+    if (active && (k.style === 'symbole' || k.style === 'teinte'))
+        parts.push(`<rect x="2" y="2" width="140" height="140" rx="20" fill="none" stroke="${alpha(k.color, 0.75)}" stroke-width="3"/>`);
+    parts.push(icon);
+    if (hasValue) {
+        const v = fit(k.value, 11);
+        const size = v.length <= 5 ? 30 : v.length <= 8 ? 24 : 19;
+        const y = k.image ? 30 : 34;
+        parts.push(`<text x="72" y="${y}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${size}" font-weight="700" fill="${k.image ? '#ffffff' : text}">${esc(v)}</text>`);
+    }
+    if (hasTitle) {
+        const t = fit(k.title, 14);
+        const size = t.length <= 9 ? 21 : t.length <= 12 ? 18 : 16;
+        parts.push(`<text x="72" y="${k.gauge != null ? 122 : 128}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${size}" font-weight="600" fill="${text}" opacity="${k.unavailable ? 0.6 : 0.95}">${esc(t)}</text>`);
+    }
+    if (k.gauge != null && Number.isFinite(k.gauge)) {
+        const w = Math.round((Math.max(0, Math.min(100, k.gauge)) / 100) * 104);
+        const track = k.style === 'plein' && active ? 'rgba(255,255,255,.3)' : alpha(k.color, 0.22);
+        const fill = k.style === 'plein' && active ? glyph : k.color;
+        parts.push(`<rect x="20" y="131" width="104" height="6" rx="3" fill="${track}"/><rect x="20" y="131" width="${w}" height="6" rx="3" fill="${fill}"/>`);
+    }
+    if (k.offline)
+        parts.push(`<circle cx="18" cy="18" r="8" fill="#efb36b" stroke="${k.background}" stroke-width="3"/>`);
+    else if (k.unavailable)
+        parts.push(`<circle cx="18" cy="18" r="8" fill="#ef7d6b" stroke="${k.background}" stroke-width="3"/>`);
+    if (k.confirm) {
+        parts.push(`<rect width="144" height="144" rx="22" fill="rgba(191,63,44,.92)"/>`);
+        parts.push(`<text x="72" y="66" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#fff">${esc(fit(k.confirm, 12))}</text>`);
+        parts.push(`<text x="72" y="96" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="17" fill="#fff" opacity=".9">Rappuie</text>`);
+    }
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144"${k.dimmed ? ' opacity="0.35"' : ''}>${parts.join('')}</svg>`;
+    return `data:image/svg+xml;charset=utf8,${encodeURIComponent(svg)}`;
+}
+/** Glyphes de secours (traits 24×24) quand l'icône Material Design n'est pas disponible. */
+const FALLBACK = {
+    light: '<path d="M9 18h6M10 21h4"/><path d="M12 3a6 6 0 0 0-3.6 10.8c.7.6 1.1 1.3 1.1 2.2h5c0-.9.4-1.6 1.1-2.2A6 6 0 0 0 12 3z"/>',
+    switch: '<path d="M12 3v8"/><path d="M6.6 6.6a7.5 7.5 0 1 0 10.8 0"/>',
+    cover: '<rect x="4" y="3.5" width="16" height="17" rx="1.5"/><path d="M4 8h16M4 12h16M4 16h16"/>',
+    scene: '<path d="M12 3c.6 4.2 2.8 6.4 7 7-4.2.6-6.4 2.8-7 7-.6-4.2-2.8-6.4-7-7 4.2-.6 6.4-2.8 7-7z"/>',
+    sensor: '<path d="M10 14.5V5a2 2 0 1 1 4 0v9.5a4 4 0 1 1-4 0z"/>',
+    media_player: '<path d="M8 5.5v13l10.5-6.5z"/>',
+    lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
+    camera: '<path d="M4 7.5h3l1.6-2.5h6.8L17 7.5h3a1.5 1.5 0 0 1 1.5 1.5v9A1.5 1.5 0 0 1 20 19.5H4A1.5 1.5 0 0 1 2.5 18V9A1.5 1.5 0 0 1 4 7.5z"/><circle cx="12" cy="13" r="3.5"/>',
+    home: '<path d="M3.5 11 12 4l8.5 7"/><path d="M6 9.5V20h12V9.5"/>',
+    sleep: '<path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/>',
+    pclock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>',
+    shutdown: '<path d="M12 3v8"/><path d="M6.6 6.6a7.5 7.5 0 1 0 10.8 0"/>',
+    restart: '<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4v5h-5"/>',
+    template: '<path d="M8 4H6a2 2 0 0 0-2 2v4l-2 2 2 2v4a2 2 0 0 0 2 2h2M16 4h2a2 2 0 0 1 2 2v4l2 2-2 2v4a2 2 0 0 1-2 2h-2"/>',
+    event: '<path d="M13 2.5 4.5 13.5H12l-1 8 8.5-11H12z"/>'
+};
+function fallbackFor(domain) {
+    if (FALLBACK[domain])
+        return FALLBACK[domain];
+    if (['input_boolean', 'fan', 'automation', 'siren', 'humidifier'].includes(domain))
+        return FALLBACK.switch;
+    if (['script', 'button', 'input_button'].includes(domain))
+        return FALLBACK.scene;
+    if (['binary_sensor', 'number', 'input_number', 'weather'].includes(domain))
+        return FALLBACK.sensor;
+    return FALLBACK.home;
+}
+
+/**
+ * Réglages d'une touche Home Assistant et traduction en appel de service.
+ * Fonctions pures (testées par vitest).
+ */
+const hexToRgb = (hex) => {
+    if (!/^#[0-9a-f]{6}$/i.test(hex))
+        return null;
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+const finite = (v) => typeof v === 'number' && Number.isFinite(v);
+/** Valeurs d'un cycle « 100, 50, 10 » ou « Film, Lecture ». */
+function cycleItems(text) {
+    return (text ?? '')
+        .split(/[,;\n]/)
+        .map((x) => x.trim())
+        .filter(Boolean);
+}
+/** Prochaine valeur du cycle après l'état actuel. */
+function nextCycle(items, current) {
+    if (!items.length)
+        return undefined;
+    const cur = current == null ? '' : String(current);
+    const curNum = Number(cur);
+    let i = items.findIndex((x) => x === cur || (Number.isFinite(curNum) && cur !== '' && Math.abs(Number(x.replace(',', '.')) - curNum) < 1.5));
+    return items[(i + 1) % items.length];
+}
+/** Ce que fait un appui, selon les réglages et l'état actuel. */
+function planPress(s, state) {
+    const id = s.entity ?? '';
+    const domain = haDomainOf(id);
+    const target = id ? { entity_id: id } : undefined;
+    const mode = s.mode ?? 'auto';
+    const attrs = state?.attributes ?? {};
+    switch (mode) {
+        case 'auto': {
+            if (!id)
+                return { kind: 'none', reason: 'Aucune entité' };
+            if (domain === 'camera')
+                return { kind: 'camera', id };
+            const p = defaultPress(state, id);
+            return p.kind === 'service' ? p : { kind: 'none', reason: 'Affichage seul' };
+        }
+        case 'toggle':
+            if (!id)
+                return { kind: 'none', reason: 'Aucune entité' };
+            if (['scene', 'script', 'button', 'input_button', 'automation'].includes(domain))
+                return defaultPress(state, id);
+            if (domain === 'lock')
+                return { kind: 'service', domain, service: isOnState(state) ? 'lock' : 'unlock', target };
+            return { kind: 'service', domain: 'homeassistant', service: 'toggle', target };
+        case 'on':
+        case 'off': {
+            const on = mode === 'on';
+            if (domain === 'cover')
+                return { kind: 'service', domain, service: on ? 'open_cover' : 'close_cover', target };
+            if (domain === 'valve')
+                return { kind: 'service', domain, service: on ? 'open_valve' : 'close_valve', target };
+            if (domain === 'lock')
+                return { kind: 'service', domain, service: on ? 'unlock' : 'lock', target };
+            if (domain === 'vacuum')
+                return { kind: 'service', domain, service: on ? 'start' : 'return_to_base', target };
+            return { kind: 'service', domain: 'homeassistant', service: on ? 'turn_on' : 'turn_off', target };
+        }
+        case 'preset':
+            return presetPlan(s, domain, target);
+        case 'cycle': {
+            const items = cycleItems(s.cycle);
+            if (!items.length)
+                return { kind: 'none', reason: 'Liste vide' };
+            if (domain === 'light') {
+                const cur = state?.state === 'on' && finite(attrs.brightness) ? Math.round(attrs.brightness / 2.55) : 0;
+                const next = Number(nextCycle(items, cur));
+                return next <= 0
+                    ? { kind: 'service', domain: 'light', service: 'turn_off', target }
+                    : { kind: 'service', domain: 'light', service: 'turn_on', data: { brightness_pct: next }, target };
+            }
+            if (domain === 'cover')
+                return { kind: 'service', domain, service: 'set_cover_position', data: { position: Number(nextCycle(items, attrs.current_position)) }, target };
+            if (domain === 'fan')
+                return { kind: 'service', domain, service: 'set_percentage', data: { percentage: Number(nextCycle(items, attrs.percentage)) }, target };
+            if (domain === 'climate')
+                return { kind: 'service', domain, service: 'set_temperature', data: { temperature: Number(nextCycle(items, attrs.temperature)?.replace(',', '.')) }, target };
+            if (domain === 'input_select' || domain === 'select')
+                return { kind: 'service', domain, service: 'select_option', data: { option: nextCycle(items, state?.state) }, target };
+            if (domain === 'input_number' || domain === 'number')
+                return { kind: 'service', domain, service: 'set_value', data: { value: Number(nextCycle(items, state?.state)?.replace(',', '.')) }, target };
+            if (domain === 'media_player')
+                return { kind: 'service', domain, service: 'select_source', data: { source: nextCycle(items, attrs.source) }, target };
+            return { kind: 'none', reason: 'Cycle non géré pour ce type' };
+        }
+        case 'adjust': {
+            const step = finite(s.step) && s.step !== 0 ? s.step : 10;
+            if (domain === 'light')
+                return { kind: 'service', domain, service: 'turn_on', data: { brightness_step_pct: step }, target };
+            if (domain === 'climate') {
+                const cur = finite(attrs.temperature) ? attrs.temperature : 20;
+                return { kind: 'service', domain, service: 'set_temperature', data: { temperature: Math.round((cur + step) * 10) / 10 }, target };
+            }
+            if (domain === 'cover') {
+                const cur = finite(attrs.current_position) ? attrs.current_position : 0;
+                return { kind: 'service', domain, service: 'set_cover_position', data: { position: Math.max(0, Math.min(100, cur + step)) }, target };
+            }
+            if (domain === 'fan')
+                return { kind: 'service', domain, service: step > 0 ? 'increase_speed' : 'decrease_speed', data: { percentage_step: Math.abs(step) }, target };
+            if (domain === 'media_player') {
+                const cur = finite(attrs.volume_level) ? attrs.volume_level : 0.3;
+                return { kind: 'service', domain, service: 'volume_set', data: { volume_level: Math.max(0, Math.min(1, Math.round((cur + step / 100) * 100) / 100)) }, target };
+            }
+            if (domain === 'input_number' || domain === 'number') {
+                const cur = Number(state?.state);
+                const max = finite(attrs.max) ? attrs.max : Infinity;
+                const min = finite(attrs.min) ? attrs.min : -Infinity;
+                return { kind: 'service', domain, service: 'set_value', data: { value: Math.max(min, Math.min(max, (Number.isFinite(cur) ? cur : 0) + step)) }, target };
+            }
+            return { kind: 'none', reason: 'Réglage non géré pour ce type' };
+        }
+        case 'media': {
+            const map = { play_pause: 'media_play_pause', next: 'media_next_track', previous: 'media_previous_track', volume_up: 'volume_up', volume_down: 'volume_down', stop: 'media_stop' };
+            if (s.media === 'mute')
+                return { kind: 'service', domain: 'media_player', service: 'volume_mute', data: { is_volume_muted: !attrs.is_volume_muted }, target };
+            return { kind: 'service', domain: 'media_player', service: map[s.media ?? 'play_pause'] ?? 'media_play_pause', target };
+        }
+        case 'service': {
+            const m = /^([a-z0-9_]+)\.([a-z0-9_]+)$/.exec((s.service ?? '').trim());
+            if (!m)
+                return { kind: 'none', reason: 'Service à choisir' };
+            const data = parseServiceData(s.data ?? '');
+            // une cible écrite dans les données prime
+            const own = {};
+            for (const k of ['entity_id', 'device_id', 'area_id', 'floor_id', 'label_id']) {
+                if (k in data) {
+                    own[k] = data[k];
+                    delete data[k];
+                }
+            }
+            const t = Object.keys(own).length ? own : s.targetSelf !== false && id ? target : undefined;
+            return { kind: 'service', domain: m[1], service: m[2], data, target: t };
+        }
+        case 'event':
+            if (!s.eventType?.trim())
+                return { kind: 'none', reason: 'Événement à nommer' };
+            return { kind: 'event', type: s.eventType.trim(), data: parseServiceData(s.eventData ?? '') };
+        case 'camera':
+            return id ? { kind: 'camera', id } : { kind: 'none', reason: 'Aucune caméra' };
+        default:
+            return { kind: 'none' };
+    }
+}
+function presetPlan(s, domain, target) {
+    const p = s.preset ?? {};
+    switch (domain) {
+        case 'light': {
+            const data = {};
+            if (finite(p.brightness))
+                data.brightness_pct = p.brightness;
+            const rgb = p.color ? hexToRgb(p.color) : null;
+            if (rgb)
+                data.rgb_color = rgb;
+            else if (finite(p.kelvin))
+                data.color_temp_kelvin = p.kelvin;
+            if (data.brightness_pct === 0)
+                return { kind: 'service', domain, service: 'turn_off', target };
+            return { kind: 'service', domain, service: 'turn_on', data, target };
+        }
+        case 'cover':
+            return { kind: 'service', domain, service: 'set_cover_position', data: { position: finite(p.position) ? p.position : 50 }, target };
+        case 'climate': {
+            if (p.hvac)
+                return { kind: 'service', domain, service: 'set_hvac_mode', data: { hvac_mode: p.hvac }, target };
+            return { kind: 'service', domain, service: 'set_temperature', data: { temperature: finite(p.temperature) ? p.temperature : 20 }, target };
+        }
+        case 'fan':
+            return { kind: 'service', domain, service: 'set_percentage', data: { percentage: finite(p.percentage) ? p.percentage : 50 }, target };
+        case 'media_player':
+            return { kind: 'service', domain, service: 'volume_set', data: { volume_level: finite(p.volume) ? p.volume / 100 : 0.3 }, target };
+        case 'input_select':
+        case 'select':
+            return p.option ? { kind: 'service', domain, service: 'select_option', data: { option: p.option }, target } : { kind: 'none', reason: 'Option à choisir' };
+        case 'input_number':
+        case 'number':
+            return { kind: 'service', domain, service: 'set_value', data: { value: finite(p.value) ? p.value : 0 }, target };
+        default:
+            return { kind: 'none', reason: 'Préréglage non géré pour ce type' };
+    }
+}
+/** La touche montre-t-elle une valeur par défaut ? (capteurs, thermostat…) */
+function showsValueByDefault(entity, mode) {
+    const d = haDomainOf(entity);
+    if (mode === 'display' || mode === 'template')
+        return true;
+    return ['sensor', 'climate', 'input_number', 'number', 'weather', 'input_select', 'select', 'input_text', 'text'].includes(d);
+}
+/** Jauge par défaut. */
+function gaugeByDefault(entity) {
+    return ['light', 'cover', 'media_player', 'fan'].includes(haDomainOf(entity));
+}
+
+const HEX$1 = /^#[0-9a-f]{6}$/i;
+const CONFIRM_MS = 3000;
+function registerHaActions(env) {
+    const hub = new HaHub((...a) => streamDeck.logger.debug(a.map(String).join(' ')));
+    const entries = new Map();
+    let blink = false;
+    let globals = {};
+    const applyGlobals = (g) => {
+        globals = g ?? {};
+        const d = (globals.direct ?? {});
+        hub.setDirect({ url: d.url ?? '', remoteUrl: d.remoteUrl ?? '', token: d.token ?? '' });
+    };
+    streamDeck.settings.onDidReceiveGlobalSettings((ev) => applyGlobals(ev.settings));
+    void streamDeck.settings.getGlobalSettings().then(applyGlobals).catch(() => undefined);
+    /* ───────── dessin ───────── */
+    const draw = async (e) => {
+        const t = env.theme();
+        const s = e.s;
+        const id = s.entity ?? '';
+        const domain = haDomainOf(id);
+        const st = id ? hub.get(id) : undefined;
+        const offline = hub.status.state !== 'connected';
+        const mode = s.mode ?? 'auto';
+        const on = mode === 'template' || mode === 'event' || mode === 'service' ? true : isOnState(st) || ['scene', 'script', 'button', 'input_button'].includes(domain);
+        const rule = matchRule(s.rules, st);
+        // icône
+        let iconName = rule?.icon || (on ? s.icon : s.iconOff || s.icon) || '';
+        if (!iconName) {
+            if (mode === 'template')
+                iconName = 'mdi:code-braces';
+            else if (mode === 'event')
+                iconName = 'mdi:lightning-bolt';
+            else if (id)
+                iconName = defaultIcon(st, id, on);
+            else
+                iconName = 'mdi:home-assistant';
+        }
+        const iconPath = iconName.startsWith('mdi:') ? hub.icon(iconName) : null;
+        // couleur
+        let color = HEX$1.test(s.color ?? '') ? s.color : t.accent;
+        if (!on && HEX$1.test(s.colorOff ?? ''))
+            color = s.colorOff;
+        if (s.lightColor !== false)
+            color = lightColor(st) ?? color;
+        if (rule?.color && HEX$1.test(rule.color))
+            color = rule.color;
+        // textes
+        const title = s.titleMode === 'none' ? '' : s.titleMode === 'custom' ? (s.titleText ?? '') : (st?.attributes?.friendly_name ?? (id ? id.split('.')[1] : 'Home Assistant'));
+        let value = '';
+        const wantValue = s.valueMode === 'show' || (s.valueMode !== 'hide' && showsValueByDefault(id, mode));
+        if (mode === 'template')
+            value = e.templateValue ?? '…';
+        else if (wantValue && st)
+            value = formatState(st, s.decimals ?? null);
+        const gauge = (s.gauge ?? gaugeByDefault(id)) ? gaugePercent(st) : null;
+        // image (caméra, pochette)
+        let image = null;
+        if (mode === 'camera' || (mode === 'auto' && domain === 'camera'))
+            image = e.image ?? null;
+        if (domain === 'media_player' && s.art !== false && st?.state === 'playing' && e.image)
+            image = e.image;
+        const svg = renderKey({
+            style: (s.style ?? 'accent'),
+            background: t.background,
+            dark: t.theme === 'dark',
+            color,
+            on,
+            iconPath: iconPath ?? null,
+            fallback: mode === 'template' ? FALLBACK.template : mode === 'event' ? FALLBACK.event : fallbackFor(domain),
+            title: title ? String(title) : '',
+            value,
+            gauge: gauge ?? null,
+            unavailable: !!id && mode !== 'event' && mode !== 'template' && isUnavailable(st) && !offline,
+            offline,
+            image,
+            dimmed: !!rule?.blink && blink,
+            confirm: e.confirmUntil && e.confirmUntil > Date.now() ? 'Confirmer ?' : undefined
+        });
+        if (svg !== e.lastSvg) {
+            e.lastSvg = svg;
+            await e.key.setImage(svg);
+        }
+    };
+    const drawAll = () => {
+        for (const e of entries.values())
+            void draw(e);
+    };
+    hub.onChange((ids) => {
+        for (const e of entries.values()) {
+            if (!ids || (e.watching && ids.includes(e.watching))) {
+                void refreshImage(e);
+                void draw(e);
+            }
+        }
+    });
+    /** Image de caméra / pochette, rafraîchie à intervalle. */
+    const refreshImage = async (e, force = false) => {
+        const id = e.s.entity ?? '';
+        const d = haDomainOf(id);
+        const mode = e.s.mode ?? 'auto';
+        let src = '';
+        if (d === 'camera' && (mode === 'camera' || mode === 'auto'))
+            src = id;
+        else if (d === 'media_player' && e.s.art !== false) {
+            const st = hub.get(id);
+            const pic = st?.attributes?.entity_picture;
+            if (st?.state === 'playing' && typeof pic === 'string')
+                src = pic;
+        }
+        if (!src) {
+            if (e.image) {
+                e.image = null;
+                void draw(e);
+            }
+            return;
+        }
+        const every = d === 'camera' ? Math.max(2, Number(e.s.refresh) || 10) * 1000 : 0;
+        if (!force && e.imageSrc === src && (!every || Date.now() - (e.imageAt ?? 0) < every))
+            return;
+        e.imageSrc = src;
+        e.imageAt = Date.now();
+        const img = await hub.image(src, 144);
+        if (img) {
+            e.image = img;
+            void draw(e);
+        }
+    };
+    const refreshTemplate = async (e, force = false) => {
+        if (e.s.mode !== 'template' || !e.s.template?.trim())
+            return;
+        const every = Math.max(2, Number(e.s.refresh) || 10) * 1000;
+        if (!force && Date.now() - (e.templateAt ?? 0) < every)
+            return;
+        e.templateAt = Date.now();
+        try {
+            e.templateValue = (await hub.template(e.s.template)).trim();
+        }
+        catch (err) {
+            e.templateValue = '⚠';
+            streamDeck.logger.warn('modèle', err);
+        }
+        void draw(e);
+    };
+    const setSettings = (e, s) => {
+        const nextId = s.entity ?? '';
+        if (nextId !== e.watching) {
+            if (e.watching)
+                hub.unwatch(e.watching);
+            if (nextId)
+                hub.watch(nextId);
+            e.watching = nextId;
+            e.image = null;
+            e.imageSrc = undefined;
+        }
+        e.s = s;
+        e.templateAt = 0;
+        void refreshImage(e, true);
+        void refreshTemplate(e, true);
+        void draw(e);
+    };
+    // Rafraîchissements périodiques : clignotement, caméras, modèles.
+    setInterval(() => {
+        blink = !blink;
+        for (const e of entries.values()) {
+            if (e.s.rules?.some((r) => r?.blink))
+                void draw(e);
+            if (e.confirmUntil && e.confirmUntil < Date.now()) {
+                e.confirmUntil = 0;
+                void draw(e);
+            }
+        }
+    }, 600);
+    setInterval(() => {
+        for (const e of entries.values()) {
+            void refreshImage(e);
+            void refreshTemplate(e);
+        }
+    }, 2000);
+    /* ───────── appui ───────── */
+    const press = async (e) => {
+        const s = e.s;
+        if (s.confirm) {
+            if (!e.confirmUntil || e.confirmUntil < Date.now()) {
+                e.confirmUntil = Date.now() + CONFIRM_MS;
+                await draw(e);
+                return;
+            }
+            e.confirmUntil = 0;
+            await draw(e);
+        }
+        const st = s.entity ? hub.get(s.entity) : undefined;
+        try {
+            const plan = planPress(s, st);
+            if (plan.kind === 'service')
+                await hub.call(plan.domain, plan.service, plan.data, plan.target);
+            else if (plan.kind === 'event')
+                await hub.event(plan.type, plan.data);
+            else if (plan.kind === 'camera') {
+                if (s.cameraOpen === false)
+                    await refreshImage(e, true);
+                else
+                    await hub.openCamera(plan.id);
+            }
+            else if (s.mode === 'template') {
+                await refreshTemplate(e, true);
+                return;
+            }
+            else {
+                await e.key.showAlert();
+                return;
+            }
+            await e.key.showOk();
+        }
+        catch (err) {
+            streamDeck.logger.warn('[ha] appui', err);
+            await e.key.showAlert();
+        }
+    };
+    /* ───────── panneau de réglages ───────── */
+    const reply = (payload) => {
+        void streamDeck.ui.current?.sendToPropertyInspector(payload);
+    };
+    const onMessage = async (e, msg) => {
+        const cmd = msg.cmd;
+        try {
+            if (cmd === 'status') {
+                reply({ cmd, status: hub.status, direct: { url: globals.direct?.url ?? '', remoteUrl: globals.direct?.remoteUrl ?? '', hasToken: !!globals.direct?.token }, hasClip: !!globals.clip });
+            }
+            else if (cmd === 'catalog') {
+                const cat = await hub.catalog();
+                reply({ cmd, catalog: cat });
+            }
+            else if (cmd === 'search') {
+                const cat = await hub.catalog();
+                const list = searchEntities(cat.entities, String(msg.q ?? ''), { area: msg.area || undefined, floor: msg.floor || undefined, domain: msg.domain || undefined });
+                reply({ cmd, results: list });
+            }
+            else if (cmd === 'services') {
+                reply({ cmd, services: (await hub.services()) });
+            }
+            else if (cmd === 'state') {
+                const id = String(msg.id ?? '');
+                reply({ cmd, id, state: (hub.get(id) ?? null) });
+            }
+            else if (cmd === 'test' && e) {
+                await press({ ...e, s: { ...e.s, confirm: false } });
+                reply({ cmd, ok: true });
+            }
+            else if (cmd === 'preview' && e) {
+                reply({ cmd, image: e.lastSvg ?? '' });
+            }
+            else if (cmd === 'direct') {
+                const d = (msg.direct ?? {});
+                const cur = globals.direct ?? {};
+                const next = { ...globals, direct: { url: d.url ?? cur.url ?? '', remoteUrl: d.remoteUrl ?? cur.remoteUrl ?? '', token: d.token === undefined ? (cur.token ?? '') : d.token } };
+                await streamDeck.settings.setGlobalSettings(next);
+                applyGlobals(next);
+                reply({ cmd, ok: true });
+            }
+            else if (cmd === 'copy' && e) {
+                const { entity: _ent, ...rest } = e.s;
+                const next = { ...globals, clip: rest };
+                await streamDeck.settings.setGlobalSettings(next);
+                applyGlobals(next);
+                reply({ cmd, ok: true });
+            }
+            else if (cmd === 'paste' && e) {
+                if (!globals.clip)
+                    return reply({ cmd, ok: false });
+                const s = { ...globals.clip, entity: e.s.entity };
+                await e.key.setSettings(s);
+                setSettings(e, s);
+                reply({ cmd, ok: true, settings: s });
+            }
+        }
+        catch (err) {
+            reply({ cmd: String(cmd), error: err instanceof Error ? err.message : String(err) });
+        }
+    };
+    let HaKey = (() => {
+        let _classDecorators = [action({ UUID: 'com.supernon0.multioutils.ha' })];
+        let _classDescriptor;
+        let _classExtraInitializers = [];
+        let _classThis;
+        let _classSuper = SingletonAction;
+        (class extends _classSuper {
+            static { _classThis = this; }
+            static {
+                const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+                __esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, { kind: "class", name: _classThis.name, metadata: _metadata }, null, _classExtraInitializers);
+                _classThis = _classDescriptor.value;
+                if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+                __runInitializers(_classThis, _classExtraInitializers);
+            }
+            onWillAppear(ev) {
+                const key = ev.action;
+                const e = { key, s: {}, watching: '' };
+                entries.set(key.id, e);
+                setSettings(e, (ev.payload.settings ?? {}));
+                hub.start();
+            }
+            onWillDisappear(ev) {
+                const id = ev.action.id;
+                const e = entries.get(id);
+                if (e?.watching)
+                    hub.unwatch(e.watching);
+                entries.delete(id);
+            }
+            onDidReceiveSettings(ev) {
+                const e = entries.get(ev.action.id);
+                if (e)
+                    setSettings(e, (ev.payload.settings ?? {}));
+            }
+            async onKeyDown(ev) {
+                const e = entries.get(ev.action.id);
+                if (e)
+                    await press(e);
+            }
+            async onSendToPlugin(ev) {
+                const e = entries.get(ev.action.id);
+                await onMessage(e, (ev.payload ?? {}));
+            }
+        });
+        return _classThis;
+    })();
+    streamDeck.actions.registerAction(new HaKey());
+    registerPcActions(env);
+    return { rerender: drawAll };
+}
+/* ───────── touches PC ───────── */
+const PC = [
+    { uuid: 'com.supernon0.multioutils.pc-sleep', command: 'pc.sleep', glyph: 'sleep', label: 'Veille', confirm: false },
+    { uuid: 'com.supernon0.multioutils.pc-lock', command: 'pc.lock', glyph: 'pclock', label: 'Verrouiller', confirm: false },
+    { uuid: 'com.supernon0.multioutils.pc-shutdown', command: 'pc.shutdown', glyph: 'shutdown', label: 'Éteindre', confirm: true },
+    { uuid: 'com.supernon0.multioutils.pc-restart', command: 'pc.restart', glyph: 'restart', label: 'Redémarrer', confirm: true }
+];
+function registerPcActions(env) {
+    for (const def of PC) {
+        const keys = new Map();
+        const draw = (k) => {
+            const t = env.theme();
+            return k.key.setImage(renderKey({
+                style: 'accent',
+                background: t.background,
+                dark: t.theme === 'dark',
+                color: HEX$1.test(k.s.color ?? '') ? k.s.color : t.accent,
+                on: true,
+                fallback: FALLBACK[def.glyph],
+                title: def.label,
+                confirm: k.until > Date.now() ? 'Confirmer ?' : undefined
+            }));
+        };
+        class PcKey extends SingletonAction {
+            manifestId = def.uuid;
+            onWillAppear(ev) {
+                const key = ev.action;
+                const k = { key, s: ev.payload.settings ?? {}, until: 0 };
+                keys.set(key.id, k);
+                return draw(k);
+            }
+            onWillDisappear(ev) {
+                keys.delete(ev.action.id);
+            }
+            onDidReceiveSettings(ev) {
+                const k = keys.get(ev.action.id);
+                if (!k)
+                    return;
+                k.s = ev.payload.settings ?? {};
+                return draw(k);
+            }
+            async onKeyDown(ev) {
+                const k = keys.get(ev.action.id);
+                if (!k)
+                    return;
+                const needConfirm = k.s.confirm ?? def.confirm;
+                if (needConfirm && k.until < Date.now()) {
+                    k.until = Date.now() + CONFIRM_MS;
+                    await draw(k);
+                    setTimeout(() => void draw(k), CONFIRM_MS + 50);
+                    return;
+                }
+                k.until = 0;
+                await draw(k);
+                try {
+                    const res = await fetch(`http://127.0.0.1:41320/command/${def.command}`, { method: 'POST', signal: AbortSignal.timeout(3000) });
+                    if (!res.ok)
+                        throw new Error(`HTTP ${res.status}`);
+                    await k.key.showOk();
+                }
+                catch {
+                    await k.key.showAlert();
+                }
+            }
+        }
+        streamDeck.actions.registerAction(new PcKey());
+    }
+    // re-dessin quand l'accent de l'app change : géré par rerender des touches HA ;
+    // les touches PC sont redessinées à chaque apparition.
+}
+
 /**
  * Plugin Stream Deck MultiOutils (docs/00 §8) : chaque touche appelle le
  * service localhost de l'app (127.0.0.1:41320). Le plugin ne parle JAMAIS au
@@ -9020,6 +10967,8 @@ streamDeck.actions.registerAction(new DesktopSortNow());
 streamDeck.actions.registerAction(new DesktopPageNext());
 streamDeck.actions.registerAction(new DesktopPagePrev());
 streamDeck.actions.registerAction(new DesktopShow());
+// Home Assistant (une touche qui s'adapte à l'entité) + touches PC.
+const ha = registerHaActions({ theme: () => theme });
 /** Relit l'accent / le thème de l'app ; redessine toutes les touches s'ils changent. */
 async function refreshTheme() {
     const next = await appGet('/theme');
@@ -9033,12 +10982,12 @@ async function refreshTheme() {
         await renderIcon(e);
     for (const e of entries.values())
         await renderEntry(e);
+    ha.rerender();
 }
 void streamDeck.connect();
 // Suit les changements d'apparence faits dans l'app.
 setInterval(() => {
-    if (iconKeys.size > 0 || entries.size > 0)
-        void refreshTheme();
+    void refreshTheme();
 }, 4000);
 // Animation des touches « en cours » : alterne le halo ~toutes les 500 ms.
 setInterval(() => {

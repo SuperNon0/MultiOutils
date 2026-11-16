@@ -6,7 +6,9 @@ export const LOCAL_SERVICE_PORT = 41320;
 type LocalCommand = () => void | Promise<void>;
 
 /** Gestionnaire de route brut : renvoie une valeur JSON (ou undefined → 204). */
-type RouteHandler = (url: URL) => unknown | Promise<unknown>;
+type RouteHandler = (url: URL, body?: unknown) => unknown | Promise<unknown>;
+
+const BODY_MAX = 512 * 1024;
 
 interface Route {
   method: string;
@@ -20,6 +22,34 @@ interface Route {
  * inaccessible depuis le réseau. Les modules enregistrent leurs commandes ;
  * l'hôte ne connaît aucune commande en dur.
  */
+/** Corps JSON d'une requête POST (vide → undefined). */
+function readBody(req: http.IncomingMessage): Promise<unknown> {
+  if (req.method !== 'POST') return Promise.resolve(undefined);
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks: Buffer[] = [];
+    req.on('data', (c: Buffer) => {
+      size += c.length;
+      if (size > BODY_MAX) {
+        reject(new Error('corps trop gros'));
+        req.destroy();
+        return;
+      }
+      chunks.push(c);
+    });
+    req.on('end', () => {
+      const text = Buffer.concat(chunks).toString('utf8').trim();
+      if (!text) return resolve(undefined);
+      try {
+        resolve(JSON.parse(text));
+      } catch {
+        reject(new Error('JSON invalide'));
+      }
+    });
+    req.on('error', reject);
+  });
+}
+
 export class LocalService {
   private commands = new Map<string, LocalCommand>();
   private routes: Route[] = [];
@@ -82,7 +112,7 @@ export class LocalService {
         (r) => r.method === req.method && r.pattern.test(url.pathname)
       );
       if (route) {
-        Promise.resolve(route.handler(url)).then(
+        readBody(req).then((body) => route.handler(url, body)).then(
           (value) => {
             if (value === undefined) {
               res.statusCode = 204;
