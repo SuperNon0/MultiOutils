@@ -258,6 +258,8 @@ export type HaBuiltinSound = (typeof HA_BUILTIN_SOUNDS)[number];
  */
 export interface HaSettings {
   url: string;
+  /** Adresse distante (Nabu Casa…), essayée quand l'adresse locale ne répond pas. */
+  remoteUrl: string;
   link: {
     /** Liaison active (enregistrement + connexion permanente). */
     enabled: boolean;
@@ -374,6 +376,7 @@ export interface HaSoundList {
 /** Patch partiel imbriqué (le renderer n'envoie que la sous-partie modifiée). */
 export type HaSettingsPatch = Partial<{
   url: string;
+  remoteUrl: string;
   link: Partial<HaSettings['link']>;
   notifications: Partial<HaSettings['notifications']>;
   dashboard: Partial<HaSettings['dashboard']>;

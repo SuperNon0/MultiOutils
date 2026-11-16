@@ -25,7 +25,7 @@ import { playHaSound } from './sounds';
 import './ha.css';
 
 /** Home Assistant : adresse, jeton (chiffré côté main), test de connexion. */
-function HomeAssistantSection({ url, onUrl }: { url: string; onUrl(v: string): void }): ReactNode {
+function HomeAssistantSection({ url, onUrl, remoteUrl, onRemoteUrl }: { url: string; onUrl(v: string): void; remoteUrl: string; onRemoteUrl(v: string): void }): ReactNode {
   const { t } = useI18n();
   const [hasToken, setHasToken] = useState<boolean | null>(null);
   const [token, setToken] = useState('');
@@ -77,6 +77,15 @@ function HomeAssistantSection({ url, onUrl }: { url: string; onUrl(v: string): v
           className="input mono ha-champ"
           placeholder="http://homeassistant.local:8123"
           aria-label={t('launcher.ha.url')}
+        />
+      </RegLigne>
+      <RegLigne titre={t('launcher.ha.remoteUrl')} sous={t('launcher.ha.remoteUrlDesc')}>
+        <Champ
+          value={remoteUrl}
+          onCommit={onRemoteUrl}
+          className="input mono ha-champ"
+          placeholder="https://xxxx.ui.nabu.casa"
+          aria-label={t('launcher.ha.remoteUrl')}
         />
       </RegLigne>
       <RegLigne
@@ -546,6 +555,7 @@ export function HaSettingsPage(): ReactNode {
         ...info.settings,
         homeAssistant: {
           url: patch.url ?? ha.url,
+          remoteUrl: patch.remoteUrl ?? ha.remoteUrl,
           link: { ...ha.link, ...patch.link },
           notifications: { ...ha.notifications, ...patch.notifications },
           dashboard: { ...ha.dashboard, ...patch.dashboard }
@@ -561,7 +571,7 @@ export function HaSettingsPage(): ReactNode {
   return (
     <div className="ha-page">
       <p className="ha-intro soft">{t('ha.page.intro')}</p>
-      <HomeAssistantSection url={ha.url} onUrl={(url) => void save({ url })} />
+      <HomeAssistantSection url={ha.url} onUrl={(url) => void save({ url })} remoteUrl={ha.remoteUrl} onRemoteUrl={(remoteUrl) => void save({ remoteUrl })} />
       <HaLinkSections s={ha} shortcutOk={info.haShortcutOk ?? true} onSave={(p) => void save(p)} />
       <RegSec titre={t('ha.launcher.title')}>
         <RegLigne titre={t('ha.launcher.keyword', { kw: info.settings.providers.homeassistant.keyword || '—' })} sous={t('ha.launcher.desc')}>

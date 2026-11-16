@@ -1,0 +1,76 @@
+:root {
+  --bg: #0e0f11;
+  --card: #17191e;
+  --pop: #1f232a;
+  --border: #2a2d35;
+  --text: #f0ede6;
+  --muted: #9aa0a6;
+  --accent: #a99bff;
+  --ok: #4fc0ad;
+  --warn: #efb36b;
+  --danger: #ef7d6b;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0;
+  padding: 10px 12px 18px;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+h3 { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+p { margin: 0; }
+code, .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+.carte { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 10px 11px; margin-top: 10px; display: grid; gap: 8px; }
+label { display: grid; gap: 4px; color: var(--muted); font-size: 12px; }
+label.coche { display: flex; align-items: center; gap: 7px; color: var(--text); }
+input, select, textarea {
+  font: inherit; color: var(--text); background: var(--pop); border: 1px solid var(--border); border-radius: 7px;
+  padding: 6px 8px; width: 100%; min-width: 0;
+}
+input[type="checkbox"] { width: auto; accent-color: var(--accent); }
+input[type="color"] { padding: 2px; height: 30px; width: 46px; }
+input[type="range"] { padding: 0; accent-color: var(--accent); }
+textarea { resize: vertical; min-height: 64px; }
+input:focus, select:focus, textarea:focus { outline: none; border-color: var(--accent); }
+.rang { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.rang > input, .rang > select { flex: 1; }
+.deux { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.btn { height: 30px; border-radius: 7px; border: 1px solid var(--border); background: var(--pop); color: var(--text); padding: 0 11px; cursor: pointer; font: inherit; font-weight: 600; }
+.btn.pri { background: var(--accent); border-color: transparent; color: #120d2e; }
+.btn.mini { height: 26px; padding: 0 8px; font-weight: 500; }
+.lien { background: none; border: 0; color: var(--accent); cursor: pointer; padding: 0; font: inherit; font-size: 12px; }
+.aide { color: var(--muted); font-size: 11.5px; }
+.etat { color: var(--muted); font-size: 12px; }
+.etat.ok { color: var(--ok); }
+.etat.err { color: var(--danger); }
+.conn { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+.conn i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.conn.ok i { background: var(--ok); }
+.conn.warn i { background: var(--warn); }
+.conn.err i { background: var(--danger); }
+.conn .lien { margin-left: auto; }
+.filtres { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+.liste { max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
+.liste .ent { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; padding: 6px 9px; border-top: 1px solid var(--border); cursor: pointer; }
+.liste .ent:first-child { border-top: 0; }
+.liste .ent:hover, .liste .ent:focus { background: var(--pop); outline: none; }
+.liste .ent b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.liste .ent span { color: var(--muted); font-size: 11.5px; }
+.liste .ent .v { text-align: right; }
+.liste .aide { padding: 8px 9px; }
+.choisie { display: flex; gap: 8px; align-items: center; background: var(--pop); border-radius: 8px; padding: 7px 9px; }
+.choisie > div { display: grid; min-width: 0; flex: 1; }
+.choisie b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.choisie span { color: var(--muted); font-size: 11.5px; }
+.coul { display: flex; gap: 8px; align-items: center; }
+.apercu { display: flex; gap: 10px; align-items: center; }
+.apercu img { width: 72px; height: 72px; border-radius: 12px; background: #000; flex: none; }
+.champ { display: grid; gap: 4px; }
+.champ .ligne { display: flex; gap: 6px; align-items: center; }
+.champ .ligne input[type="number"] { width: 80px; flex: none; }
+.regle { display: grid; grid-template-columns: 1.1fr 0.9fr auto auto auto; gap: 5px; align-items: center; }
+.regle input[type="color"] { width: 34px; }
+.regle .x { color: var(--danger); background: none; border: 0; cursor: pointer; font-size: 16px; }
+#mode-zone { display: grid; gap: 8px; }

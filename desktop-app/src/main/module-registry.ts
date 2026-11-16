@@ -32,7 +32,7 @@ export interface MainHostContext {
   registerLocalRoute(
     method: string,
     pattern: RegExp,
-    handler: (url: URL) => unknown | Promise<unknown>
+    handler: (url: URL, body?: unknown) => unknown | Promise<unknown>
   ): void;
   /** Lanceur : une commande locale existe-t-elle ? / l'exécuter (false si inconnue). */
   hasLocalCommand?(id: string): boolean;
