@@ -13,6 +13,10 @@ files:
   - out/**
   - resources/**
   - package.json
+  # Atelier d'icônes : seuls les catalogues et tracés servent, pas les fichiers SVG en double.
+  - '!node_modules/@tabler/icons/icons/**'
+  - '!node_modules/@mdi/svg/svg/**'
+  - '!node_modules/@tabler/icons/categories/**'
 # Plugin Stream Deck livré avec l'app (bouton « Mettre à jour le plugin ») :
 # le manifeste (version) et le paquet .streamDeckPlugin empaqueté par la CI
 # juste avant (absent en build local : l'app le télécharge alors depuis la

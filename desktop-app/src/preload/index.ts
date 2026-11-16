@@ -18,6 +18,24 @@ function subscribe<T>(channel: string, cb: (payload: T) => void): Unsubscribe {
 }
 
 const api: PreloadApi = {
+  icons: {
+    state: () => ipcRenderer.invoke('icons:state'),
+    saveDesigns: (list) => ipcRenderer.invoke('icons:saveDesigns', list),
+    removeDesigns: (ids) => ipcRenderer.invoke('icons:removeDesigns', ids),
+    saveFolder: (f) => ipcRenderer.invoke('icons:saveFolder', f),
+    removeFolder: (id) => ipcRenderer.invoke('icons:removeFolder', id),
+    saveTheme: (t) => ipcRenderer.invoke('icons:saveTheme', t),
+    removeTheme: (id) => ipcRenderer.invoke('icons:removeTheme', id),
+    saveStyle: (s) => ipcRenderer.invoke('icons:saveStyle', s),
+    removeStyle: (id) => ipcRenderer.invoke('icons:removeStyle', id),
+    pushRecent: (key) => ipcRenderer.invoke('icons:pushRecent', key),
+    catalog: (lib, pack) => ipcRenderer.invoke('icons:catalog', lib, pack),
+    packs: () => ipcRenderer.invoke('icons:packs'),
+    arts: (refs) => ipcRenderer.invoke('icons:arts', refs),
+    exportFiles: (files) => ipcRenderer.invoke('icons:exportFiles', files),
+    copyImage: (dataUrl) => ipcRenderer.invoke('icons:copyImage', dataUrl),
+    onChanged: (cb) => subscribe('icons:changed', cb)
+  },
   backup: {
     create: () => ipcRenderer.invoke('backup:create'),
     restore: () => ipcRenderer.invoke('backup:restore'),
