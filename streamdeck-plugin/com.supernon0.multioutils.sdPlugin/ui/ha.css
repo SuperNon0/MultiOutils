@@ -83,7 +83,7 @@ select { text-overflow: ellipsis; }
 #mode-zone { display: grid; gap: 8px; }
 
 /* Grande fenêtre MultiOutils : mêmes paramètres, plus d’espace et d’explications. */
-#full-editor { margin-bottom: 12px; }
+#full-editor { margin-bottom: 12px; height: auto; min-height: 36px; white-space: normal; line-height: 1.4; padding: 8px 10px; }
 .large-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; max-width: 1320px; margin: auto; padding: 24px; font-size: 14px; }
 .large-editor > * { min-width: 0; }
 .large-editor .editor-header, .large-editor > .conn { grid-column: 1 / -1; }
