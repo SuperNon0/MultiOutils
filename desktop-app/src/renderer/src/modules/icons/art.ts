@@ -72,7 +72,7 @@ export function refsOf(d: IconDesign): SymbolRef[] {
 /** SVG de l'icône (variante éteinte avec off=true). */
 export function designSvg(d: IconDesign, size = 144, off = false): string {
   const v = off ? offVariant(d) : d;
-  return renderIconSvg({ design: v, art: mainArt(v) ?? null, badgeArt: artOf(v.badge?.symbol) ?? null, size });
+  return renderIconSvg({ design: v, art: mainArt(v) ?? null, badgeArt: artOf(v.badge?.symbol) ?? null, size, indicatorState: { on: !off } });
 }
 
 export const designUrl = (d: IconDesign, size = 144, off = false): string => svgDataUrl(designSvg(d, size, off));

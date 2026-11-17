@@ -6,6 +6,7 @@
  */
 (function () {
   'use strict';
+  const largeEditor = new URLSearchParams(location.search).has('largeEditor') && !!window.api?.haKeyEditor;
   let ws = null;
   let ctx = null;
   let actionUUID = null;
@@ -33,15 +34,24 @@
   /* ───────── échanges avec le Stream Deck ───────── */
 
   function send(event, payload) {
+    if (largeEditor) { window.api.haKeyEditor.send({ event, payload }); return; }
     if (ws && ws.readyState === 1) ws.send(JSON.stringify({ event, context: ctx, action: actionUUID, payload }));
   }
   function toPlugin(payload) {
     send('sendToPlugin', payload);
   }
   let saveTimer = null;
+  const sentSettings = new Set();
+  function receiveSettings(next) {
+    if (sentSettings.has(JSON.stringify(next))) return;
+    settings = next; renderAll();
+  }
   function save(immediate) {
     clearTimeout(saveTimer);
     const run = () => {
+      saveTimer = null;
+      sentSettings.add(JSON.stringify(settings));
+      if (sentSettings.size > 20) sentSettings.delete(sentSettings.values().next().value);
       send('setSettings', settings);
       setTimeout(() => toPlugin({ cmd: 'preview' }), 250);
     };
@@ -71,6 +81,7 @@
       toPlugin({ cmd: 'status' });
       toPlugin({ cmd: 'catalog' });
       toPlugin({ cmd: 'services' });
+      toPlugin({ cmd: 'iconLibrary' });
       toPlugin({ cmd: 'preview' });
       if (settings.entity) toPlugin({ cmd: 'state', id: settings.entity });
     };
@@ -82,8 +93,7 @@
         return;
       }
       if (msg.event === 'didReceiveSettings' && msg.payload) {
-        settings = msg.payload.settings || {};
-        renderAll();
+        receiveSettings(msg.payload.settings || {});
       } else if (msg.event === 'sendToPropertyInspector') onPlugin(msg.payload || {});
     };
   };
@@ -95,7 +105,14 @@
       if (m.cmd === 'catalog') $('res').innerHTML = '<p class="aide">' + esc(m.error) + '</p>';
       return;
     }
-    if (m.cmd === 'status') renderStatus(m);
+    if (m.cmd === 'iconLibrary') {
+      const select = $('libraryIcon');
+      select.innerHTML = '<option value="">Automatique / Material Design</option>';
+      for (const d of m.designs || []) {
+        const option = document.createElement('option'); option.value = d.id; option.textContent = d.name; select.appendChild(option);
+      }
+      select.value = settings.libraryIcon || '';
+    } else if (m.cmd === 'status') renderStatus(m);
     else if (m.cmd === 'catalog') {
       catalog = m.catalog;
       fillFilters();
@@ -644,17 +661,21 @@
     const read = () => {
       if (kind === 'check') return el.checked;
       if (kind === 'number') return el.value === '' ? undefined : Number(el.value);
-      return el.value.trim();
+      return key === 'titleText' ? el.value : el.value.trim();
     };
     el.oninput = el.onchange = () => {
       const v = read();
       set(key, v === '' ? undefined : v);
+      if (key === 'customIcon' && v) { delete settings.libraryIcon; $('libraryIcon').value = ''; }
+      if (key === 'libraryIcon' && v) { settings.customIcon = false; $('customIcon').checked = false; }
       if (key === 'titleMode') $('titleText').hidden = v !== 'custom';
     };
   }
   bindField('style', 'style');
   bindField('icon', 'icon');
   bindField('iconOff', 'iconOff');
+  bindField('customIcon', 'customIcon', 'check');
+  bindField('libraryIcon', 'libraryIcon');
   bindField('titleMode', 'titleMode');
   bindField('titleText', 'titleText');
   bindField('valueMode', 'valueMode');
@@ -675,6 +696,8 @@
     $('colorOff').value = /^#[0-9a-f]{6}$/i.test(settings.colorOff || '') ? settings.colorOff : '#555b66';
     $('icon').value = settings.icon || '';
     $('iconOff').value = settings.iconOff || '';
+    $('customIcon').checked = settings.customIcon === true;
+    $('libraryIcon').value = settings.libraryIcon || '';
     $('titleMode').value = settings.titleMode || 'auto';
     $('titleText').value = settings.titleText || '';
     $('titleText').hidden = (settings.titleMode || 'auto') !== 'custom';
@@ -747,14 +770,15 @@
   function fillModeles() {
     const list = MODELES.filter((m) => !kindId || m.k === kindId || !m.k);
     $('modele').innerHTML = '<option value="">Choisir un modèle prêt à l’emploi…</option>' + list.map((m) => '<option value="' + m.id + '">' + esc(kindId ? m.t.replace(/^[^:]+ : /, '') : m.t) + '</option>').join('');
+    $('modele').value = settings.modelId || '';
     $('modele-carte').hidden = list.length === 0;
   }
   $('modele').onchange = () => {
     const m = MODELES.find((x) => x.id === $('modele').value);
-    $('modele').value = '';
     if (!m) return;
-    const keep = { entity: settings.entity };
-    settings = Object.assign(keep, JSON.parse(JSON.stringify(m.s)));
+    const keep = {};
+    for (const key of ['entity', 'confirm', 'customIcon', 'libraryIcon', 'icon', 'iconOff', 'color', 'colorOff', 'lightColor', 'rules']) if (settings[key] !== undefined) keep[key] = settings[key];
+    settings = Object.assign(keep, JSON.parse(JSON.stringify(m.s)), { modelId: m.id, titleMode: 'custom', titleText: m.t.replace(/^[^:]+ : /, '') });
     if (!settings.entity) delete settings.entity;
     save(true);
     renderAll();
@@ -763,7 +787,11 @@
 
   /* ───────── boutons ───────── */
 
+  $('library-refresh').onclick = () => toPlugin({ cmd: 'iconLibrary' });
+  $('full-editor').onclick = () => toPlugin({ cmd: 'editor' });
+
   $('tester').onclick = () => {
+    save(true);
     etat('Envoi…');
     toPlugin({ cmd: 'test' });
   };
@@ -781,4 +809,29 @@
     renderRules();
   }
   renderAll();
+  if (largeEditor) {
+    document.body.classList.add('large-editor');
+    $('full-editor').hidden = true;
+    const header = document.createElement('header'); header.className = 'editor-header';
+    header.innerHTML = '<div><h1>Home Assistant · votre touche</h1><p>Choisissez une entité, une action et son apparence. Les réglages sont enregistrés automatiquement dans Stream Deck.</p></div><button type="button" class="btn pri">Enregistrer et fermer</button>';
+    header.querySelector('button').onclick = () => { save(true); setTimeout(() => window.close(), 500); };
+    document.body.prepend(header);
+    for (const [id, text] of [['modele-carte', 'Un modèle prépare le comportement et le nom de la touche ; vous pouvez ensuite ajuster chaque réglage.'], ['ent-titre', 'Choisissez l’appareil à piloter. La recherche peut être filtrée par pièce et par étage.']]) {
+      const target = $(id); if (target) { const p = document.createElement('p'); p.className = 'aide'; p.textContent = text; if (id === 'ent-titre') target.after(p); else target.appendChild(p); }
+    }
+    window.api.haKeyEditor.onMessage((message) => {
+      if (message.event === 'didReceiveSettings') receiveSettings(message.settings || {});
+      else if (message.event === 'sendToPropertyInspector') onPlugin(message.payload || {});
+    });
+    window.api.haKeyEditor.init().then((data) => {
+      actionUUID = data.action;
+      kindId = (/^com\.supernon0\.multioutils\.ha\.([a-z]+)$/.exec(actionUUID || '') || [])[1] || '';
+      settings = data.settings || {}; renderAll();
+      header.querySelector('h1').textContent = 'Home Assistant · ' + (kind()?.t || 'votre touche');
+      for (const cmd of ['status', 'catalog', 'services', 'preview', 'iconLibrary']) toPlugin({ cmd });
+      if (settings.entity) toPlugin({ cmd: 'state', id: settings.entity });
+    }).catch((error) => etat(String(error), 'err'));
+    const timer = setInterval(() => { toPlugin({ cmd: 'preview' }); if (settings.entity) toPlugin({ cmd: 'state', id: settings.entity }); }, 2000);
+    window.addEventListener('beforeunload', () => { clearInterval(timer); save(true); });
+  }
 })();

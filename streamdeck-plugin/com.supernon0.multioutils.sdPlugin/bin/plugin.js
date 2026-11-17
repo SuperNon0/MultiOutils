@@ -10003,6 +10003,7 @@ function registerHaActions(env) {
     void streamDeck.settings.getGlobalSettings().then(applyGlobals).catch(() => undefined);
     /* ───────── dessin ───────── */
     const draw = async (e) => {
+        const revision = e.drawRevision = (e.drawRevision ?? 0) + 1;
         const t = env.theme();
         const s = e.s;
         const id = s.entity ?? '';
@@ -10010,8 +10011,9 @@ function registerHaActions(env) {
         const st = id ? hub.get(id) : undefined;
         const offline = hub.status.state !== 'connected';
         const mode = s.mode ?? 'auto';
-        const on = mode === 'template' || mode === 'event' || mode === 'service' ? true : isOnState(st) || ['scene', 'script', 'button', 'input_button'].includes(domain);
+        const on = mode === 'template' || mode === 'event' || mode === 'service' ? true : isOnState(st) || ['scene', 'button', 'input_button'].includes(domain);
         const rule = matchRule(s.rules, st);
+        await e.key.setState(on ? 1 : 0);
         // icône
         let iconName = rule?.icon || (on ? s.icon : s.iconOff || s.icon) || '';
         if (!iconName) {
@@ -10048,6 +10050,40 @@ function registerHaActions(env) {
             image = e.image ?? null;
         if (domain === 'media_player' && s.art !== false && st?.state === 'playing' && e.image)
             image = e.image;
+        const confirming = !!e.confirmUntil && e.confirmUntil > Date.now();
+        await e.key.setTitle(confirming ? 'Confirmer ?' : s.customIcon ? [title, value].filter(Boolean).join('\n') : undefined);
+        if (s.customIcon) {
+            if (confirming)
+                await e.key.showAlert();
+            return;
+        }
+        if (s.libraryIcon && !confirming) {
+            try {
+                const q = new URLSearchParams({ id: s.libraryIcon, on: on ? '1' : '0' });
+                q.set('color', lightColor(st) ?? color);
+                q.set('recolor', s.lightColor === false ? '0' : '1');
+                const liveValue = gaugePercent(st);
+                if (liveValue !== null)
+                    q.set('value', String(liveValue));
+                const res = await fetch(`http://127.0.0.1:41320/icons/render?${q}`, { signal: AbortSignal.timeout(2500) });
+                if (!res.ok)
+                    throw new Error('Icône indisponible');
+                const data = await res.json();
+                if (!data.image?.startsWith('data:image/svg+xml'))
+                    throw new Error('Icône invalide');
+                if (revision !== e.drawRevision)
+                    return;
+                await e.key.setTitle([title, value].filter(Boolean).join('\n'));
+                e.lastSvg = data.image;
+                await e.key.setImage(data.image);
+                return;
+            }
+            catch {
+                if (revision !== e.drawRevision)
+                    return;
+                await e.key.showAlert();
+            }
+        }
         const svg = renderKey({
             style: (s.style ?? 'accent'),
             background: t.background,
@@ -10065,6 +10101,8 @@ function registerHaActions(env) {
             dimmed: !!rule?.blink && blink,
             confirm: e.confirmUntil && e.confirmUntil > Date.now() ? 'Confirmer ?' : undefined
         });
+        if (revision !== e.drawRevision)
+            return;
         if (svg !== e.lastSvg) {
             e.lastSvg = svg;
             await e.key.setImage(svg);
@@ -10127,6 +10165,12 @@ function registerHaActions(env) {
         void draw(e);
     };
     const setSettings = (e, s) => {
+        if (e.editorToken)
+            void editorRequest('reply', { token: e.editorToken, settings: s }).catch(() => undefined);
+        if (s.customIcon && !e.s.customIcon) {
+            void e.key.setImage(undefined, { state: 0 });
+            void e.key.setImage(undefined, { state: 1 });
+        }
         const nextId = s.entity ?? '';
         if (nextId !== e.watching) {
             if (e.watching)
@@ -10138,6 +10182,8 @@ function registerHaActions(env) {
             e.imageSrc = undefined;
         }
         e.s = s;
+        e.lastSvg = undefined;
+        e.confirmUntil = 0;
         e.templateAt = 0;
         void refreshImage(e, true);
         void refreshTemplate(e, true);
@@ -10168,6 +10214,7 @@ function registerHaActions(env) {
             if (!e.confirmUntil || e.confirmUntil < Date.now()) {
                 e.confirmUntil = Date.now() + CONFIRM_MS;
                 await draw(e);
+                await e.key.showAlert();
                 return;
             }
             e.confirmUntil = 0;
@@ -10205,10 +10252,77 @@ function registerHaActions(env) {
     const reply = (payload) => {
         void streamDeck.ui.current?.sendToPropertyInspector(payload);
     };
-    const onMessage = async (e, msg, kind) => {
+    const editorRequest = async (path, body) => {
+        const res = await fetch(`http://127.0.0.1:41320/ha/editor/${path}`, {
+            method: body === undefined ? 'GET' : 'POST',
+            ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+            signal: AbortSignal.timeout(path === 'open' ? 15000 : 5000)
+        });
+        if (!res.ok)
+            throw new Error('Ouvre MultiOutils pour utiliser la grande fenêtre.');
+        return await res.json();
+    };
+    const pollEditor = (e, kind, token) => {
+        if (e.editorPolling === token)
+            return;
+        e.editorPolling = token;
+        const run = async () => {
+            if (e.editorToken !== token)
+                return;
+            try {
+                const data = await editorRequest(`messages?token=${encodeURIComponent(token)}`);
+                for (const raw of (Array.isArray(data.messages) ? data.messages : [])) {
+                    const message = raw;
+                    if (message.event === 'setSettings' && message.payload) {
+                        await e.key.setSettings(message.payload);
+                        setSettings(e, message.payload);
+                    }
+                    else if (message.event === 'sendToPlugin' && message.payload) {
+                        // Le grand sélecteur peut rester ouvert sans bloquer les autres réglages.
+                        void onMessage(e, message.payload, kind, (payload) => {
+                            void editorRequest('reply', { token, payload }).catch(() => undefined);
+                        });
+                    }
+                }
+                if (data.closed) {
+                    e.editorToken = undefined;
+                    e.editorPolling = undefined;
+                    return;
+                }
+            }
+            catch {
+                e.editorToken = undefined;
+                e.editorPolling = undefined;
+                return;
+            }
+            setTimeout(() => void run(), 350);
+        };
+        void run();
+    };
+    const onMessage = async (e, msg, kind, respond = reply) => {
+        const reply = respond;
         const cmd = msg.cmd;
         try {
-            if (cmd === 'status') {
+            if (cmd === 'editor' && e) {
+                const data = await editorRequest('open', { context: e.key.id, action: kind.uuid, settings: e.s });
+                if (typeof data.token !== 'string')
+                    throw new Error('Éditeur indisponible');
+                if (entries.get(e.key.id) !== e) {
+                    void editorRequest('close', { token: data.token }).catch(() => undefined);
+                    return;
+                }
+                e.editorToken = data.token;
+                pollEditor(e, kind, data.token);
+                reply({ cmd, ok: true });
+            }
+            else if (cmd === 'iconLibrary') {
+                const res = await fetch('http://127.0.0.1:41320/icons/library', { signal: AbortSignal.timeout(2500) });
+                if (!res.ok)
+                    throw new Error('Ouvre MultiOutils pour accéder à l’atelier.');
+                const data = await res.json();
+                reply({ cmd, designs: data.designs ?? [] });
+            }
+            else if (cmd === 'status') {
                 reply({ cmd, status: hub.status, direct: { url: globals.direct?.url ?? '', remoteUrl: globals.direct?.remoteUrl ?? '', hasToken: !!globals.direct?.token }, hasClip: !!globals.clip });
             }
             else if (cmd === 'catalog') {
@@ -10297,6 +10411,12 @@ function registerHaActions(env) {
                 const e = entries.get(id);
                 if (e?.watching)
                     hub.unwatch(e.watching);
+                if (e)
+                    e.drawRevision = (e.drawRevision ?? 0) + 1;
+                if (e?.editorToken) {
+                    void editorRequest('close', { token: e.editorToken }).catch(() => undefined);
+                    e.editorToken = undefined;
+                }
                 entries.delete(id);
             }
             onDidReceiveSettings(ev) {
@@ -10661,8 +10781,14 @@ async function appPost(path) {
         return false;
     }
 }
+/** Efface seulement les anciens dessins du plugin, pour chacun des deux états. */
+async function resetCustomImages(key) {
+    await key.setImage(undefined, { state: 0 });
+    await key.setImage(undefined, { state: 1 });
+}
 /** Rafraîchit le libellé + l'image d'une touche selon l'état connu. */
 async function renderEntry(e) {
+    await e.action.setState(isLive(e) ? 1 : 0);
     if (e.kind === 'toggle') {
         await e.action.setTitle(selectedId ? (names.get(selectedId) ?? '') : '');
         if (!e.customIcon)
@@ -10715,7 +10841,7 @@ let AutoclickToggle = (() => {
             const key = ev.action;
             entries.set(key.id, { action: key, kind: 'toggle', customIcon: ev.payload.settings?.customIcon === true });
             if (ev.payload.settings?.customIcon === true)
-                await key.setImage();
+                await resetCustomImages(key);
             await renderEntry(entries.get(key.id));
             void poll();
         }
@@ -10728,7 +10854,7 @@ let AutoclickToggle = (() => {
             if (entry) {
                 const customIcon = ev.payload.settings?.customIcon === true;
                 if (customIcon && !entry.customIcon)
-                    await entry.action.setImage();
+                    await resetCustomImages(entry.action);
                 entry.customIcon = customIcon;
                 await renderEntry(entry);
             }
@@ -10767,7 +10893,7 @@ let AutoclickProfile = (() => {
                 customIcon: ev.payload.settings?.customIcon === true
             });
             if (ev.payload.settings?.customIcon === true)
-                await key.setImage();
+                await resetCustomImages(key);
             await renderEntry(entries.get(key.id));
             void poll();
         }
@@ -10781,7 +10907,7 @@ let AutoclickProfile = (() => {
                 entry.profileId = ev.payload.settings?.profileId;
                 const customIcon = ev.payload.settings?.customIcon === true;
                 if (customIcon && !entry.customIcon)
-                    await entry.action.setImage();
+                    await resetCustomImages(entry.action);
                 entry.customIcon = customIcon;
                 await renderEntry(entry);
             }

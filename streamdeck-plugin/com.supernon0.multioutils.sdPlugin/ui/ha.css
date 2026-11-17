@@ -81,3 +81,17 @@ select { text-overflow: ellipsis; }
 .regle input[type="color"] { width: 34px; }
 .regle .x { color: var(--danger); background: none; border: 0; cursor: pointer; font-size: 16px; }
 #mode-zone { display: grid; gap: 8px; }
+
+/* Grande fenêtre MultiOutils : mêmes paramètres, plus d’espace et d’explications. */
+#full-editor { margin-bottom: 12px; height: auto; min-height: 36px; white-space: normal; line-height: 1.4; padding: 8px 10px; }
+.large-editor { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; max-width: 1320px; margin: auto; padding: 24px; font-size: 14px; }
+.large-editor > * { min-width: 0; }
+.large-editor .editor-header, .large-editor > .conn { grid-column: 1 / -1; }
+.editor-header { display: flex; align-items: center; gap: 20px; padding: 8px 0 18px; }
+.editor-header h1 { font-size: 24px; margin: 0 0 8px; }
+.editor-header p { margin: 0; color: var(--muted); line-height: 1.6; }
+.editor-header .btn { flex: none; }
+.large-editor .carte { align-self: start; align-content: start; padding: 22px; margin: 0; border-radius: 14px; }
+.large-editor .apercu img { width: 144px; height: 144px; }
+.large-editor .aide { line-height: 1.65; }
+@media (max-width: 760px) { .large-editor { grid-template-columns: minmax(0, 1fr); padding: 16px; } .editor-header { flex-wrap: wrap; } }

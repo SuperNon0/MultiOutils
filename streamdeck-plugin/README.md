@@ -18,12 +18,12 @@ Boutons Stream Deck pour piloter l'application MultiOutils (docs/00 §8) :
 
 Pour les touches **Autoclic marche/arrêt** et **Autoclic — profil**, active
 **Icône personnalisée dans Stream Deck** dans les réglages de la touche, puis
-choisis ton image depuis sa vignette dans Stream Deck. Le plugin conserve cette
+choisis tes images pour les états **1 (au repos)** et **2 (en cours)** depuis la vignette dans Stream Deck. La touche d’un profil passe à l’état 2 uniquement quand ce profil tourne, même si un autre est sélectionné. Le plugin conserve cette
 image et actualise uniquement le nom du profil, superposé en haut de la touche.
 Laisse le champ **Titre** vide pour garder le nom automatique ; Stream Deck
 permet d’ajuster sa position, sa police et sa couleur.
 
-Dans ce mode, l’image reste fixe même quand le profil tourne. Désactive l’option
+Dans ce mode, les deux images choisies remplacent l’animation quand le profil démarre ou s’arrête. Désactive l’option
 pour retrouver les icônes animées MultiOutils. Le sélecteur de couleur a été retiré :
 les couleurs d’une icône personnalisée se règlent dans l’image elle-même.
 
@@ -55,6 +55,32 @@ Le plugin parle **uniquement à l'app locale** via son service localhost
 (`http://127.0.0.1:41320`, lié à la boucle locale — inaccessible depuis le
 réseau). Il ne parle jamais au serveur distant. Si l'app n'est pas lancée, la
 touche affiche une alerte ⚠.
+
+## Grand éditeur Home Assistant et icônes de l’atelier
+
+Dans les réglages d’une touche Home Assistant, **Ouvrir tous les paramètres dans
+MultiOutils** ouvre un grand formulaire : entités, modèles, action, confirmation,
+apparence, valeur, règles, aperçu et test. Les paramètres sont enregistrés dans
+la même touche Stream Deck. Le changement de modèle met aussi à jour le nom
+proposé ; le mode « Nom de l’entité » reste disponible pour retrouver son nom.
+
+Deux façons de personnaliser une touche Home Assistant :
+
+- **Mes deux images dans Stream Deck** : choisissez les images des états 1
+  (éteint) et 2 (allumé). L’application pilote l’état ; le titre et la demande de
+  confirmation restent des éléments natifs. Laissez le champ Titre de Stream
+  Deck vide pour afficher automatiquement le nom et « Confirmer ? ».
+- **Icône de l’atelier MultiOutils** : choisissez une création de la bibliothèque.
+  Les symboles et la mise en page sont conservés ; la version éteinte, la couleur
+  réelle et les indicateurs suivent l’entité. Le bouton « Actualiser les icônes »
+  recharge la bibliothèque après une nouvelle création. MultiOutils doit rester ouvert.
+
+Dans l’atelier, **Ajouter une barre ou une pastille** propose une barre, une
+pastille ou une capsule en haut, en bas, à gauche ou à droite. Choisissez les
+couleurs allumé/éteint, la taille, un remplissage fixe ou lié à l’état/à la valeur,
+et le suivi de la couleur réelle. Un export PNG/SVG reste une image fixe ; pour
+l’affichage vivant, utilisez directement l’icône de la bibliothèque sur la touche HA.
+Les styles conservent ces réglages sans copier les symboles ni les images.
 
 ## Construire
 

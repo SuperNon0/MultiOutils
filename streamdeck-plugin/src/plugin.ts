@@ -126,7 +126,8 @@ type ProfileSettings = KeySettings & { profileId?: string };
 interface SdKey {
   id: string;
   setTitle(title: string): Promise<void>;
-  setImage(image?: string): Promise<void>;
+  setImage(image?: string, options?: { state: 0 | 1 }): Promise<void>;
+  setState(state: 0 | 1): Promise<void>;
   showAlert(): Promise<void>;
 }
 
@@ -211,8 +212,15 @@ async function appPost(path: string): Promise<boolean> {
   }
 }
 
+/** Efface seulement les anciens dessins du plugin, pour chacun des deux états. */
+async function resetCustomImages(key: SdKey): Promise<void> {
+  await key.setImage(undefined, { state: 0 });
+  await key.setImage(undefined, { state: 1 });
+}
+
 /** Rafraîchit le libellé + l'image d'une touche selon l'état connu. */
 async function renderEntry(e: Entry): Promise<void> {
+  await e.action.setState(isLive(e) ? 1 : 0);
   if (e.kind === 'toggle') {
     await e.action.setTitle(selectedId ? (names.get(selectedId) ?? '') : '');
     if (!e.customIcon) await e.action.setImage(toggleImage(runningId != null, glow, theme.accent));
@@ -255,7 +263,7 @@ class AutoclickToggle extends SingletonAction<KeySettings> {
   override async onWillAppear(ev: WillAppearEvent<KeySettings>): Promise<void> {
     const key = ev.action as unknown as SdKey;
     entries.set(key.id, { action: key, kind: 'toggle', customIcon: ev.payload.settings?.customIcon === true });
-    if (ev.payload.settings?.customIcon === true) await key.setImage();
+    if (ev.payload.settings?.customIcon === true) await resetCustomImages(key);
     await renderEntry(entries.get(key.id)!);
     void poll();
   }
@@ -267,7 +275,7 @@ class AutoclickToggle extends SingletonAction<KeySettings> {
     const entry = entries.get((ev.action as unknown as SdKey).id);
     if (entry) {
       const customIcon = ev.payload.settings?.customIcon === true;
-      if (customIcon && !entry.customIcon) await entry.action.setImage();
+      if (customIcon && !entry.customIcon) await resetCustomImages(entry.action);
       entry.customIcon = customIcon;
       await renderEntry(entry);
     }
@@ -290,7 +298,7 @@ class AutoclickProfile extends SingletonAction<ProfileSettings> {
       profileId: ev.payload.settings?.profileId,
       customIcon: ev.payload.settings?.customIcon === true
     });
-    if (ev.payload.settings?.customIcon === true) await key.setImage();
+    if (ev.payload.settings?.customIcon === true) await resetCustomImages(key);
     await renderEntry(entries.get(key.id)!);
     void poll();
   }
@@ -305,7 +313,7 @@ class AutoclickProfile extends SingletonAction<ProfileSettings> {
     if (entry) {
       entry.profileId = ev.payload.settings?.profileId;
       const customIcon = ev.payload.settings?.customIcon === true;
-      if (customIcon && !entry.customIcon) await entry.action.setImage();
+      if (customIcon && !entry.customIcon) await resetCustomImages(entry.action);
       entry.customIcon = customIcon;
       await renderEntry(entry);
     }

@@ -19,6 +19,7 @@
  *                               répond { id } (null si fermé sans choisir)
  */
 import { BrowserWindow, ipcMain, nativeImage, screen } from 'electron';
+import { setupHaKeyEditor } from './key-editor';
 import { loadRenderer, preloadPath } from '../../../windows';
 import WebSocket from 'ws';
 import * as mdi from '@mdi/js';
@@ -329,6 +330,7 @@ export function createStreamDeckBridge(deps: Deps): StreamDeckBridge {
   };
 
   const { ctx } = deps;
+  const closeKeyEditor = setupHaKeyEditor(ctx);
   const route = ctx.registerLocalRoute;
   route('GET', /^\/ha\/status$/, () => {
     if (configured()) socket.start();
@@ -376,6 +378,7 @@ export function createStreamDeckBridge(deps: Deps): StreamDeckBridge {
     nudge: () => socket.nudge(),
     log: () => calls,
     dispose() {
+      closeKeyEditor();
       socket.stop();
       for (const w of [...waiters]) w();
       if (cameraWin && !cameraWin.isDestroyed()) cameraWin.destroy();

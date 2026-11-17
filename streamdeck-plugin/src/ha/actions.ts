@@ -45,7 +45,8 @@ interface Env {
 interface SdKey {
   id: string;
   setTitle(title?: string): Promise<void>;
-  setImage(image: string): Promise<void>;
+  setImage(image?: string, options?: { state: 0 | 1 }): Promise<void>;
+  setState(state: 0 | 1): Promise<void>;
   showAlert(): Promise<void>;
   showOk(): Promise<void>;
   setSettings(s: JsonObject): Promise<void>;
@@ -62,6 +63,9 @@ interface Entry {
   templateAt?: number;
   confirmUntil?: number;
   lastSvg?: string;
+  drawRevision?: number;
+  editorToken?: string;
+  editorPolling?: string;
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -89,6 +93,7 @@ export function registerHaActions(env: Env): void {
   /* ───────── dessin ───────── */
 
   const draw = async (e: Entry): Promise<void> => {
+    const revision = e.drawRevision = (e.drawRevision ?? 0) + 1;
     const t = env.theme();
     const s = e.s;
     const id = s.entity ?? '';
@@ -96,8 +101,10 @@ export function registerHaActions(env: Env): void {
     const st: HaRawState | undefined = id ? hub.get(id) : undefined;
     const offline = hub.status.state !== 'connected';
     const mode = s.mode ?? 'auto';
-    const on = mode === 'template' || mode === 'event' || mode === 'service' ? true : isOnState(st) || ['scene', 'script', 'button', 'input_button'].includes(domain);
+    const on = mode === 'template' || mode === 'event' || mode === 'service' ? true : isOnState(st) || ['scene', 'button', 'input_button'].includes(domain);
     const rule = matchRule(s.rules, st);
+
+    await e.key.setState(on ? 1 : 0);
 
     // icône
     let iconName = rule?.icon || (on ? s.icon : s.iconOff || s.icon) || '';
@@ -129,6 +136,35 @@ export function registerHaActions(env: Env): void {
     if (mode === 'camera' || (mode === 'auto' && domain === 'camera')) image = e.image ?? null;
     if (domain === 'media_player' && s.art !== false && st?.state === 'playing' && e.image) image = e.image;
 
+    const confirming = !!e.confirmUntil && e.confirmUntil > Date.now();
+    await e.key.setTitle(confirming ? 'Confirmer ?' : s.customIcon ? [title, value].filter(Boolean).join('\n') : undefined);
+    if (s.customIcon) {
+      if (confirming) await e.key.showAlert();
+      return;
+    }
+
+    if (s.libraryIcon && !confirming) {
+      try {
+        const q = new URLSearchParams({ id: s.libraryIcon, on: on ? '1' : '0' });
+        q.set('color', lightColor(st) ?? color);
+        q.set('recolor', s.lightColor === false ? '0' : '1');
+        const liveValue = gaugePercent(st);
+        if (liveValue !== null) q.set('value', String(liveValue));
+        const res = await fetch(`http://127.0.0.1:41320/icons/render?${q}`, { signal: AbortSignal.timeout(2500) });
+        if (!res.ok) throw new Error('Icône indisponible');
+        const data = await res.json() as { image?: string };
+        if (!data.image?.startsWith('data:image/svg+xml')) throw new Error('Icône invalide');
+        if (revision !== e.drawRevision) return;
+        await e.key.setTitle([title, value].filter(Boolean).join('\n'));
+        e.lastSvg = data.image;
+        await e.key.setImage(data.image);
+        return;
+      } catch {
+        if (revision !== e.drawRevision) return;
+        await e.key.showAlert();
+      }
+    }
+
     const svg = renderKey({
       style: (s.style ?? 'accent') as KeyStyle,
       background: t.background,
@@ -146,6 +182,7 @@ export function registerHaActions(env: Env): void {
       dimmed: !!rule?.blink && blink,
       confirm: e.confirmUntil && e.confirmUntil > Date.now() ? 'Confirmer ?' : undefined
     });
+    if (revision !== e.drawRevision) return;
     if (svg !== e.lastSvg) {
       e.lastSvg = svg;
       await e.key.setImage(svg);
@@ -206,6 +243,13 @@ export function registerHaActions(env: Env): void {
   };
 
   const setSettings = (e: Entry, s: HaKeySettings): void => {
+    if (e.editorToken) void editorRequest('reply', { token: e.editorToken, settings: s }).catch(() => undefined);
+
+    if (s.customIcon && !e.s.customIcon) {
+      void e.key.setImage(undefined, { state: 0 });
+      void e.key.setImage(undefined, { state: 1 });
+    }
+
     const nextId = s.entity ?? '';
     if (nextId !== e.watching) {
       if (e.watching) hub.unwatch(e.watching);
@@ -215,6 +259,8 @@ export function registerHaActions(env: Env): void {
       e.imageSrc = undefined;
     }
     e.s = s;
+    e.lastSvg = undefined;
+    e.confirmUntil = 0;
     e.templateAt = 0;
     void refreshImage(e, true);
     void refreshTemplate(e, true);
@@ -247,6 +293,7 @@ export function registerHaActions(env: Env): void {
       if (!e.confirmUntil || e.confirmUntil < Date.now()) {
         e.confirmUntil = Date.now() + CONFIRM_MS;
         await draw(e);
+        await e.key.showAlert();
         return;
       }
       e.confirmUntil = 0;
@@ -280,10 +327,62 @@ export function registerHaActions(env: Env): void {
     void streamDeck.ui.current?.sendToPropertyInspector(payload);
   };
 
-  const onMessage = async (e: Entry | undefined, msg: Record<string, unknown>, kind: HaKind): Promise<void> => {
+  const editorRequest = async (path: string, body?: unknown): Promise<Record<string, unknown>> => {
+    const res = await fetch(`http://127.0.0.1:41320/ha/editor/${path}`, {
+      method: body === undefined ? 'GET' : 'POST',
+      ...(body === undefined ? {} : { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }),
+      signal: AbortSignal.timeout(path === 'open' ? 15000 : 5000)
+    });
+    if (!res.ok) throw new Error('Ouvre MultiOutils pour utiliser la grande fenêtre.');
+    return await res.json() as Record<string, unknown>;
+  };
+  const pollEditor = (e: Entry, kind: HaKind, token: string): void => {
+    if (e.editorPolling === token) return;
+    e.editorPolling = token;
+    const run = async (): Promise<void> => {
+      if (e.editorToken !== token) return;
+      try {
+        const data = await editorRequest(`messages?token=${encodeURIComponent(token)}`);
+        for (const raw of (Array.isArray(data.messages) ? data.messages : [])) {
+          const message = raw as { event?: string; payload?: Record<string, unknown> };
+          if (message.event === 'setSettings' && message.payload) {
+            await e.key.setSettings(message.payload as JsonObject);
+            setSettings(e, message.payload as HaKeySettings);
+          } else if (message.event === 'sendToPlugin' && message.payload) {
+            // Le grand sélecteur peut rester ouvert sans bloquer les autres réglages.
+            void onMessage(e, message.payload, kind, (payload) => {
+              void editorRequest('reply', { token, payload }).catch(() => undefined);
+            });
+          }
+        }
+        if (data.closed) { e.editorToken = undefined; e.editorPolling = undefined; return; }
+      } catch {
+        e.editorToken = undefined; e.editorPolling = undefined; return;
+      }
+      setTimeout(() => void run(), 350);
+    };
+    void run();
+  };
+  const onMessage = async (e: Entry | undefined, msg: Record<string, unknown>, kind: HaKind, respond: (payload: JsonValue) => void = reply): Promise<void> => {
+    const reply = respond;
     const cmd = msg.cmd;
     try {
-      if (cmd === 'status') {
+      if (cmd === 'editor' && e) {
+        const data = await editorRequest('open', { context: e.key.id, action: kind.uuid, settings: e.s });
+        if (typeof data.token !== 'string') throw new Error('Éditeur indisponible');
+        if (entries.get(e.key.id) !== e) {
+          void editorRequest('close', { token: data.token }).catch(() => undefined);
+          return;
+        }
+        e.editorToken = data.token;
+        pollEditor(e, kind, data.token);
+        reply({ cmd, ok: true });
+      } else if (cmd === 'iconLibrary') {
+        const res = await fetch('http://127.0.0.1:41320/icons/library', { signal: AbortSignal.timeout(2500) });
+        if (!res.ok) throw new Error('Ouvre MultiOutils pour accéder à l’atelier.');
+        const data = await res.json() as { designs?: JsonValue };
+        reply({ cmd, designs: data.designs ?? [] });
+      } else if (cmd === 'status') {
         reply({ cmd, status: hub.status as unknown as JsonObject, direct: { url: globals.direct?.url ?? '', remoteUrl: globals.direct?.remoteUrl ?? '', hasToken: !!globals.direct?.token }, hasClip: !!globals.clip });
       } else if (cmd === 'catalog') {
         const cat = await hub.catalog();
@@ -358,6 +457,8 @@ export function registerHaActions(env: Env): void {
         const id = (ev.action as unknown as SdKey).id;
         const e = entries.get(id);
         if (e?.watching) hub.unwatch(e.watching);
+        if (e) e.drawRevision = (e.drawRevision ?? 0) + 1;
+        if (e?.editorToken) { void editorRequest('close', { token: e.editorToken }).catch(() => undefined); e.editorToken = undefined; }
         entries.delete(id);
       }
       override onDidReceiveSettings(ev: DidReceiveSettingsEvent<JsonObject>): void {

@@ -22,6 +22,12 @@ files:
 # juste avant (absent en build local : l'app le télécharge alors depuis la
 # release GitHub de sa version).
 extraResources:
+  - from: ../streamdeck-plugin/com.supernon0.multioutils.sdPlugin/ui
+    to: streamdeck/editor
+    filter:
+      - 'ha.html'
+      - 'ha.css'
+      - 'ha.js'
   - from: ../streamdeck-plugin/com.supernon0.multioutils.sdPlugin/manifest.json
     to: streamdeck/manifest.json
   - from: ../sd-dist

@@ -61,3 +61,13 @@ jobs:
 
       - name: Build de l'app (bundles main/preload/renderer)
         run: npm run build:app
+
+      # Valide le manifeste à deux états et le paquet réel avant publication.
+      - name: Vérifier le paquet Stream Deck
+        shell: bash
+        run: |
+          npm run build -w streamdeck-plugin
+          mkdir -p sd-check
+          npx --yes @elgato/cli@1.7.4 pack \
+            streamdeck-plugin/com.supernon0.multioutils.sdPlugin \
+            --output sd-check --force

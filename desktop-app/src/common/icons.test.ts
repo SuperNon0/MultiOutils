@@ -215,3 +215,23 @@ describe('styles sans symboles ni images', () => {
     expect(saved.look.off!.bg).toBe('#222222');
   });
 });
+
+
+describe('indicateurs de l’atelier', () => {
+  it('conserve l’indicateur dans les styles, sans copier les symboles', () => {
+    const source = sanitizeDesign({ ...defaultDesign(), indicator: { shape: 'dot', position: 'right', color: '#ff0000', colorOff: '#222222', colorMode: 'entity', mode: 'value', value: 40, size: 10 } })!;
+    const saved = sanitizeStyle(JSON.parse(JSON.stringify({ id: 'style_indicator', name: 'État', look: styleLook(source) })))!;
+    const target = defaultDesign({ symbol: { lib: 'mdi', name: 'lamp' } });
+    const result = applyStyle(target, saved.look);
+    expect(result.indicator).toEqual(source.indicator);
+    expect(result.symbol).toEqual(target.symbol);
+    const svg = renderIconSvg({ design: result, art: null, indicatorState: { on: false } });
+    expect(svg).toContain('data-indicator="dot"'); expect(svg).toContain('fill="#222222"');
+  });
+  it('retire un indicateur via un style et valide les champs lus sur disque', () => {
+    const bad = sanitizeDesign({ ...defaultDesign(), indicator: { shape: 'unknown', size: 999, value: -50 } })!;
+    expect(bad.indicator?.shape).toBe('bar'); expect(bad.indicator?.size).toBe(18);
+    const result = applyStyle(bad, styleLook(defaultDesign()));
+    expect(result.indicator).toBeNull();
+  });
+});

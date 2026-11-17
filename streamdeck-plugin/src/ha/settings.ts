@@ -55,6 +55,8 @@ export interface HaKeySettings {
   /** Affichage. */
   titleMode?: 'auto' | 'custom' | 'none';
   titleText?: string;
+  customIcon?: boolean;
+  libraryIcon?: string;
   valueMode?: 'auto' | 'show' | 'hide';
   decimals?: number | null;
   gauge?: boolean;
