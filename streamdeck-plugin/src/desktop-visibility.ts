@@ -3,8 +3,9 @@ import { action, SingletonAction, type KeyAction, type KeyDownEvent, type WillAp
 const BASE_URL = 'http://127.0.0.1:41320';
 
 /** Deux états du manifeste, pilotés par l'app et personnalisables dans Stream Deck. */
-@action({ UUID: 'com.supernon0.multioutils.desktop-hide' })
-export class DesktopToggleHide extends SingletonAction {
+abstract class DesktopVisibilitySwitch extends SingletonAction {
+  protected abstract readonly command: string;
+  protected abstract readonly field: 'hidden' | 'peek';
   private keys = new Map<string, KeyAction>();
   private timer: ReturnType<typeof setInterval> | null = null;
   private reading: Promise<void> | null = null;
@@ -29,15 +30,15 @@ export class DesktopToggleHide extends SingletonAction {
     try {
       const res = await fetch(`${BASE_URL}/desktop/visibility`, { signal: AbortSignal.timeout(2500) });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const state = await res.json() as { hidden?: unknown; enabled?: unknown };
-      if (typeof state.hidden !== 'boolean' || typeof state.enabled !== 'boolean') throw new Error('état inconnu');
+      const state = await res.json() as { hidden?: unknown; peek?: unknown; enabled?: unknown };
+      if (typeof state[this.field] !== 'boolean' || typeof state.enabled !== 'boolean') throw new Error('état inconnu');
       await Promise.all([...this.keys.values()].map(async (key) => {
         if (!state.enabled) {
           await key.setTitle('Bureau\ndésactivé');
           await key.showAlert();
           return;
         }
-        await key.setState(state.hidden ? 1 : 0);
+        await key.setState(state[this.field] ? 1 : 0);
         await key.setTitle(); // titre du manifeste ou titre personnalisé
       }));
     } catch {
@@ -60,7 +61,7 @@ export class DesktopToggleHide extends SingletonAction {
     this.pressing = true;
     try {
       await this.reading;
-      const res = await fetch(`${BASE_URL}/command/desktop.toggleHide`, {
+      const res = await fetch(`${BASE_URL}/command/${this.command}`, {
         method: 'POST', signal: AbortSignal.timeout(3000)
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -71,4 +72,17 @@ export class DesktopToggleHide extends SingletonAction {
       this.pressing = false;
     }
   }
+}
+
+
+@action({ UUID: 'com.supernon0.multioutils.desktop-hide' })
+export class DesktopToggleHide extends DesktopVisibilitySwitch {
+  protected readonly command = 'desktop.toggleHide';
+  protected readonly field = 'hidden' as const;
+}
+
+@action({ UUID: 'com.supernon0.multioutils.desktop-peek' })
+export class DesktopPeek extends DesktopVisibilitySwitch {
+  protected readonly command = 'desktop.peek';
+  protected readonly field = 'peek' as const;
 }

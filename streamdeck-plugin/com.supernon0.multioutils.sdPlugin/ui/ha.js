@@ -43,10 +43,14 @@
   let saveTimer = null;
   const sentSettings = new Set();
   function receiveSettings(next) {
-    if (sentSettings.has(JSON.stringify(next))) return;
+    if (sentSettings.has(JSON.stringify(next))) {
+      if (JSON.stringify(next) === JSON.stringify(settings)) window.haEditorLayout?.saved();
+      return;
+    }
     settings = next; renderAll();
   }
   function save(immediate) {
+    window.haEditorLayout?.saving();
     clearTimeout(saveTimer);
     const run = () => {
       saveTimer = null;
@@ -224,6 +228,7 @@
   }
 
   const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  let resultLimit = 150;
   function renderResults() {
     const box = $('res');
     if (!catalog) return;
@@ -236,21 +241,23 @@
         const hay = norm(e.name + ' ' + e.id + ' ' + (e.areaName || '') + ' ' + (e.floorName || '') + ' ' + (DOMAINS[e.domain] || ''));
         return words.every((w) => hay.includes(w));
       })
-      .sort((a, b) => (a.areaName || '\uffff').localeCompare(b.areaName || '\uffff', 'fr') || a.name.localeCompare(b.name, 'fr'))
-      .slice(0, 150);
+      .sort((a, b) => (a.floorName || '').localeCompare(b.floorName || '', 'fr') || (a.areaName || '\uffff').localeCompare(b.areaName || '\uffff', 'fr') || a.name.localeCompare(b.name, 'fr'));
+    const total = list.length;
+    if ($('res-count')) $('res-count').textContent = total + (total > 1 ? ' entités' : ' entité');
+    if ($('res-more')) { $('res-more').hidden = total <= resultLimit; $('res-more').onclick = () => { resultLimit += 150; renderResults(); }; }
     if (!list.length) {
       box.innerHTML = '<p class="aide">Aucune entité trouvée.</p>';
       return;
     }
     let last = null;
-    box.innerHTML = list
+    box.innerHTML = list.slice(0, resultLimit)
       .map((e) => {
-        const room = e.areaName || 'Sans pièce';
+        const room = [e.floorName, e.areaName || 'Sans pièce'].filter(Boolean).join(' · ');
         const head = room !== last ? '<div class="groupe">' + esc(room) + '</div>' : '';
         last = room;
         return (
           head +
-          '<div class="ent" tabindex="0" title="' + esc(e.id) + '" data-id="' + esc(e.id) + '"><div class="t"><b>' + esc(e.name) + '</b><span>' +
+          '<div class="ent' + (e.id === settings.entity ? ' on' : '') + '" tabindex="0" title="' + esc(e.id) + '" data-id="' + esc(e.id) + '"><div class="t"><b>' + esc(e.name) + '</b><span>' +
           esc(DOMAINS[e.domain] || e.domain) + '</span></div><span class="v">' + esc(fmt(e.state, e.unit)) + '</span></div>'
         );
       })
@@ -270,7 +277,7 @@
     if (state !== '' && isFinite(n)) return n.toLocaleString('fr', { maximumFractionDigits: 1 }) + (unit ? ' ' + unit : '');
     return STATES[state] || state;
   }
-  ['q', 'f-etage', 'f-piece', 'f-type'].forEach((id) => ($(id).oninput = renderResults));
+  ['q', 'f-etage', 'f-piece', 'f-type'].forEach((id) => ($(id).oninput = () => { resultLimit = 150; renderResults(); }));
 
   function chooseEntity(id) {
     const prev = domainOf(settings.entity);
@@ -285,6 +292,7 @@
     toPlugin({ cmd: 'state', id });
     setTimeout(() => toPlugin({ cmd: 'state', id }), 1500);
     renderChosen();
+    renderResults();
     renderMode();
     renderLook();
   }
@@ -292,14 +300,15 @@
     const id = settings.entity;
     const has = !!id;
     $('choisie').hidden = !has;
-    $('chercher').hidden = has && !renderChosen.open;
-    if (!has) return;
+    $('chercher').hidden = !largeEditor && has && !renderChosen.open;
+    if (!has) { window.haEditorLayout?.refresh(); return; }
     const e = catalog && catalog.entities.find((x) => x.id === id);
     $('ch-nom').textContent = e ? e.name : id;
     $('choisie').title = id;
     $('ch-info').textContent = [e && (DOMAINS[e.domain] || e.domain), e && e.areaName, entityState ? fmt(entityState.state, entityState.attributes && entityState.attributes.unit_of_measurement) : '']
       .filter(Boolean)
       .join(' · ');
+    window.haEditorLayout?.refresh();
   }
   $('grand').onclick = () => {
     $('grand').disabled = true;
@@ -807,18 +816,16 @@
     renderMode();
     renderLook();
     renderRules();
+    window.haEditorLayout?.refresh();
   }
   renderAll();
   if (largeEditor) {
-    document.body.classList.add('large-editor');
-    $('full-editor').hidden = true;
-    const header = document.createElement('header'); header.className = 'editor-header';
-    header.innerHTML = '<div><h1>Home Assistant · votre touche</h1><p>Choisissez une entité, une action et son apparence. Les réglages sont enregistrés automatiquement dans Stream Deck.</p></div><button type="button" class="btn pri">Enregistrer et fermer</button>';
-    header.querySelector('button').onclick = () => { save(true); setTimeout(() => window.close(), 500); };
-    document.body.prepend(header);
-    for (const [id, text] of [['modele-carte', 'Un modèle prépare le comportement et le nom de la touche ; vous pouvez ensuite ajuster chaque réglage.'], ['ent-titre', 'Choisissez l’appareil à piloter. La recherche peut être filtrée par pièce et par étage.']]) {
-      const target = $(id); if (target) { const p = document.createElement('p'); p.className = 'aide'; p.textContent = text; if (id === 'ent-titre') target.after(p); else target.appendChild(p); }
-    }
+    const layout = window.mountHaEditorLayout({ save: () => save(true), getSettings: () => settings });
+    if (window.api.settings?.get) window.api.settings.get().then((s) => {
+      const a = s.appearance || {};
+      document.documentElement.dataset.accent = a.accent || 'lavande';
+      document.documentElement.dataset.theme = a.theme === 'clair' || (a.theme === 'auto' && matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+    }).catch(() => {});
     window.api.haKeyEditor.onMessage((message) => {
       if (message.event === 'didReceiveSettings') receiveSettings(message.settings || {});
       else if (message.event === 'sendToPropertyInspector') onPlugin(message.payload || {});
@@ -827,11 +834,11 @@
       actionUUID = data.action;
       kindId = (/^com\.supernon0\.multioutils\.ha\.([a-z]+)$/.exec(actionUUID || '') || [])[1] || '';
       settings = data.settings || {}; renderAll();
-      header.querySelector('h1').textContent = 'Home Assistant · ' + (kind()?.t || 'votre touche');
+      layout.setTitle('Home Assistant · ' + (kind()?.t || 'votre touche'));
       for (const cmd of ['status', 'catalog', 'services', 'preview', 'iconLibrary']) toPlugin({ cmd });
       if (settings.entity) toPlugin({ cmd: 'state', id: settings.entity });
     }).catch((error) => etat(String(error), 'err'));
     const timer = setInterval(() => { toPlugin({ cmd: 'preview' }); if (settings.entity) toPlugin({ cmd: 'state', id: settings.entity }); }, 2000);
-    window.addEventListener('beforeunload', () => { clearInterval(timer); save(true); });
+    window.addEventListener('beforeunload', () => { clearInterval(timer); save(true); layout.dispose(); });
   }
 })();

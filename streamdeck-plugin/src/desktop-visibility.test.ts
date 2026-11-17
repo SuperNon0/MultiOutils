@@ -95,3 +95,20 @@ describe('desktop visibility switch', () => {
     expect(fetchMock.mock.calls[1][0]).toContain('/command/desktop.toggleHide');
   });
 });
+
+describe('desktop peek switch', () => {
+  it('follows the real peek state with two independently configurable states', async () => {
+    const { DesktopPeek } = await import('./desktop-visibility');
+    const action = new DesktopPeek();
+    const k = key();
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ hidden: false, peek: false, enabled: true }) });
+    await action.onWillAppear(event(k));
+    expect(k.setState).toHaveBeenLastCalledWith(0);
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ hidden: false, peek: true, enabled: true }) });
+    await action.onKeyDown(event(k));
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/command/desktop.peek'), expect.objectContaining({ method: 'POST' }));
+    expect(k.setState).toHaveBeenLastCalledWith(1);
+    action.onWillDisappear(event(k));
+    expect(vi.getTimerCount()).toBe(0);
+  });
+});

@@ -28,6 +28,8 @@ extraResources:
       - 'ha.html'
       - 'ha.css'
       - 'ha.js'
+      - 'ha-editor-layout.js'
+      - 'encre/**'
   - from: ../streamdeck-plugin/com.supernon0.multioutils.sdPlugin/manifest.json
     to: streamdeck/manifest.json
   - from: ../sd-dist

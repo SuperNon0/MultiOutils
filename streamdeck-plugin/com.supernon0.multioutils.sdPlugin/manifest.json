@@ -177,9 +177,15 @@
       "Icon": "imgs/desktop-peek",
       "States": [
         {
-          "Image": "imgs/key-desktop-peek"
+          "Image": "imgs/key-desktop-hide",
+          "Title": "Aperçu\ninactif"
+        },
+        {
+          "Image": "imgs/key-desktop-peek",
+          "Title": "Zones au\npremier plan"
         }
-      ]
+      ],
+      "DisableAutomaticStates": true
     },
     {
       "UUID": "com.supernon0.multioutils.desktop-hide",
@@ -247,7 +253,7 @@
       "Name": "HA : Lumière",
       "Tooltip": "Allume, éteint, règle la luminosité ou la couleur d’une lumière",
       "Icon": "imgs/ha-light",
-      "PropertyInspectorPath": "ui/ha.html",
+      "PropertyInspectorPath": "ui/ha-launcher.html",
       "States": [
         {
           "Image": "imgs/key-ha-light"
@@ -263,7 +269,7 @@
       "Name": "HA : Interrupteur",
       "Tooltip": "Bascule une prise, un interrupteur, un ventilateur ou une serrure",
       "Icon": "imgs/ha-switch",
-      "PropertyInspectorPath": "ui/ha.html",
+      "PropertyInspectorPath": "ui/ha-launcher.html",
       "States": [
         {
           "Image": "imgs/key-ha-switch"
@@ -279,7 +285,7 @@
       "Name": "HA : Volet",
       "Tooltip": "Ouvre, ferme ou règle la position d’un volet",
       "Icon": "imgs/ha-cover",
-      "PropertyInspectorPath": "ui/ha.html",
+      "PropertyInspectorPath": "ui/ha-launcher.html",
       "States": [
         {
           "Image": "imgs/key-ha-cover"
@@ -295,7 +301,7 @@
       "Name": "HA : Thermostat",
       "Tooltip": "Affiche et règle la température d’un thermostat",
       "Icon": "imgs/ha-climate",
-      "PropertyInspectorPath": "ui/ha.html",
+      "PropertyInspectorPath": "ui/ha-launcher.html",
       "States": [
         {
           "Image": "imgs/key-ha-climate"
@@ -311,7 +317,7 @@
       "Name": "HA : Capteur",
       "Tooltip": "Affiche la valeur d’un capteur (température, porte, batterie…)",
       "Icon": "imgs/ha-sensor",
-      "PropertyInspectorPath": "ui/ha.html",
+      "PropertyInspectorPath": "ui/ha-launcher.html",
       "States": [
         {
           "Image": "imgs/key-ha-sensor"
@@ -327,7 +333,7 @@
       "Name": "HA : Lecteur",
       "Tooltip": "Lecture, pause, morceau suivant, volume, avec la pochette",
       "Icon": "imgs/ha-media",
-      "PropertyInspectorPath": "ui/ha.html",
+      "PropertyInspectorPath": "ui/ha-launcher.html",
       "States": [
         {
           "Image": "imgs/key-ha-media"
@@ -343,7 +349,7 @@
       "Name": "HA : Scène ou script",
       "Tooltip": "Lance une scène, un script, une automatisation ou un bouton",
       "Icon": "imgs/ha-scene",
-      "PropertyInspectorPath": "ui/ha.html",
+      "PropertyInspectorPath": "ui/ha-launcher.html",
       "States": [
         {
           "Image": "imgs/key-ha-scene"
@@ -359,7 +365,7 @@
       "Name": "HA : Caméra",
       "Tooltip": "Affiche l’image d’une caméra et l’ouvre en grand",
       "Icon": "imgs/ha-camera",
-      "PropertyInspectorPath": "ui/ha.html",
+      "PropertyInspectorPath": "ui/ha-launcher.html",
       "States": [
         {
           "Image": "imgs/key-ha-camera"
@@ -375,7 +381,7 @@
       "Name": "HA : Avancé (tout)",
       "Tooltip": "N’importe quelle entité ou service Home Assistant : service libre, événement, texte calculé…",
       "Icon": "imgs/ha",
-      "PropertyInspectorPath": "ui/ha.html",
+      "PropertyInspectorPath": "ui/ha-launcher.html",
       "States": [
         {
           "Image": "imgs/key-ha"

@@ -1663,6 +1663,7 @@ export function createDesktopMainModule(): MainToolModule {
       // État effectif : l'aperçu rend temporairement visibles les zones masquées.
       hostCtx.registerLocalRoute('GET', /^\/desktop\/visibility$/, () => ({
         hidden: hidden && !peek,
+        peek: !!peek,
         enabled: settings.enabled
       }));
       hostCtx.registerLocalCommand('desktop.toggleHide', () => {

@@ -2,12 +2,71 @@
   {
     "version": "0.13.0",
     "date": "2026-11-17",
-    "titre": "Historique des mises à jour",
+    "titre": "Tous les réglages réunis, zones à deux états et historique",
     "nouveautes": [
       "Après chaque mise à jour, une fenêtre « Quoi de neuf » montre ce que la nouvelle version apporte (et les versions sautées entre-temps).",
       "Réglages → Mises à jour : historique complet de toutes les versions de MultiOutils, avec leurs nouveautés et corrections.",
-      "Les notes d'une version disponible s'affichent proprement avant de cliquer « Mettre à jour », et chaque release GitHub porte désormais ses notes."
+      "Les notes d'une version disponible s'affichent proprement avant de cliquer « Mettre à jour », et chaque release GitHub porte désormais ses notes.",
+      "Stream Deck : « Masquer / afficher les zones » propose deux icônes personnalisables, synchronisées avec la visibilité réelle des zones.",
+      "L’aperçu des zones possède aussi deux états personnalisables : aperçu inactif et zones au premier plan.",
+      "Capture : option « Masquer MultiOutils pendant la capture » dans Réglages → Capture. Désactivée, elle permet de capturer les fenêtres de l’application.",
+      "Home Assistant : le panneau Stream Deck contient uniquement « Ouvrir en grand ». Entités, actions, modèles, apparence et règles sont regroupés dans une fenêtre unique au style Encre.",
+      "La sélection d’entité se fait directement dans cette fenêtre, avec recherche, pièces et étages. Les explications passent par des boutons « ? » cliquables.",
+      "Plugin Stream Deck 0.10.1.0 : mettre à jour l’application et le plugin dans Réglages → Mises à jour."
+    ],
+    "corrections": [
+      "Rassemble les travaux restés en attente sans retirer les icônes personnalisées, les indicateurs et les réglages déjà livrés."
     ]
+  },
+  {
+    "version": "0.12.5",
+    "titre": "Icônes à deux états et indicateurs Home Assistant",
+    "nouveautes": [
+      "Autoclic et Home Assistant : images personnalisables selon l’état réel, noms des profils conservés.",
+      "Atelier : barre, pastille ou capsule sur les quatre côtés, couleurs allumé/éteint et valeur liée à l’entité.",
+      "Grand formulaire de paramètres des touches Home Assistant."
+    ],
+    "corrections": [
+      "Titre des modèles et confirmation avec les images personnalisées corrigés."
+    ],
+    "date": "2026-11-17"
+  },
+  {
+    "version": "0.12.4",
+    "titre": "Styles sans remplacer les icônes",
+    "corrections": [
+      "Les styles conservent les réglages visuels sans copier les symboles, les images ou les icônes des versions éteintes et des pastilles."
+    ],
+    "date": "2026-11-17"
+  },
+  {
+    "version": "0.12.3",
+    "titre": "Icônes autoclic personnalisées",
+    "nouveautes": [
+      "Icônes autoclic personnalisables dans Stream Deck avec nom du profil superposé."
+    ],
+    "corrections": [
+      "Choix du profil conservé et sélecteur de couleur autoclic retiré."
+    ],
+    "date": "2026-11-17"
+  },
+  {
+    "version": "0.12.2",
+    "titre": "Corrections de l’atelier d’icônes",
+    "corrections": [
+      "Panneau d’édition redimensionné, espaces dans les noms conservés pendant la sauvegarde automatique.",
+      "Sauvegarde des réglages des styles complétée."
+    ],
+    "date": "2026-11-17"
+  },
+  {
+    "version": "0.12.1",
+    "titre": "Icônes Stream Deck indépendantes de l’accent",
+    "corrections": [
+      "Les touches simples conservent leur image et ne suivent plus la couleur d’accent de l’application.",
+      "Les touches à état utilisent une palette fixe ou leurs réglages propres."
+    ],
+    "date": "2026-11-17"
   },
   {
     "version": "0.12.0",

@@ -1,9 +1,11 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MultiOutils — Home Assistant</title>
+    <link rel="stylesheet" href="encre/polices.css" />
+    <link rel="stylesheet" href="encre/encre.css" />
     <link rel="stylesheet" href="ha.css" />
   </head>
   <body>
@@ -26,7 +28,7 @@
       </div>
     </section>
 
-    <section class="carte">
+    <section class="carte" id="entity-card">
       <h3 id="ent-titre">Entité</h3>
       <div class="choisie" id="choisie" hidden><div><b id="ch-nom"></b><span id="ch-info"></span></div><button type="button" class="lien" id="ch-changer">Changer</button></div>
       <button type="button" class="btn pri grand" id="grand">Choisir dans une grande fenêtre</button>
@@ -41,14 +43,14 @@
       </div>
     </section>
 
-    <section class="carte">
+    <section class="carte" id="action-card">
       <h3>Action à l'appui</h3>
       <select id="mode"></select>
       <div id="mode-zone"></div>
       <label class="coche"><input type="checkbox" id="confirm" /> Demander une confirmation (appuyer deux fois)</label>
     </section>
 
-    <section class="carte">
+    <section class="carte" id="look-card">
       <h3>Apparence</h3>
       <div class="apercu"><img id="apercu" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" /><p class="aide">Aperçu de la touche, avec l'état actuel.</p></div>
       <label class="coche"><input type="checkbox" id="customIcon" /> Utiliser mes deux images dans Stream Deck (éteint / allumé)</label>
@@ -85,14 +87,14 @@
       <label class="coche"><input type="checkbox" id="art" /> Pochette de l'album pendant la lecture</label>
     </section>
 
-    <section class="carte">
+    <section class="carte" id="rules-card">
       <h3>Règles d'affichage</h3>
       <p class="aide">La première règle qui correspond change la couleur, l'icône ou fait clignoter la touche.</p>
       <div id="regles"></div>
       <button type="button" class="btn" id="regle-plus">Ajouter une règle</button>
     </section>
 
-    <section class="carte">
+    <section class="carte" id="tools-card">
       <div class="rang">
         <button type="button" class="btn pri" id="tester">Tester</button>
         <button type="button" class="btn" id="copier">Copier les réglages</button>
@@ -101,6 +103,8 @@
       </div>
     </section>
 
+    <script src="encre/sprite.js"></script>
+    <script src="ha-editor-layout.js"></script>
     <script src="ha.js"></script>
   </body>
 </html>
