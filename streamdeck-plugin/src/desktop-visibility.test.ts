@@ -68,16 +68,16 @@ describe('desktop visibility switch', () => {
     const k = key();
     fetchMock.mockRejectedValue(new Error('offline'));
     await action.onWillAppear(event(k));
-    expect(k.setTitle).toHaveBeenLastCalledWith('Indisponible');
+    expect(k.showAlert).toHaveBeenCalled();
     expect(k.setState).not.toHaveBeenCalled();
     fetchMock.mockResolvedValue(response(false, false));
     await vi.advanceTimersByTimeAsync(1000);
-    expect(k.setTitle).toHaveBeenLastCalledWith('Bureau\ndésactivé');
+    expect(k.showAlert).toHaveBeenCalledTimes(2);
     expect(k.setState).not.toHaveBeenCalled();
     fetchMock.mockResolvedValue(response(true));
     await vi.advanceTimersByTimeAsync(1000);
     expect(k.setState).toHaveBeenLastCalledWith(1);
-    expect(k.setTitle).toHaveBeenLastCalledWith();
+    expect(k.setTitle).not.toHaveBeenCalled();
   });
 
   it('waits for an active poll before sending a key press', async () => {

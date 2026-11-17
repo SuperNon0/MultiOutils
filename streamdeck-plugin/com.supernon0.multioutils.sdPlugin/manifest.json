@@ -177,12 +177,10 @@
       "Icon": "imgs/desktop-peek",
       "States": [
         {
-          "Image": "imgs/key-desktop-hide",
-          "Title": "Aperçu\ninactif"
+          "Image": "imgs/key-desktop-hide"
         },
         {
-          "Image": "imgs/key-desktop-peek",
-          "Title": "Zones au\npremier plan"
+          "Image": "imgs/key-desktop-peek"
         }
       ],
       "DisableAutomaticStates": true
@@ -195,12 +193,10 @@
       "DisableAutomaticStates": true,
       "States": [
         {
-          "Image": "imgs/key-desktop-peek",
-          "Title": "Zones\nvisibles"
+          "Image": "imgs/key-desktop-peek"
         },
         {
-          "Image": "imgs/key-desktop-hide",
-          "Title": "Zones\nmasquées"
+          "Image": "imgs/key-desktop-hide"
         }
       ]
     },

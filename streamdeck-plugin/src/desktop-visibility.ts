@@ -34,16 +34,13 @@ abstract class DesktopVisibilitySwitch extends SingletonAction {
       if (typeof state[this.field] !== 'boolean' || typeof state.enabled !== 'boolean') throw new Error('état inconnu');
       await Promise.all([...this.keys.values()].map(async (key) => {
         if (!state.enabled) {
-          await key.setTitle('Bureau\ndésactivé');
           await key.showAlert();
           return;
         }
         await key.setState(state[this.field] ? 1 : 0);
-        await key.setTitle(); // titre du manifeste ou titre personnalisé
       }));
     } catch {
       await Promise.all([...this.keys.values()].map(async (key) => {
-        await key.setTitle('Indisponible');
         await key.showAlert();
       }));
     }
