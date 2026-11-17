@@ -1,0 +1,461 @@
+[
+  {
+    "version": "0.13.0",
+    "date": "2026-11-17",
+    "titre": "Tous les réglages réunis, zones à deux états et historique",
+    "nouveautes": [
+      "Après chaque mise à jour, une fenêtre « Quoi de neuf » montre ce que la nouvelle version apporte (et les versions sautées entre-temps).",
+      "Réglages → Mises à jour : historique complet de toutes les versions de MultiOutils, avec leurs nouveautés et corrections.",
+      "Les notes d'une version disponible s'affichent proprement avant de cliquer « Mettre à jour », et chaque release GitHub porte désormais ses notes.",
+      "Stream Deck : « Masquer / afficher les zones » propose deux icônes personnalisables, synchronisées avec la visibilité réelle des zones.",
+      "L’aperçu des zones possède aussi deux états personnalisables : aperçu inactif et zones au premier plan.",
+      "Capture : option « Masquer MultiOutils pendant la capture » dans Réglages → Capture. Désactivée, elle permet de capturer les fenêtres de l’application.",
+      "Home Assistant : le panneau Stream Deck contient uniquement « Ouvrir en grand ». Entités, actions, modèles, apparence et règles sont regroupés dans une fenêtre unique au style Encre.",
+      "La sélection d’entité se fait directement dans cette fenêtre, avec recherche, pièces et étages. Les explications passent par des boutons « ? » cliquables.",
+      "Plugin Stream Deck 0.10.1.0 : mettre à jour l’application et le plugin dans Réglages → Mises à jour."
+    ],
+    "corrections": [
+      "Rassemble les travaux restés en attente sans retirer les icônes personnalisées, les indicateurs et les réglages déjà livrés."
+    ]
+  },
+  {
+    "version": "0.12.5",
+    "titre": "Icônes à deux états et indicateurs Home Assistant",
+    "nouveautes": [
+      "Autoclic et Home Assistant : images personnalisables selon l’état réel, noms des profils conservés.",
+      "Atelier : barre, pastille ou capsule sur les quatre côtés, couleurs allumé/éteint et valeur liée à l’entité.",
+      "Grand formulaire de paramètres des touches Home Assistant."
+    ],
+    "corrections": [
+      "Titre des modèles et confirmation avec les images personnalisées corrigés."
+    ],
+    "date": "2026-11-17"
+  },
+  {
+    "version": "0.12.4",
+    "titre": "Styles sans remplacer les icônes",
+    "corrections": [
+      "Les styles conservent les réglages visuels sans copier les symboles, les images ou les icônes des versions éteintes et des pastilles."
+    ],
+    "date": "2026-11-17"
+  },
+  {
+    "version": "0.12.3",
+    "titre": "Icônes autoclic personnalisées",
+    "nouveautes": [
+      "Icônes autoclic personnalisables dans Stream Deck avec nom du profil superposé."
+    ],
+    "corrections": [
+      "Choix du profil conservé et sélecteur de couleur autoclic retiré."
+    ],
+    "date": "2026-11-17"
+  },
+  {
+    "version": "0.12.2",
+    "titre": "Corrections de l’atelier d’icônes",
+    "corrections": [
+      "Panneau d’édition redimensionné, espaces dans les noms conservés pendant la sauvegarde automatique.",
+      "Sauvegarde des réglages des styles complétée."
+    ],
+    "date": "2026-11-17"
+  },
+  {
+    "version": "0.12.1",
+    "titre": "Icônes Stream Deck indépendantes de l’accent",
+    "corrections": [
+      "Les touches simples conservent leur image et ne suivent plus la couleur d’accent de l’application.",
+      "Les touches à état utilisent une palette fixe ou leurs réglages propres."
+    ],
+    "date": "2026-11-17"
+  },
+  {
+    "version": "0.12.0",
+    "date": "2026-11-17",
+    "titre": "Touches Home Assistant par modèle",
+    "nouveautes": [
+      "Stream Deck : une action par modèle de touche Home Assistant (Lumière, Interrupteur, Volet, Thermostat, Capteur, Lecteur, Scène ou script, Caméra), avec les bonnes entités et des réglages de départ adaptés ; l'ancienne action devient « HA : Avancé (tout) ».",
+      "Bouton « Choisir dans une grande fenêtre » : un sélecteur MultiOutils rangé par pièce et par étage, avec icônes, état et recherche dans toute la maison.",
+      "Panneau de réglages du Stream Deck lisible sans défilement horizontal, liste rangée par pièce (plugin 0.9.0)."
+    ]
+  },
+  {
+    "version": "0.11.1",
+    "date": "2026-11-17",
+    "titre": "Refonte des widgets du bureau",
+    "nouveautes": [
+      "Widgets des zones (Home Assistant, capteurs, courbe, notes, presse-papiers, recherche, mini cloud) redessinés dans le style « encre », aux couleurs de la zone.",
+      "Textes des widgets traduits en français et en anglais, chiffres de la courbe au format de la langue."
+    ],
+    "corrections": [
+      "Une zone forcée en clair ou en sombre garde l'accent choisi au lieu de repasser en lavande.",
+      "Plus de compteur « 0 » dans le titre des widgets."
+    ]
+  },
+  {
+    "version": "0.11.0",
+    "date": "2026-11-16",
+    "titre": "Atelier d'icônes",
+    "nouveautes": [
+      "Nouveau module « Icônes » : symboles Phosphor (proches du style Apple), Tabler, Material Design et packs installés dans le logiciel Stream Deck, rangés par catégories avec recherche en français.",
+      "Couleur du symbole et du fond, dégradés, thèmes prêts (MultiOutils, couleurs Apple, sombre, pastel, néon…) et thèmes personnels.",
+      "Forme (squircle Apple, arrondie, ronde, carrée, sans fond), ombre, taille, rotation, texte, pastille, version éteinte, image importée.",
+      "Dossiers, favoris, styles enregistrés, modification en lot, aperçu sur un Stream Deck 15 touches, export PNG / PNG @2x / SVG et copie."
+    ]
+  },
+  {
+    "version": "0.10.0",
+    "date": "2026-11-16",
+    "titre": "Home Assistant sur le Stream Deck",
+    "nouveautes": [
+      "Plugin Stream Deck 0.8.0 : une action « Home Assistant » unique (basculer, allumer/éteindre, préréglage, lecteur, caméra, service, événement, modèle…).",
+      "Touches dessinées en direct : jauge, valeur, vraie couleur des lampes, pochette, indicateurs, confirmation avant action.",
+      "États en temps réel, reconnexion automatique, adresse locale puis distante ; le jeton reste dans MultiOutils.",
+      "Commandes PC depuis le Stream Deck (veille, verrouiller, éteindre, redémarrer)."
+    ]
+  },
+  {
+    "version": "0.9.4",
+    "date": "2026-11-14",
+    "titre": "Widgets du bureau et notes",
+    "nouveautes": [
+      "Cartes Home Assistant personnalisables avec les vraies données, fidèles aux maquettes « encre ».",
+      "Aperçu en direct des widgets et retour possible à l'apparence d'origine d'une zone (annulable).",
+      "Bibliothèque « Mes notes » refaite : liste et éditeur séparés, états vides."
+    ],
+    "corrections": [
+      "Plus d'erreur quand une fenêtre de zone est fermée pendant une mise à jour.",
+      "Contenu des zones de taille fixe révélé en douceur, sans saccades.",
+      "Commandes multimédia et typographie des capteurs corrigées."
+    ]
+  },
+  {
+    "version": "0.9.3",
+    "date": "2026-11-14",
+    "titre": "Réglages IA partagés",
+    "nouveautes": [
+      "Réglages IA communs à tous les outils et journal des requêtes IA.",
+      "Aide dans les zones du bureau, placement précis et style plus doux."
+    ],
+    "corrections": [
+      "Opacité de fond à 5 % de nouveau acceptée."
+    ]
+  },
+  {
+    "version": "0.9.2",
+    "date": "2026-11-14",
+    "titre": "Corrections du bureau",
+    "corrections": [
+      "Déplacement de fichiers entre zones fiabilisé.",
+      "Vraies icônes Windows des fichiers (et nouvel essai si une icône manque dans Fichiers).",
+      "Double-clic et panneau d'inspection des zones corrigés.",
+      "Le pointeur de la souris est transmis correctement aux autres applications."
+    ]
+  },
+  {
+    "version": "0.9.1",
+    "date": "2026-11-14",
+    "titre": "Glisser-déposer dans les zones",
+    "nouveautes": [
+      "Glisser-déposer de fichiers dans les zones du bureau.",
+      "Vraies icônes des raccourcis (.lnk, .url) dans les zones."
+    ],
+    "corrections": [
+      "Jetons mieux protégés, corrections des notes, de la palette et de la restauration."
+    ]
+  },
+  {
+    "version": "0.9.0",
+    "date": "2026-11-14",
+    "titre": "Sauvegardes, notes et couleurs",
+    "nouveautes": [
+      "Sauvegardes quotidiennes automatiques et restauration contrôlée.",
+      "Bibliothèque « Mes notes », avec enregistrement depuis les widgets.",
+      "Widgets Home Assistant : couleurs libres, capteurs et courbe intégrée.",
+      "Palette de couleurs « encre » personnalisée avec pipette et historique."
+    ]
+  },
+  {
+    "version": "0.8.8",
+    "date": "2026-11-14",
+    "titre": "Maintenance",
+    "corrections": [
+      "Recherche de doublons et parcours de dossiers plus rapides.",
+      "L'autoclic démarre sans basculer par erreur.",
+      "Une archive ZIP existante n'est plus écrasée.",
+      "Service local protégé contre les requêtes d'autres sites."
+    ]
+  },
+  {
+    "version": "0.8.7",
+    "date": "2026-11-14",
+    "titre": "Touches Stream Deck aux couleurs de l'app",
+    "nouveautes": [
+      "Les touches Stream Deck suivent l'accent et le thème de MultiOutils.",
+      "Couleur réglable touche par touche (plugin 0.7.0)."
+    ]
+  },
+  {
+    "version": "0.8.6",
+    "date": "2026-11-14",
+    "titre": "Mise à jour du plugin Stream Deck",
+    "nouveautes": [
+      "Bouton « Mettre à jour le plugin » Stream Deck dans Réglages → Mises à jour."
+    ]
+  },
+  {
+    "version": "0.8.5",
+    "date": "2026-11-14",
+    "titre": "Bureau : fin de l'étape 5",
+    "nouveautes": [
+      "Entrées dans le clic droit de l'Explorateur et retour des zones après un redémarrage de l'Explorateur.",
+      "Le lanceur cherche aussi dans les dossiers des zones.",
+      "Rangement des zones par l'IA, touches Stream Deck pour le bureau, emplacement iCloud Drive."
+    ]
+  },
+  {
+    "version": "0.8.4",
+    "date": "2026-11-14",
+    "titre": "Zones spéciales du bureau",
+    "nouveautes": [
+      "Zones spéciales : notes, captures, clips épinglés, boutons Home Assistant, barre de recherche, étagère.",
+      "« Mini cloud » : une zone qui envoie les fichiers déposés sur ton serveur MultiOutils."
+    ]
+  },
+  {
+    "version": "0.8.3",
+    "date": "2026-11-13",
+    "titre": "Page Fichiers",
+    "nouveautes": [
+      "Nouvelle page « Fichiers » : un gestionnaire de fichiers et dossiers complet dans l'app."
+    ]
+  },
+  {
+    "version": "0.8.2",
+    "date": "2026-11-13",
+    "titre": "Bureau : apparence, pages, dispositions",
+    "nouveautes": [
+      "Styles des zones, pages du bureau, dispositions et instantanés enregistrables."
+    ]
+  },
+  {
+    "version": "0.8.1",
+    "date": "2026-11-13",
+    "titre": "Bureau : onglets et règles",
+    "nouveautes": [
+      "Onglets dans les zones, repli, masquage du bureau, aperçu rapide (Ctrl + Alt + Espace) et règles de rangement automatique."
+    ]
+  },
+  {
+    "version": "0.8.0",
+    "date": "2026-11-13",
+    "titre": "Module Bureau",
+    "nouveautes": [
+      "Nouveau module « Bureau » : des zones sur le bureau Windows pour ranger fichiers et raccourcis."
+    ],
+    "corrections": [
+      "L'historique complet du presse-papiers reste accessible à la recherche et aux filtres."
+    ]
+  },
+  {
+    "version": "0.7.3",
+    "date": "2026-11-12",
+    "titre": "Notifications Home Assistant",
+    "nouveautes": [
+      "Son personnalisé, volume, taille et emplacement réglables pour chaque notification Home Assistant."
+    ],
+    "corrections": [
+      "Reconnexion à Home Assistant stabilisée et synchronisation du presse-papiers fiabilisée.",
+      "Pièces jointes du serveur sécurisées."
+    ]
+  },
+  {
+    "version": "0.7.2",
+    "date": "2026-11-10",
+    "titre": "Page Home Assistant",
+    "nouveautes": [
+      "Home Assistant a sa propre page dans les Réglages."
+    ],
+    "corrections": [
+      "Champ d'adresse Home Assistant réparé."
+    ]
+  },
+  {
+    "version": "0.7.1",
+    "date": "2026-11-10",
+    "titre": "Dépenses de la traduction IA",
+    "nouveautes": [
+      "Suivi des dépenses de la traduction IA dans les Réglages.",
+      "Liaison PC ↔ Home Assistant : notifications sur le PC, boutons veille/verrouiller/éteindre, capteurs et mini tableau de bord."
+    ]
+  },
+  {
+    "version": "0.7.0",
+    "date": "2026-11-09",
+    "titre": "Lanceur enrichi, mise à jour en un clic",
+    "nouveautes": [
+      "Mise à jour en un clic : installation silencieuse puis redémarrage automatique.",
+      "Réglages du lanceur en sous-catégories ; raccourcis mot-clé vers un site, un dossier, un programme.",
+      "Plugins du lanceur : jeux Steam, Home Assistant et Spotify.",
+      "La traduction IA est enregistrée avec chaque capture (« Revoir la traduction »).",
+      "Traduction IA : Gemini 3.8 par défaut, un modèle retiré est remplacé automatiquement, fenêtre de traduction plus grande."
+    ]
+  },
+  {
+    "version": "0.6.1",
+    "date": "2026-11-04",
+    "titre": "Extraire et traduire",
+    "nouveautes": [
+      "« Extraire le texte » et « Traduire (IA) » dans le menu ⋯ et au clic droit des captures.",
+      "Bulles d'aide « ? » dans les réglages ; réglages du lanceur refaits, barre réglable.",
+      "Nouvelle icône « encre »."
+    ]
+  },
+  {
+    "version": "0.6.0",
+    "date": "2026-11-04",
+    "titre": "Design « encre » et Lanceur",
+    "nouveautes": [
+      "Toute l'application passe au design « encre » : couleur d'accent et thème clair, sombre ou automatique.",
+      "Nouveau module « Lanceur » : une barre de recherche pour ouvrir apps, fichiers, calculs et actions au clavier."
+    ],
+    "corrections": [
+      "L'app démarre même si un outil échoue."
+    ]
+  },
+  {
+    "version": "0.5.4",
+    "date": "2026-10-20",
+    "titre": "Autoclic",
+    "nouveautes": [
+      "Souris de l'autoclic plus grande, disposition figée."
+    ]
+  },
+  {
+    "version": "0.5.3",
+    "date": "2026-10-16",
+    "titre": "Galerie paginée",
+    "nouveautes": [
+      "Pagination de la galerie des captures."
+    ],
+    "corrections": [
+      "Hauteur des vignettes fiable."
+    ]
+  },
+  {
+    "version": "0.5.2",
+    "date": "2026-10-16",
+    "titre": "Captures par ligne",
+    "nouveautes": [
+      "Galerie : nombre de captures par ligne réglable (Auto ou 1 à 6).",
+      "Autoclic agrandi, icônes Stream Deck au style maison."
+    ]
+  },
+  {
+    "version": "0.5.1",
+    "date": "2026-10-16",
+    "titre": "Autoclic retravaillé",
+    "nouveautes": [
+      "Écran de l'autoclic retravaillé avec une souris interactive, actions Stream Deck repensées."
+    ]
+  },
+  {
+    "version": "0.5.0",
+    "date": "2026-10-16",
+    "titre": "Profils d'autoclic",
+    "nouveautes": [
+      "Profils d'autoclic configurables et action Stream Deck « profil » en direct."
+    ]
+  },
+  {
+    "version": "0.4.1",
+    "date": "2026-10-16",
+    "titre": "Galerie",
+    "corrections": [
+      "Fin des vignettes « compactées » dans la galerie."
+    ]
+  },
+  {
+    "version": "0.4.0",
+    "date": "2026-10-16",
+    "titre": "Module Autoclic",
+    "nouveautes": [
+      "Nouveau module « Autoclic » configurable, avec action Stream Deck."
+    ]
+  },
+  {
+    "version": "0.3.8",
+    "date": "2026-09-28",
+    "titre": "Galerie responsive",
+    "nouveautes": [
+      "Grille de la galerie responsive à taille de vignette fixe, capture affichée en entier."
+    ]
+  },
+  {
+    "version": "0.3.7",
+    "date": "2026-09-28",
+    "titre": "Pipette",
+    "corrections": [
+      "La couleur s'affiche dans les cartes « Dernières couleurs »."
+    ]
+  },
+  {
+    "version": "0.3.6",
+    "date": "2026-09-28",
+    "titre": "Photos du téléphone",
+    "nouveautes": [
+      "Importer les photos du téléphone dans les captures."
+    ]
+  },
+  {
+    "version": "0.3.5",
+    "date": "2026-09-27",
+    "titre": "Pipette Stream Deck",
+    "nouveautes": [
+      "Pipette depuis le Stream Deck, pastille de couleur.",
+      "Capture plus rapide, menu après capture recentré."
+    ]
+  },
+  {
+    "version": "0.3.4",
+    "date": "2026-08-19",
+    "titre": "Bibliothèque",
+    "nouveautes": [
+      "Clic = copier, double-clic = éditer, menu « ⋯ » et colonnes réglables."
+    ]
+  },
+  {
+    "version": "0.3.3",
+    "date": "2026-08-13",
+    "titre": "Sélection multiple",
+    "nouveautes": [
+      "Sélection multiple visible : cases à cocher et « Tout sélectionner »."
+    ]
+  },
+  {
+    "version": "0.3.2",
+    "date": "2026-07-20",
+    "titre": "Visionneuse de clips",
+    "nouveautes": [
+      "Visionneuse plein texte des clips (app et site)."
+    ]
+  },
+  {
+    "version": "0.3.1",
+    "date": "2026-07-20",
+    "titre": "Clips",
+    "corrections": [
+      "La purge n'efface plus les éléments envoyés ou reçus."
+    ]
+  },
+  {
+    "version": "0.3.0",
+    "depuis": "0.1.1",
+    "date": "2026-07-13",
+    "titre": "Premières versions",
+    "nouveautes": [
+      "Capture d'écran (plein écran, zone, fenêtre, différée) avec éditeur et bibliothèque des captures.",
+      "Presse-papiers et clips partagés avec le serveur MultiOutils.",
+      "Pipette à couleurs, extraction de texte (OCR) et plugin Stream Deck."
+    ]
+  }
+]

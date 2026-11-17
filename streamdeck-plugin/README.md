@@ -12,6 +12,7 @@ Boutons Stream Deck pour piloter l'application MultiOutils (docs/00 §8) :
 | Garder le clip courant | Épingle le contenu actuel du presse-papiers (jamais supprimé) |
 | **HA : Lumière, Interrupteur, Volet, Thermostat, Capteur, Lecteur, Scène ou script, Caméra** | Une action par modèle de touche : le panneau ne propose que les entités de ce type et part des bons réglages. Bouton « Choisir dans une grande fenêtre » : sélecteur par pièce, avec icônes, dans MultiOutils |
 | **HA : Avancé (tout)** | Toutes les entités et tous les modes : basculer, préréglage, liste, pas, lecteur, caméra, service libre, événement, modèle affiché |
+| **Bureau : masquer / afficher les zones** | Interrupteur synchronisé avec l’app : œil ouvert = visibles, œil barré = masquées. Les zones « Toujours visible » restent affichées. Les deux icônes sont personnalisables dans Stream Deck |
 | PC : veille / verrouiller / éteindre / redémarrer | Commandes du PC (confirmation sur la touche pour éteindre et redémarrer) |
 
 ## Icônes personnalisées pour l’autoclic

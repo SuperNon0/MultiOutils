@@ -1660,7 +1660,17 @@ export function createDesktopMainModule(): MainToolModule {
 
       hostCtx.registerLocalCommand('desktop.newZone', () => draw.open());
       hostCtx.registerLocalCommand('desktop.peek', () => startPeek('toggle'));
-      hostCtx.registerLocalCommand('desktop.toggleHide', () => setHiddenState(!hidden));
+      // État effectif : l'aperçu rend temporairement visibles les zones masquées.
+      hostCtx.registerLocalRoute('GET', /^\/desktop\/visibility$/, () => ({
+        hidden: hidden && !peek,
+        peek: !!peek,
+        enabled: settings.enabled
+      }));
+      hostCtx.registerLocalCommand('desktop.toggleHide', () => {
+        const next = !(hidden && !peek);
+        stopPeek();
+        setHiddenState(next);
+      });
       hostCtx.registerLocalCommand('desktop.sortNow', async () => {
         await sortNow();
       });

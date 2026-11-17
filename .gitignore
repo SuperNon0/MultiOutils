@@ -17,3 +17,7 @@ server/data/
 Thumbs.db
 *.log
 .env
+desktop-app/resources/release-notes.md
+
+# Kit Encre synchronisé pour le panneau Stream Deck
+streamdeck-plugin/com.supernon0.multioutils.sdPlugin/ui/encre/

@@ -13,6 +13,8 @@
   "include": [
     "src/renderer/src/**/*",
     "src/common/**/*",
-    "src/i18n/**/*.json"
+    "src/i18n/**/*.json",
+    "src/common/**/*.json",
+    "package.json"
   ]
 }

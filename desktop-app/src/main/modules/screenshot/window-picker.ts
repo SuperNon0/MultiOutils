@@ -24,12 +24,12 @@ export class WindowPickerFlow {
 
   constructor(private onPick: (image: NativeImage, appName?: string) => void) {}
 
-  async start(): Promise<void> {
+  async start(hideAppDuringCapture = true): Promise<void> {
     if (this.win && !this.win.isDestroyed()) {
       this.win.focus();
       return;
     }
-    this.restoreWindows = await hideAppWindows();
+    this.restoreWindows = await hideAppWindows(hideAppDuringCapture);
 
     // Une seule passe à pleine résolution : les images servent la vignette
     // (réduite) ET la capture finale, sans re-capture périmée au clic.
@@ -46,7 +46,7 @@ export class WindowPickerFlow {
       .filter(
         (s) =>
           s.name.trim() !== '' &&
-          !ownTitles.has(s.name) &&
+          (!hideAppDuringCapture || !ownTitles.has(s.name)) &&
           !s.thumbnail.isEmpty()
       )
       .map((s) => ({
