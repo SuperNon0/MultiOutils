@@ -8,6 +8,7 @@ import streamDeck, {
   type DidReceiveSettingsEvent
 } from '@elgato/streamdeck';
 import { registerHaActions } from './ha/actions';
+import { DesktopToggleHide } from './desktop-visibility';
 
 /**
  * Plugin Stream Deck MultiOutils (docs/00 §8) : chaque touche appelle le
@@ -338,11 +339,6 @@ class AutoclickProfile extends SingletonAction<ProfileSettings> {
 @action({ UUID: 'com.supernon0.multioutils.desktop-peek' })
 class DesktopPeek extends IconKey {
   protected readonly command = 'desktop.peek';
-}
-
-@action({ UUID: 'com.supernon0.multioutils.desktop-hide' })
-class DesktopToggleHide extends IconKey {
-  protected readonly command = 'desktop.toggleHide';
 }
 
 @action({ UUID: 'com.supernon0.multioutils.desktop-sort' })

@@ -4,6 +4,7 @@ vi.mock('electron', async () => {
   const { EventEmitter } = await import('node:events');
   class NativeWindow extends EventEmitter {
     private dead = false;
+    private visible = true;
     private rect: { x: number; y: number; width: number; height: number };
     webContents = { setWindowOpenHandler: vi.fn(), on: vi.fn(), send: vi.fn(), id: 1 };
     constructor(options: { x: number; y: number; width: number; height: number }) {
@@ -19,7 +20,9 @@ vi.mock('electron', async () => {
       if (this.dead) throw new TypeError('Object has been destroyed');
       this.rect = { ...rect };
     });
-    showInactive = vi.fn();
+    isVisible = vi.fn(() => this.visible);
+    hide = vi.fn(() => { this.visible = false; });
+    showInactive = vi.fn(() => { this.visible = true; });
     destroy(): void { this.dead = true; this.emit('closed'); }
   }
   return { BrowserWindow: NativeWindow, screen: {} };
@@ -79,5 +82,27 @@ describe('zone window lifetime', () => {
     expect(zone.win.showInactive).not.toHaveBeenCalled();
     expect(() => zone.destroy()).not.toThrow();
     expect(closed).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe('zone window visibility', () => {
+  it('actually hides the native window and restores it without stealing focus', () => {
+    const zone = new ZoneWindow('a', bounds, () => false);
+    zone.setHidden(true);
+    expect(zone.win.hide).toHaveBeenCalledTimes(1);
+    expect(zone.win.isVisible()).toBe(false);
+    zone.setHidden(true);
+    expect(zone.win.hide).toHaveBeenCalledTimes(1);
+    zone.setHidden(false);
+    expect(zone.win.showInactive).toHaveBeenCalledTimes(1);
+    expect(zone.win.isVisible()).toBe(true);
+  });
+
+  it('ignores visibility changes after destruction', () => {
+    const zone = new ZoneWindow('a', bounds, () => false);
+    zone.destroy();
+    expect(() => zone.setHidden(true)).not.toThrow();
+    expect(zone.win.hide).not.toHaveBeenCalled();
   });
 });
