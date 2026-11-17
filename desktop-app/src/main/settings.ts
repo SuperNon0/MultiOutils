@@ -49,6 +49,7 @@ export function buildDefaults(defaultStorageDir: string): AppSettings {
     counter: 1,
     trashRetentionDays: 30,
     firstRunDone: false,
+    lastSeenVersion: '',
     shortcuts: { ...DEFAULT_SHORTCUTS },
     ocrLang: 'fra',
     aiProvider: 'anthropic',
