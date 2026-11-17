@@ -171,18 +171,42 @@
       "DisableAutomaticStates": true
     },
     {
+      "UUID": "com.supernon0.multioutils.autoclick-time",
+      "Name": "Autoclic — temps écoulé",
+      "Tooltip": "Affiche le temps écoulé du profil lancé",
+      "Icon": "imgs/autoclick",
+      "States": [
+        {
+          "Image": "imgs/key-autoclick",
+          "TitleAlignment": "bottom"
+        }
+      ],
+      "PropertyInspectorPath": "ui/autoclick-progress.html"
+    },
+    {
+      "UUID": "com.supernon0.multioutils.autoclick-count",
+      "Name": "Autoclic — compteur",
+      "Tooltip": "Affiche les clics effectués et le maximum du profil sélectionné",
+      "Icon": "imgs/autoclick-profile",
+      "States": [
+        {
+          "Image": "imgs/key-autoclick-profile",
+          "TitleAlignment": "bottom"
+        }
+      ],
+      "PropertyInspectorPath": "ui/autoclick-progress.html"
+    },
+    {
       "UUID": "com.supernon0.multioutils.desktop-peek",
       "Name": "Bureau : aperçu des zones",
       "Tooltip": "Montre les zones par-dessus les fenêtres (encore une fois pour revenir)",
       "Icon": "imgs/desktop-peek",
       "States": [
         {
-          "Image": "imgs/key-desktop-hide",
-          "Title": "Aperçu\ninactif"
+          "Image": "imgs/key-desktop-hide"
         },
         {
-          "Image": "imgs/key-desktop-peek",
-          "Title": "Zones au\npremier plan"
+          "Image": "imgs/key-desktop-peek"
         }
       ],
       "DisableAutomaticStates": true
@@ -195,12 +219,10 @@
       "DisableAutomaticStates": true,
       "States": [
         {
-          "Image": "imgs/key-desktop-peek",
-          "Title": "Zones\nvisibles"
+          "Image": "imgs/key-desktop-peek"
         },
         {
-          "Image": "imgs/key-desktop-hide",
-          "Title": "Zones\nmasquées"
+          "Image": "imgs/key-desktop-hide"
         }
       ]
     },

@@ -4,7 +4,7 @@
  *   (win32.pinToDesktop) pour rester sous les autres fenêtres ;
  * - un calque plein écran par écran pour dessiner une nouvelle zone.
  */
-import { BrowserWindow, screen, type Display } from 'electron';
+import { app, BrowserWindow, Menu, screen, type Display } from 'electron';
 import type { Rect, Zone, ZoneWindowMsg } from '../../../common/desktop';
 import { loadRenderer, preloadPath } from '../../windows';
 import { desktopAbove, hwndOf, pinToDesktop, sendToBottom, unpinFromDesktop } from './win32';
@@ -67,6 +67,26 @@ export class ZoneWindow {
       this.ready = false;
       this.stopMotion();
       onClosed();
+    });
+    // Le menu d'édition natif donne aussi accès aux suggestions du correcteur.
+    const languages = win.webContents.session.availableSpellCheckerLanguages;
+    const language = app.getLocale().startsWith('fr') ? 'fr-FR' : 'en-US';
+    if (languages.includes(language)) win.webContents.session.setSpellCheckerLanguages([language]);
+    win.webContents.on('context-menu', (_event, params) => {
+      if (!params.isEditable) return;
+      const suggestions: Electron.MenuItemConstructorOptions[] = params.dictionarySuggestions.map((word) => ({
+        label: word, click: () => win.webContents.replaceMisspelling(word)
+      }));
+      if (params.misspelledWord && suggestions.length) suggestions.push({ type: 'separator' });
+      const fr = app.getLocale().startsWith('fr');
+      Menu.buildFromTemplate([
+        ...suggestions,
+        { label: fr ? 'Couper' : 'Cut', role: 'cut', enabled: params.editFlags.canCut },
+        { label: fr ? 'Copier' : 'Copy', role: 'copy', enabled: params.editFlags.canCopy },
+        { label: fr ? 'Coller' : 'Paste', role: 'paste', enabled: params.editFlags.canPaste },
+        { type: 'separator' },
+        { label: fr ? 'Tout sélectionner' : 'Select all', role: 'selectAll', enabled: params.editFlags.canSelectAll }
+      ]).popup({ window: win });
     });
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
     win.webContents.on('will-navigate', (e) => e.preventDefault());

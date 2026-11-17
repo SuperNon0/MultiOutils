@@ -6,7 +6,7 @@ vi.mock('electron', async () => {
     private dead = false;
     private visible = true;
     private rect: { x: number; y: number; width: number; height: number };
-    webContents = { setWindowOpenHandler: vi.fn(), on: vi.fn(), send: vi.fn(), id: 1 };
+    webContents = { session: { availableSpellCheckerLanguages: ['fr-FR'], setSpellCheckerLanguages: vi.fn() }, setWindowOpenHandler: vi.fn(), on: vi.fn(), send: vi.fn(), id: 1 };
     constructor(options: { x: number; y: number; width: number; height: number }) {
       super();
       this.rect = { x: options.x, y: options.y, width: options.width, height: options.height };
@@ -25,7 +25,7 @@ vi.mock('electron', async () => {
     showInactive = vi.fn(() => { this.visible = true; });
     destroy(): void { this.dead = true; this.emit('closed'); }
   }
-  return { BrowserWindow: NativeWindow, screen: {} };
+  return { BrowserWindow: NativeWindow, screen: {}, app: { getLocale: () => 'fr-FR' } };
 });
 vi.mock('../../windows', () => ({ loadRenderer: vi.fn(), preloadPath: () => 'preload' }));
 vi.mock('./win32', () => ({

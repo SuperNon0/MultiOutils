@@ -229,14 +229,28 @@
 
   const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
   let resultLimit = 150;
+  let selectedRoom = '*';
+  function renderRooms() {
+    const nav = $('entity-rooms'); if (!nav || !catalog) return;
+    const base = catalog.entities.filter((e) => allowed(e.domain));
+    const rooms = new Map();
+    for (const e of base) { const id = e.area || ''; const room = rooms.get(id) || { id, name: e.areaName || 'Sans pièce', floor: e.floorName || '', count: 0 }; room.count++; rooms.set(id, room); }
+    const list = [...rooms.values()].sort((a, b) => a.floor.localeCompare(b.floor, 'fr') || a.name.localeCompare(b.name, 'fr'));
+    nav.replaceChildren();
+    const add = (id, name, count) => { const b = document.createElement('button'); b.type = 'button'; b.className = selectedRoom === id && !$('q').value.trim() ? 'on' : ''; const label = document.createElement('span'); label.textContent = name; const n = document.createElement('span'); n.className = 'n'; n.textContent = count; b.append(label, n); b.onclick = () => { selectedRoom = id; $('q').value = ''; resultLimit = 150; renderResults(); }; nav.appendChild(b); };
+    add('*', 'Toutes les pièces', base.length);
+    let floor = null;
+    for (const room of list) { if (room.floor && room.floor !== floor) { const h = document.createElement('span'); h.className = 'entity-floor'; h.textContent = room.floor; nav.appendChild(h); } floor = room.floor; add(room.id, room.name, room.count); }
+  }
   function renderResults() {
     const box = $('res');
     if (!catalog) return;
     const words = norm($('q').value).split(/\s+/).filter(Boolean);
     const fe = $('f-etage').value, fp = $('f-piece').value, ft = $('f-type').value;
+    renderRooms();
     const list = catalog.entities
       .filter((e) => allowed(e.domain))
-      .filter((e) => (!fe || e.floorName === fe) && (!fp || e.area === fp) && (!ft || e.domain === ft))
+      .filter((e) => largeEditor ? ((!words.length && selectedRoom !== '*') ? (e.area || '') === selectedRoom : true) && (!ft || e.domain === ft) : (!fe || e.floorName === fe) && (!fp || e.area === fp) && (!ft || e.domain === ft))
       .filter((e) => {
         const hay = norm(e.name + ' ' + e.id + ' ' + (e.areaName || '') + ' ' + (e.floorName || '') + ' ' + (DOMAINS[e.domain] || ''));
         return words.every((w) => hay.includes(w));
@@ -250,15 +264,16 @@
       return;
     }
     let last = null;
+    const domainIcons = { light: 'sun', switch: 'plug', fan: 'spin', cover: 'layers', climate: 'sun', media_player: 'play', sensor: 'chart', binary_sensor: 'signal', lock: 'lock', person: 'user', weather: 'cloud', camera: 'eye' };
     box.innerHTML = list.slice(0, resultLimit)
       .map((e) => {
         const room = [e.floorName, e.areaName || 'Sans pièce'].filter(Boolean).join(' · ');
-        const head = room !== last ? '<div class="groupe">' + esc(room) + '</div>' : '';
+        const head = !largeEditor && room !== last ? '<div class="groupe">' + esc(room) + '</div>' : '';
         last = room;
         return (
           head +
-          '<div class="ent' + (e.id === settings.entity ? ' on' : '') + '" tabindex="0" title="' + esc(e.id) + '" data-id="' + esc(e.id) + '"><div class="t"><b>' + esc(e.name) + '</b><span>' +
-          esc(DOMAINS[e.domain] || e.domain) + '</span></div><span class="v">' + esc(fmt(e.state, e.unit)) + '</span></div>'
+          '<div class="ent' + (e.id === settings.entity ? ' on' : '') + (['on', 'open', 'playing', 'home', 'heat', 'cool'].includes(e.state) ? ' allume' : '') + '" role="button" tabindex="0" title="' + esc(e.id) + '" data-id="' + esc(e.id) + '">' + (largeEditor ? '<span class="entity-icon"><svg class="i" aria-hidden="true"><use href="#i-' + (domainIcons[e.domain] || 'zap') + '"></use></svg></span>' : '') + '<div class="t"><b>' + esc(e.name) + '</b><span>' +
+          esc([largeEditor && (words.length || selectedRoom === '*') ? e.areaName : '', DOMAINS[e.domain] || e.domain].filter(Boolean).join(' · ')) + '</span></div><span class="v">' + esc(fmt(e.state, e.unit)) + '</span></div>'
         );
       })
       .join('');
@@ -266,7 +281,7 @@
       const pick = () => chooseEntity(el.dataset.id);
       el.onclick = pick;
       el.onkeydown = (ev) => {
-        if (ev.key === 'Enter') pick();
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(); }
       };
     });
   }
@@ -678,6 +693,7 @@
       if (key === 'customIcon' && v) { delete settings.libraryIcon; $('libraryIcon').value = ''; }
       if (key === 'libraryIcon' && v) { settings.customIcon = false; $('customIcon').checked = false; }
       if (key === 'titleMode') $('titleText').hidden = v !== 'custom';
+      if (key === 'customIcon' || key === 'libraryIcon') renderTextColorMode();
     };
   }
   bindField('style', 'style');
@@ -691,8 +707,15 @@
   bindField('decimals', 'decimals', 'number');
   $('color').oninput = () => set('color', $('color').value);
   $('colorOff').oninput = () => set('colorOff', $('colorOff').value);
+  $('textColor').oninput = () => set('textColor', $('textColor').value);
+  function renderTextColorMode() {
+    const native = !!settings.customIcon || !!settings.libraryIcon;
+    $('text-color-field').hidden = native;
+    $('native-text-help').hidden = !native;
+  }
   document.querySelectorAll('[data-raz]').forEach((b) => (b.onclick = () => {
     set(b.dataset.raz, undefined, true);
+    if (b.dataset.raz === 'textColor') $('textColor').value = '#ffffff';
   }));
   // cases dont la valeur par défaut dépend du type d'entité : on garde « vrai/faux » explicites
   $('gauge').onchange = () => set('gauge', $('gauge').checked);
@@ -703,6 +726,8 @@
     $('style').value = settings.style || 'accent';
     $('color').value = /^#[0-9a-f]{6}$/i.test(settings.color || '') ? settings.color : '#a99bff';
     $('colorOff').value = /^#[0-9a-f]{6}$/i.test(settings.colorOff || '') ? settings.colorOff : '#555b66';
+    $('textColor').value = /^#[0-9a-f]{6}$/i.test(settings.textColor || '') ? settings.textColor : '#ffffff';
+    renderTextColorMode();
     $('icon').value = settings.icon || '';
     $('iconOff').value = settings.iconOff || '';
     $('customIcon').checked = settings.customIcon === true;
@@ -786,7 +811,7 @@
     const m = MODELES.find((x) => x.id === $('modele').value);
     if (!m) return;
     const keep = {};
-    for (const key of ['entity', 'confirm', 'customIcon', 'libraryIcon', 'icon', 'iconOff', 'color', 'colorOff', 'lightColor', 'rules']) if (settings[key] !== undefined) keep[key] = settings[key];
+    for (const key of ['entity', 'confirm', 'customIcon', 'libraryIcon', 'icon', 'iconOff', 'color', 'colorOff', 'textColor', 'lightColor', 'rules']) if (settings[key] !== undefined) keep[key] = settings[key];
     settings = Object.assign(keep, JSON.parse(JSON.stringify(m.s)), { modelId: m.id, titleMode: 'custom', titleText: m.t.replace(/^[^:]+ : /, '') });
     if (!settings.entity) delete settings.entity;
     save(true);

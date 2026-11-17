@@ -175,6 +175,7 @@ export function registerHaActions(env: Env): void {
       fallback: mode === 'template' ? FALLBACK.template : mode === 'event' ? FALLBACK.event : fallbackFor(domain),
       title: title ? String(title) : '',
       value,
+      textColor: HEX.test(s.textColor ?? '') ? s.textColor : undefined,
       gauge: gauge ?? null,
       unavailable: !!id && mode !== 'event' && mode !== 'template' && isUnavailable(st) && !offline,
       offline,

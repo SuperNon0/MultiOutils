@@ -55,6 +55,9 @@
     const meta = document.createElement('div'); meta.className = 'entity-results-meta';
     meta.innerHTML = '<span id="res-count"></span><button type="button" id="res-more" class="lien" hidden>Afficher plus</button>';
     $('res').before(meta);
+    const rooms = document.createElement('nav'); rooms.className = 'entity-rooms'; rooms.setAttribute('aria-label', 'Pièces'); rooms.id = 'entity-rooms';
+    const area = document.createElement('div'); area.className = 'entity-browser';
+    $('res').before(area); area.append(rooms, $('res')); 
 
     function closeHelp(restoreFocus = false) {
       if (!openHelp) return;
@@ -88,6 +91,7 @@
       'libraryIcon': ['Icône de l’atelier', 'Choisis une création de l’atelier MultiOutils. Sa version éteinte et ses indicateurs suivent l’entité. Un export PNG/SVG reste fixe ; la bibliothèque permet le rendu vivant.'],
       'style': ['Style automatique', 'Définit le fond et la couleur des icônes automatiques. Une création de l’atelier garde sa propre mise en page ; les images Stream Deck gardent leur apparence.'],
       'icon': ['Symboles Material Design', 'Utilise par exemple mdi:lamp. Vide : le symbole vient de Home Assistant. Ces champs concernent les icônes automatiques.'],
+      'textColor': ['Couleur du texte', 'Choisis la couleur du nom, de la valeur et de la confirmation dessinés sur les icônes automatiques. Automatique adapte la couleur au fond. Pour une image Stream Deck ou de l’atelier, utilise la couleur du titre dans Stream Deck.'],
       'titleMode': ['Nom affiché', 'Affiche le nom de l’entité, un nom personnalisé ou aucun nom. Le titre natif Stream Deck doit rester vide pour laisser le plugin le mettre à jour.'],
       'valueMode': ['Valeur', 'Affiche l’état ou la valeur de l’entité : température, luminosité, position, volume… Le mode automatique choisit selon son type.'],
       'gauge': ['Jauge', 'Ajoute une barre à l’icône automatique pour la luminosité, la position ou le volume. Pour choisir sa forme et sa position, crée un indicateur dans l’atelier.'],
@@ -113,7 +117,7 @@
         addHelp(anchor, title, text, id);
       }
       for (const p of content.querySelectorAll('p.aide:not([hidden])')) {
-        if (p.closest('.liste')) continue;
+        if (p.closest('.liste') || p.id === 'native-text-help') continue;
         const label = p.previousElementSibling;
         if (label?.tagName === 'LABEL') addHelp(label, 'Détail du paramètre', p.textContent, 'description');
         p.hidden = true;

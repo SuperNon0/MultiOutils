@@ -1,5 +1,5 @@
 import { useEffect, useState, type PointerEvent as ReactPointerEvent, type ReactNode } from 'react';
-import { ZONE_MIN_HEIGHT, ZONE_MIN_WIDTH, type Rect, type ZoneKind } from '../../../../common/desktop';
+import { ZONE_MIN_HEIGHT, ZONE_MIN_WIDTH, ZONE_PRESETS, type Rect, type ZoneKind, type ZonePreset } from '../../../../common/desktop';
 import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
 import './desktop.css';
@@ -55,12 +55,12 @@ export function ZoneDraw({ displayId }: { displayId: string }): ReactNode {
     el.addEventListener('pointerup', up);
   };
 
-  const create = (kind: ZoneKind): void => {
+  const create = (kind: ZoneKind | ZonePreset): void => {
     if (rect) window.api.desktop.drawDone({ displayId, rect, kind });
   };
 
   const menuLeft = rect ? Math.min(rect.x + rect.width + 12, window.innerWidth - 280) : 0;
-  const menuTop = rect ? Math.min(rect.y, window.innerHeight - 200) : 0;
+  const menuTop = rect ? Math.min(rect.y, window.innerHeight - Math.min(620, window.innerHeight - 24)) : 0;
 
   return (
     <div className="zd" onPointerDown={down} onContextMenu={(e) => e.preventDefault()}>
@@ -90,6 +90,12 @@ export function ZoneDraw({ displayId }: { displayId: string }): ReactNode {
             <Icon name="folderopen" size={18} />
             {t('desktop.draw.folder')}
           </button>
+          <div className="msep" />
+          {ZONE_PRESETS.map((preset) => (
+            <button key={preset} className="mi" onClick={() => create(preset)}>
+              <Icon name="grid" size={18} />{t(`desktop.preset.${preset}`)}
+            </button>
+          ))}
           <div className="msep" />
           <button className="mi" onClick={() => window.api.desktop.drawCancel()}>
             <Icon name="x" size={18} />
