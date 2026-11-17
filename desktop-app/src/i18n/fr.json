@@ -1902,7 +1902,7 @@
   "icons.stateOn": "Allumé",
   "icons.stroke": "Épaisseur du trait",
   "icons.styles": "Styles",
-  "icons.stylesHelp": "Un style garde la forme, les couleurs, l'ombre et la taille, pour les réappliquer d'un clic.",
+  "icons.stylesHelp": "Un style conserve toute l’apparence : symbole, image, couleurs, forme, ombre, taille, position, rotation, texte, pastille et version éteinte. Le nom et le dossier de l’icône restent inchangés.",
   "icons.symbol": "Symbole",
   "icons.text": "Texte",
   "icons.textPh": "Texte sur l'icône (facultatif)",

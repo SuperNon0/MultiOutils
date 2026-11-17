@@ -1902,7 +1902,7 @@
   "icons.stateOn": "On",
   "icons.stroke": "Stroke width",
   "icons.styles": "Styles",
-  "icons.stylesHelp": "A style keeps the shape, colors, shadow and size so you can reapply them in one click.",
+  "icons.stylesHelp": "A style saves the entire appearance: symbol, image, colors, shape, shadow, size, position, rotation, text, badge and off state. The icon’s name and folder stay unchanged.",
   "icons.symbol": "Symbol",
   "icons.text": "Text",
   "icons.textPh": "Text on the icon (optional)",

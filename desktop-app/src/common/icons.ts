@@ -99,11 +99,17 @@ export interface IconTheme extends IconColors {
   builtin?: boolean;
 }
 
-/** Style enregistré : tout sauf le symbole et le nom. */
+/** Style enregistré : toute l’apparence, sans l’identité ni le classement.
+ * Les champs ajoutés restent facultatifs pour lire les anciens styles. */
 export interface IconStyle {
   id: string;
   name: string;
-  look: Pick<IconDesign, 'fg' | 'bg' | 'bg2' | 'shape' | 'gradientAngle' | 'shadow' | 'scale' | 'strokeWidth'>;
+  look: Pick<IconDesign, 'fg' | 'bg' | 'bg2' | 'shape' | 'gradientAngle' | 'shadow' | 'scale' | 'strokeWidth'> &
+    Partial<Pick<IconDesign, 'symbol' | 'dx' | 'dy' | 'rotate' | 'badge' | 'off'> & {
+      image: string | null;
+      imageKeep: boolean;
+      text: NonNullable<IconDesign['text']> | null;
+    }>;
 }
 
 export interface IconLibraryState {
@@ -318,9 +324,56 @@ export function applyTheme(d: IconDesign, t: IconColors): IconDesign {
   return { ...d, fg: t.fg, bg: t.bg, bg2: t.bg2, updatedAt: Date.now() };
 }
 
-/** Applique un style enregistré (forme, fond, ombre, taille…) sans toucher au symbole. */
+/** Capture toute l’apparence. Les absences explicites survivent au JSON. */
+export function styleLook(d: IconDesign): IconStyle['look'] {
+  return structuredClone({
+    fg: d.fg, bg: d.bg, bg2: d.bg2, shape: d.shape, gradientAngle: d.gradientAngle,
+    shadow: d.shadow, scale: d.scale, strokeWidth: d.strokeWidth,
+    symbol: d.symbol, image: d.image ?? null, imageKeep: d.imageKeep ?? true,
+    dx: d.dx, dy: d.dy, rotate: d.rotate, text: d.text ?? null,
+    badge: d.badge ?? null, off: d.off ?? null
+  });
+}
+
+/** Validation commune à l’enregistrement et au rechargement de la bibliothèque. */
+export function sanitizeStyle(v: unknown): IconStyle | null {
+  if (!v || typeof v !== 'object') return null;
+  const r = v as Record<string, unknown>;
+  if (typeof r.id !== 'string' || !/^[a-z0-9_-]{3,60}$/i.test(r.id) || typeof r.name !== 'string') return null;
+  if (!r.look || typeof r.look !== 'object' || Array.isArray(r.look)) return null;
+  const raw = r.look as Record<string, unknown>;
+  const d = sanitizeDesign({ ...raw, id: 'style_tmp' });
+  if (!d) return null;
+  const full = styleLook(d);
+  return {
+    id: r.id,
+    name: r.name.trim().slice(0, 40) || 'Style',
+    look: {
+      fg: d.fg, bg: d.bg, bg2: d.bg2, shape: d.shape, gradientAngle: d.gradientAngle,
+      shadow: d.shadow, scale: d.scale, strokeWidth: d.strokeWidth,
+      ...('symbol' in raw ? { symbol: full.symbol } : {}),
+      ...('image' in raw ? { image: full.image } : {}),
+      ...('imageKeep' in raw ? { imageKeep: full.imageKeep } : {}),
+      ...('dx' in raw ? { dx: full.dx } : {}),
+      ...('dy' in raw ? { dy: full.dy } : {}),
+      ...('rotate' in raw ? { rotate: full.rotate } : {}),
+      ...('text' in raw ? { text: full.text } : {}),
+      ...('badge' in raw ? { badge: full.badge } : {}),
+      ...('off' in raw ? { off: full.off } : {})
+    }
+  };
+}
+
+/** Les anciens styles ne modifient que les champs qu’ils avaient enregistrés. */
 export function applyStyle(d: IconDesign, s: IconStyle['look']): IconDesign {
-  return { ...d, ...s, bg2: s.bg2, updatedAt: Date.now() };
+  const look = structuredClone(s);
+  const { image, text, ...rest } = look;
+  return {
+    ...d, ...rest, bg2: s.bg2,
+    ...('image' in s ? { image: image ?? undefined } : {}),
+    ...('text' in s ? { text: text ?? undefined } : {}),
+    updatedAt: Date.now()
+  };
 }
 
 /* ───────── dessin ───────── */

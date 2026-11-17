@@ -7,6 +7,7 @@ import {
   exportFileName,
   newIconId,
   symbolKey,
+  styleLook,
   type IconColors,
   type IconCorner,
   type IconDesign,
@@ -145,6 +146,8 @@ export function IconEditor({
   const { t } = useI18n();
   const [picking, setPicking] = useState<PickTarget>(null);
   const [showOff, setShowOff] = useState(false);
+  const [nameDraft, setNameDraft] = useState(d.name);
+  const [editingName, setEditingName] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const set = (patch: Partial<IconDesign>): void => onChange({ ...d, ...patch });
   const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text').trim() || '#e7ebf3';
@@ -163,6 +166,17 @@ export function IconEditor({
   return (
     <div className="ic-editor">
       <div className="ic-ed-head">
+        <input
+          className="input ic-name"
+          value={editingName ? nameDraft : d.name}
+          aria-label={t('icons.name')}
+          placeholder={t('icons.name')}
+          maxLength={80}
+          onFocus={() => { setNameDraft(d.name); setEditingName(true); }}
+          onChange={(e) => { setNameDraft(e.target.value); set({ name: e.target.value }); }}
+          onBlur={() => { setEditingName(false); set({ name: nameDraft.trim() || t('icons.newIcon') }); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
+        />
         <div className="ic-ed-preview">
           <img src={designUrl(d, 288, showOff && offOn)} alt="" width={132} height={132} />
           {offOn && (
@@ -173,7 +187,6 @@ export function IconEditor({
           )}
         </div>
         <div className="ic-ed-meta">
-          <input className="input ic-name" value={d.name} onChange={(e) => set({ name: e.target.value })} placeholder={t('icons.name')} />
           <div className="ligne">
             <select className="select" value={d.folder ?? ''} onChange={(e) => set({ folder: e.target.value || null })}>
               <option value="">{t('icons.noFolder')}</option>
@@ -428,7 +441,7 @@ export function IconEditor({
                 await window.api.icons.saveStyle({
                   id: newIconId(),
                   name,
-                  look: { fg: d.fg, bg: d.bg, bg2: d.bg2, shape: d.shape, gradientAngle: d.gradientAngle, shadow: d.shadow, scale: d.scale, strokeWidth: d.strokeWidth }
+                  look: styleLook(d)
                 });
             }}
           >

@@ -10,6 +10,7 @@ import path from 'node:path';
 import {
   BUILTIN_THEMES,
   sanitizeDesign,
+  sanitizeStyle,
   sanitizeSymbol,
   type IconDesign,
   type IconFolder,
@@ -48,19 +49,6 @@ function cleanTheme(v: unknown): IconTheme | null {
   };
 }
 
-function cleanStyle(v: unknown): IconStyle | null {
-  const r = (v ?? {}) as Record<string, unknown>;
-  if (typeof r.id !== 'string' || !ID.test(r.id) || typeof r.name !== 'string') return null;
-  // on passe par sanitizeDesign pour valider les champs du rendu
-  const d = sanitizeDesign({ id: 'style_tmp', ...(r.look as object) });
-  if (!d) return null;
-  return {
-    id: r.id,
-    name: r.name.trim().slice(0, 40) || 'Style',
-    look: { fg: d.fg, bg: d.bg, bg2: d.bg2, shape: d.shape, gradientAngle: d.gradientAngle, shadow: d.shadow, scale: d.scale, strokeWidth: d.strokeWidth }
-  };
-}
-
 export function cleanState(raw: unknown): IconLibraryState {
   const r = (raw ?? {}) as Record<string, unknown>;
   const arr = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
@@ -74,7 +62,7 @@ export function cleanState(raw: unknown): IconLibraryState {
     designs,
     folders,
     themes: arr(r.themes).map(cleanTheme).filter((t): t is IconTheme => !!t),
-    styles: arr(r.styles).map(cleanStyle).filter((s): s is IconStyle => !!s),
+    styles: arr(r.styles).map(sanitizeStyle).filter((s): s is IconStyle => !!s),
     recent: arr(r.recent).filter((k): k is string => typeof k === 'string').slice(0, RECENT_MAX)
   };
 }
@@ -175,7 +163,7 @@ export function createIconsMainModule(): MainToolModule {
       });
 
       ipcMain.handle('icons:saveStyle', (_e, s: unknown) => {
-        const clean = cleanStyle(s);
+        const clean = sanitizeStyle(s);
         if (!clean) return null;
         state.styles = upsert(state.styles, clean);
         changed();
