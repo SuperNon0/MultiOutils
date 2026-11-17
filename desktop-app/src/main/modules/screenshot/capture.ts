@@ -63,7 +63,7 @@ export class CaptureEngine {
   /** Plein écran : écran du curseur, ou tous les écrans selon le réglage. */
   async takeFullscreen(): Promise<void> {
     const settings = this.ctx.settings.get();
-    const restore = await hideAppWindows();
+    const restore = await hideAppWindows(settings.hideAppDuringCapture);
     try {
       const image = settings.captureAllScreens
         ? await this.captureAllDisplays()
@@ -82,7 +82,7 @@ export class CaptureEngine {
     const display =
       screen.getAllDisplays().find((d) => d.id === displayId) ??
       screen.getPrimaryDisplay();
-    const restore = await hideAppWindows();
+    const restore = await hideAppWindows(this.ctx.settings.get().hideAppDuringCapture);
     try {
       const image = await captureDisplay(display);
       restore();

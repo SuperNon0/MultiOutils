@@ -77,6 +77,8 @@
   "settings.capture.includeCursorNote": "Pas encore supporté par le moteur de capture — à venir.",
   "settings.capture.format": "Format d'enregistrement par défaut",
   "settings.capture.jpgQuality": "Qualité JPG",
+  "settings.capture.hideApp": "Masquer MultiOutils pendant la capture",
+  "settings.capture.hideAppNote": "Désactivez pour inclure les fenêtres de MultiOutils dans vos captures.",
   "settings.capture.captureAllScreens": "Plein écran : capturer tous les écrans (sinon, l'écran du curseur)",
   "settings.capture.delayedSeconds": "Délai de la capture différée (secondes)",
   "settings.storage.dir": "Dossier de stockage des captures",

@@ -31,8 +31,10 @@ export async function captureDisplay(display: Display): Promise<NativeImage> {
 /**
  * Masque les fenêtres visibles de l'app avant une capture (pour ne pas se
  * capturer soi-même) et rend une fonction qui les réaffiche.
+ * Si hide est faux, les fenêtres restent visibles et la restauration est neutre.
  */
-export async function hideAppWindows(): Promise<() => void> {
+export async function hideAppWindows(hide = true): Promise<() => void> {
+  if (!hide) return () => {};
   const visible = BrowserWindow.getAllWindows().filter(
     (w) => !w.isDestroyed() && w.isVisible()
   );

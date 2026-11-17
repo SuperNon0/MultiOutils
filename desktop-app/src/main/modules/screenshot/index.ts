@@ -74,8 +74,8 @@ export function createScreenshotMainModule(): MainToolModule {
         }
       });
       engine.setFlows({
-        startRegion: () => region.start(),
-        startWindowPicker: () => picker.start()
+        startRegion: () => region.start(ctx.settings.get().hideAppDuringCapture),
+        startWindowPicker: () => picker.start(ctx.settings.get().hideAppDuringCapture)
       });
       engine.onCaptureSaved = (capture) => quickbar.show(capture);
 
