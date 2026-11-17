@@ -1,13 +1,10 @@
 /*
  * Choix de la couleur d'une touche (panneau de réglages Stream Deck).
- * settings.color : '' = comme l'app (accent + thème de MultiOutils), sinon #rrggbb.
- * La palette vient de l'app (GET /theme) ; quelques couleurs fixes en plus et
- * un sélecteur libre.
+ * settings.color : '' = doré par défaut, sinon #rrggbb. Palette fixe + un
+ * sélecteur libre ; la touche ne suit plus l'accent de l'app.
  */
 (function () {
-  const APP = 'http://127.0.0.1:41320';
-  const EXTRA = ['#ffffff', '#ef7d6b', '#6fa8ff', '#9aa0a6'];
-  const NAMES = { lavande: 'Lavande', or: 'Or', ambre: 'Ambre', corail: 'Corail', menthe: 'Menthe' };
+  const EXTRA = ['#4fc3a1', '#b39ddb', '#ffffff', '#ef7d6b', '#6fa8ff', '#9aa0a6'];
 
   const css = `
     .kc-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -31,8 +28,7 @@
     host.innerHTML = '<label>Couleur de l’icône</label><div class="kc-row"></div><p class="hint kc-hint"></p>';
     const row = host.querySelector('.kc-row');
     const hint = host.querySelector('.kc-hint');
-    let palette = [];
-    let appAccent = '#e8c547';
+    const DEFAULT = '#e8c547';
 
     function set(color) {
       const s = getSettings();
@@ -47,11 +43,11 @@
       const auto = document.createElement('button');
       auto.type = 'button';
       auto.className = 'kc-auto' + (cur ? '' : ' on');
-      auto.innerHTML = '<i></i>Comme l’app';
-      auto.querySelector('i').style.background = appAccent;
+      auto.innerHTML = '<i></i>Doré (défaut)';
+      auto.querySelector('i').style.background = DEFAULT;
       auto.onclick = () => set('');
       row.appendChild(auto);
-      const fixed = palette.map((p) => ({ color: p.color, title: NAMES[p.id] || p.id })).concat(EXTRA.map((c) => ({ color: c, title: c })));
+      const fixed = EXTRA.map((c) => ({ color: c, title: c }));
       for (const p of fixed) {
         const b = document.createElement('button');
         b.type = 'button';
@@ -68,30 +64,13 @@
       if (isFree) free.style.background = cur;
       free.innerHTML = '<input type="color" /><span>' + (isFree ? '' : '+') + '</span>';
       const input = free.querySelector('input');
-      input.value = cur || appAccent;
+      input.value = cur || DEFAULT;
       input.onchange = () => set(input.value.toLowerCase());
       row.appendChild(free);
-      hint.textContent = cur
-        ? 'Cette touche garde sa couleur, quel que soit l’accent de l’app.'
-        : 'La touche suit l’accent et le thème clair ou sombre de MultiOutils.';
-    }
-
-    async function load() {
-      try {
-        const res = await fetch(APP + '/theme', { cache: 'no-store' });
-        if (res.ok) {
-          const t = await res.json();
-          palette = Array.isArray(t.palette) ? t.palette : [];
-          if (t.accent) appAccent = t.accent;
-        }
-      } catch (e) {
-        /* app fermée : palette fixe seulement */
-      }
-      render();
+      hint.textContent = 'Une icône choisie dans Stream Deck passe toujours avant.';
     }
 
     render();
-    load();
     return { render: render };
   };
 })();

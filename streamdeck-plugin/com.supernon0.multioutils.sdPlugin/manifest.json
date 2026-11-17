@@ -1,7 +1,7 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "Name": "MultiOutils",
-  "Version": "0.9.0.0",
+  "Version": "0.9.1.0",
   "Author": "SuperNon0",
   "UUID": "com.supernon0.multioutils",
   "Description": "Pilote MultiOutils (captures, presse-papiers, bureau, autoclic) et Home Assistant : entités, services, états en direct, touches PC. Nécessite l'application MultiOutils lancée (Home Assistant peut aussi se connecter directement).",
@@ -29,7 +29,6 @@
       "Name": "Capture plein écran",
       "Tooltip": "Capture l'écran entier dans MultiOutils",
       "Icon": "imgs/fullscreen",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-fullscreen"
@@ -41,7 +40,6 @@
       "Name": "Capture de zone",
       "Tooltip": "Ouvre la sélection de zone de MultiOutils",
       "Icon": "imgs/region",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-region"
@@ -53,7 +51,6 @@
       "Name": "Capture de fenêtre",
       "Tooltip": "Ouvre le sélecteur de fenêtre de MultiOutils",
       "Icon": "imgs/window",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-window"
@@ -65,7 +62,6 @@
       "Name": "Capture différée",
       "Tooltip": "Lance le compte à rebours puis capture",
       "Icon": "imgs/delayed",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-delayed"
@@ -77,7 +73,6 @@
       "Name": "Ouvrir la bibliothèque",
       "Tooltip": "Met MultiOutils au premier plan sur la galerie",
       "Icon": "imgs/library",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-library"
@@ -89,7 +84,6 @@
       "Name": "Dernière capture → presse-papier",
       "Tooltip": "Copie la dernière capture dans le presse-papier",
       "Icon": "imgs/clipboard",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-clipboard"
@@ -101,7 +95,6 @@
       "Name": "Ouvrir le presse-papiers",
       "Tooltip": "Ouvre le module Presse-papiers de MultiOutils",
       "Icon": "imgs/clipboard",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-clipboard"
@@ -113,7 +106,6 @@
       "Name": "Copier le dernier clip",
       "Tooltip": "Recopie le dernier élément du presse-papiers MultiOutils (y compris ceux de l'iPhone)",
       "Icon": "imgs/clipboard",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-clipboard"
@@ -125,7 +117,6 @@
       "Name": "Garder le clip courant",
       "Tooltip": "Épingle le contenu actuel du presse-papiers dans MultiOutils (jamais supprimé)",
       "Icon": "imgs/clipboard",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-clipboard"
@@ -137,7 +128,6 @@
       "Name": "Pipette de couleur",
       "Tooltip": "Lance la pipette MultiOutils : prélève une couleur à l'écran, code copié",
       "Icon": "imgs/pipette",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-pipette"
@@ -175,7 +165,6 @@
       "Name": "Bureau : aperçu des zones",
       "Tooltip": "Montre les zones par-dessus les fenêtres (encore une fois pour revenir)",
       "Icon": "imgs/desktop-peek",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-desktop-peek"
@@ -187,7 +176,6 @@
       "Name": "Bureau : masquer les zones",
       "Tooltip": "Masque ou réaffiche toutes les zones du bureau",
       "Icon": "imgs/desktop-hide",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-desktop-hide"
@@ -199,7 +187,6 @@
       "Name": "Bureau : ranger maintenant",
       "Tooltip": "Applique toutes les règles de rangement du bureau",
       "Icon": "imgs/desktop-sort",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-desktop-sort"
@@ -211,7 +198,6 @@
       "Name": "Bureau : page suivante",
       "Tooltip": "Passe à la page de bureau suivante",
       "Icon": "imgs/desktop-page-next",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-desktop-page-next"
@@ -223,7 +209,6 @@
       "Name": "Bureau : page précédente",
       "Tooltip": "Revient à la page de bureau précédente",
       "Icon": "imgs/desktop-page-prev",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-desktop-page-prev"
@@ -235,7 +220,6 @@
       "Name": "Bureau : afficher le bureau",
       "Tooltip": "Réduit les fenêtres pour voir le bureau et ses zones",
       "Icon": "imgs/desktop-show",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-desktop-show"
@@ -355,7 +339,6 @@
       "Name": "PC : veille",
       "Tooltip": "Met le PC en veille",
       "Icon": "imgs/pc-sleep",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-pc-sleep"
@@ -367,7 +350,6 @@
       "Name": "PC : verrouiller",
       "Tooltip": "Verrouille la session Windows",
       "Icon": "imgs/pc-lock",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-pc-lock"
@@ -379,7 +361,6 @@
       "Name": "PC : éteindre",
       "Tooltip": "Éteint le PC (30 s pour annuler, confirmation sur la touche)",
       "Icon": "imgs/pc-shutdown",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-pc-shutdown"
@@ -391,7 +372,6 @@
       "Name": "PC : redémarrer",
       "Tooltip": "Redémarre le PC (30 s pour annuler, confirmation sur la touche)",
       "Icon": "imgs/pc-restart",
-      "PropertyInspectorPath": "ui/key-color.html",
       "States": [
         {
           "Image": "imgs/key-pc-restart"

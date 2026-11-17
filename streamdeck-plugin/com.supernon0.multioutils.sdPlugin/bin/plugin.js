@@ -10070,10 +10070,6 @@ function registerHaActions(env) {
             await e.key.setImage(svg);
         }
     };
-    const drawAll = () => {
-        for (const e of entries.values())
-            void draw(e);
-    };
     hub.onChange((ids) => {
         for (const e of entries.values()) {
             if (!ids || (e.watching && ids.includes(e.watching))) {
@@ -10320,8 +10316,7 @@ function registerHaActions(env) {
         }
         streamDeck.actions.registerAction(new HaKey());
     }
-    registerPcActions(env);
-    return { rerender: drawAll };
+    registerPcActions();
 }
 /* ───────── touches PC ───────── */
 const PC = [
@@ -10330,29 +10325,19 @@ const PC = [
     { uuid: 'com.supernon0.multioutils.pc-shutdown', command: 'pc.shutdown', glyph: 'shutdown', label: 'Éteindre', confirm: true },
     { uuid: 'com.supernon0.multioutils.pc-restart', command: 'pc.restart', glyph: 'restart', label: 'Redémarrer', confirm: true }
 ];
-function registerPcActions(env) {
+/** Touches PC : l'image reste celle du manifeste (ou celle choisie dans
+ *  Stream Deck) ; la confirmation s'affiche dans le titre. */
+function registerPcActions() {
     for (const def of PC) {
         const keys = new Map();
-        const draw = (k) => {
-            const t = env.theme();
-            return k.key.setImage(renderKey({
-                style: 'accent',
-                background: t.background,
-                dark: t.theme === 'dark',
-                color: HEX$1.test(k.s.color ?? '') ? k.s.color : t.accent,
-                on: true,
-                fallback: FALLBACK[def.glyph],
-                title: def.label,
-                confirm: k.until > Date.now() ? 'Confirmer ?' : undefined
-            }));
-        };
+        const draw = (k) => k.until > Date.now() ? k.key.setTitle('Confirmer ?') : k.key.setTitle();
         class PcKey extends SingletonAction {
             manifestId = def.uuid;
             onWillAppear(ev) {
                 const key = ev.action;
                 const k = { key, s: ev.payload.settings ?? {}, until: 0 };
                 keys.set(key.id, k);
-                return draw(k);
+                return Promise.resolve();
             }
             onWillDisappear(ev) {
                 keys.delete(ev.action.id);
@@ -10362,7 +10347,6 @@ function registerPcActions(env) {
                 if (!k)
                     return;
                 k.s = ev.payload.settings ?? {};
-                return draw(k);
             }
             async onKeyDown(ev) {
                 const k = keys.get(ev.action.id);
@@ -10375,8 +10359,10 @@ function registerPcActions(env) {
                     setTimeout(() => void draw(k), CONFIRM_MS + 50);
                     return;
                 }
-                k.until = 0;
-                await draw(k);
+                if (needConfirm) {
+                    k.until = 0;
+                    await draw(k);
+                }
                 try {
                     const res = await fetch(`http://127.0.0.1:41320/command/${def.command}`, { method: 'POST', signal: AbortSignal.timeout(3000) });
                     if (!res.ok)
@@ -10390,8 +10376,6 @@ function registerPcActions(env) {
         }
         streamDeck.actions.registerAction(new PcKey());
     }
-    // re-dessin quand l'accent de l'app change : géré par rerender des touches HA ;
-    // les touches PC sont redessinées à chaque apparition.
 }
 
 /**
@@ -10415,55 +10399,13 @@ async function sendCommand(command, ev) {
         await ev.action.showAlert(); // l'app n'est probablement pas lancée
     }
 }
-/** Avant le premier contact avec l'app : le doré historique. */
-let theme = { theme: 'dark', accent: '#e8c547', background: '#16181c', live: '#4fc3a1' };
+/** Palette fixe des touches dessinées (le doré historique). */
+const theme = { theme: 'dark', accent: '#e8c547', background: '#16181c', live: '#4fc3a1' };
 const HEX = /^#[0-9a-f]{6}$/i;
 const keyColor = (color) => (typeof color === 'string' && HEX.test(color) ? color : theme.accent);
-/** Glyphes 24×24 (trait), « {c} » = couleur de la touche, « {b} » = fond. */
-const GLYPHS = {
-    fullscreen: '<rect x="3" y="4" width="18" height="12.5" rx="1"/><path d="M9 20h6"/>',
-    region: '<path d="M4 8.5V4h4.5M15.5 4H20v4.5M20 15.5V20h-4.5M8.5 20H4v-4.5"/>',
-    window: '<rect x="3.5" y="4.5" width="17" height="15" rx="1"/><path d="M3.5 4.5h17v3.5h-17z" fill="{c}"/>',
-    delayed: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
-    library: '<path d="M3.5 6.5a1 1 0 0 1 1-1h4.5l2 2h8.5a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1h-15a1 1 0 0 1-1-1z"/>',
-    clipboard: '<rect x="8.5" y="4" width="11" height="11" rx="1"/><rect x="4.5" y="8.5" width="11" height="11" rx="1" fill="{b}"/>',
-    pipette: '<path d="M19.6 4.4a2.1 2.1 0 0 0-3 0L14 7l-1-1-1.5 1.5 1 1-7 7-1 4 4-1 7-7 1 1L17 11l-1-1 2.6-2.6a2.1 2.1 0 0 0 0-3z"/>',
-    'desktop-peek': '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/>',
-    'desktop-hide': '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><path d="M4 20 20 4"/>',
-    'desktop-sort': '<path d="M12 3c.6 4.2 2.8 6.4 7 7-4.2.6-6.4 2.8-7 7-.6-4.2-2.8-6.4-7-7 4.2-.6 6.4-2.8 7-7z"/>',
-    'desktop-page-next': '<rect x="3.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.5"/><path d="m14 7 5 5-5 5"/>',
-    'desktop-page-prev': '<rect x="13.5" y="3.5" width="7" height="7" rx="1.5"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.5"/><path d="m10 7-5 5 5 5"/>',
-    'desktop-show': '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>'
-};
-function glyphImage(glyph, color) {
-    const body = (GLYPHS[glyph] ?? '').replace(/\{c\}/g, color).replace(/\{b\}/g, theme.background);
-    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144">` +
-        `<rect width="144" height="144" rx="24" fill="${theme.background}"/>` +
-        `<g transform="translate(42 42) scale(2.5)" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${body}</g>` +
-        `</svg>`;
-    return `data:image/svg+xml;charset=utf8,${encodeURIComponent(svg)}`;
-}
-const iconKeys = new Map();
-const renderIcon = (e) => e.action.setImage(glyphImage(e.glyph, keyColor(e.color)));
-/** Touche simple : un glyphe coloré + une commande de l'app. */
+/** Touche simple : une commande de l'app ; l'image reste celle du manifeste
+ *  ou celle choisie dans Stream Deck. */
 class IconKey extends SingletonAction {
-    async onWillAppear(ev) {
-        const entry = { action: ev.action, glyph: this.glyph, color: ev.payload.settings?.color };
-        iconKeys.set(entry.action.id, entry);
-        await renderIcon(entry);
-        void refreshTheme();
-    }
-    onWillDisappear(ev) {
-        iconKeys.delete(ev.action.id);
-        return Promise.resolve();
-    }
-    async onDidReceiveSettings(ev) {
-        const entry = iconKeys.get(ev.action.id);
-        if (!entry)
-            return;
-        entry.color = ev.payload.settings?.color;
-        await renderIcon(entry);
-    }
     onKeyDown(ev) {
         return sendCommand(this.command, ev);
     }
@@ -10483,7 +10425,6 @@ let CaptureFullscreen = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'fullscreen';
         command = 'capture.fullscreen';
     });
     return _classThis;
@@ -10503,7 +10444,6 @@ let CaptureRegion = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'region';
         command = 'capture.region';
     });
     return _classThis;
@@ -10523,7 +10463,6 @@ let CaptureWindow = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'window';
         command = 'capture.window';
     });
     return _classThis;
@@ -10543,7 +10482,6 @@ let CaptureDelayed = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'delayed';
         command = 'capture.delayed';
     });
     return _classThis;
@@ -10563,7 +10501,6 @@ let OpenLibrary = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'library';
         command = 'library.open';
     });
     return _classThis;
@@ -10583,7 +10520,6 @@ let CopyLast = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'clipboard';
         command = 'clipboard.last';
     });
     return _classThis;
@@ -10603,7 +10539,6 @@ let ClipsOpen = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'clipboard';
         command = 'clips.open';
     });
     return _classThis;
@@ -10623,7 +10558,6 @@ let ClipsCopyLast = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'clipboard';
         command = 'clips.copyLast';
     });
     return _classThis;
@@ -10643,7 +10577,6 @@ let ClipsPinCurrent = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'clipboard';
         command = 'clips.pinCurrent';
     });
     return _classThis;
@@ -10663,7 +10596,6 @@ let ColorPickerStart = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'pipette';
         command = 'colorpicker.start';
     });
     return _classThis;
@@ -10876,7 +10808,6 @@ let DesktopPeek = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'desktop-peek';
         command = 'desktop.peek';
     });
     return _classThis;
@@ -10896,7 +10827,6 @@ let DesktopToggleHide = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'desktop-hide';
         command = 'desktop.toggleHide';
     });
     return _classThis;
@@ -10916,7 +10846,6 @@ let DesktopSortNow = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'desktop-sort';
         command = 'desktop.sortNow';
     });
     return _classThis;
@@ -10936,7 +10865,6 @@ let DesktopPageNext = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'desktop-page-next';
         command = 'desktop.pageNext';
     });
     return _classThis;
@@ -10956,7 +10884,6 @@ let DesktopPagePrev = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'desktop-page-prev';
         command = 'desktop.pagePrev';
     });
     return _classThis;
@@ -10976,7 +10903,6 @@ let DesktopShow = (() => {
             if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
             __runInitializers(_classThis, _classExtraInitializers);
         }
-        glyph = 'desktop-show';
         command = 'desktop.showDesktop';
     });
     return _classThis;
@@ -10999,28 +10925,9 @@ streamDeck.actions.registerAction(new DesktopSortNow());
 streamDeck.actions.registerAction(new DesktopPageNext());
 streamDeck.actions.registerAction(new DesktopPagePrev());
 streamDeck.actions.registerAction(new DesktopShow());
-// Home Assistant (une touche qui s'adapte à l'entité) + touches PC.
-const ha = registerHaActions({ theme: () => theme });
-/** Relit l'accent / le thème de l'app ; redessine toutes les touches s'ils changent. */
-async function refreshTheme() {
-    const next = await appGet('/theme');
-    if (!next || !HEX.test(next.accent) || !HEX.test(next.background))
-        return;
-    const changed = next.accent !== theme.accent || next.background !== theme.background || next.live !== theme.live || next.theme !== theme.theme;
-    if (!changed)
-        return;
-    theme = { theme: next.theme, accent: next.accent, background: next.background, live: HEX.test(next.live) ? next.live : theme.live };
-    for (const e of iconKeys.values())
-        await renderIcon(e);
-    for (const e of entries.values())
-        await renderEntry(e);
-    ha.rerender();
-}
+// Home Assistant (une touche par modèle) + touches PC.
+registerHaActions({ theme: () => theme });
 void streamDeck.connect();
-// Suit les changements d'apparence faits dans l'app.
-setInterval(() => {
-    void refreshTheme();
-}, 4000);
 // Animation des touches « en cours » : alterne le halo ~toutes les 500 ms.
 setInterval(() => {
     glow = !glow;
