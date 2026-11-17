@@ -10,6 +10,7 @@ import path from 'node:path';
 import {
   BUILTIN_THEMES,
   sanitizeDesign,
+  offVariant, renderIconSvg, svgDataUrl,
   sanitizeStyle,
   sanitizeSymbol,
   type IconDesign,
@@ -217,6 +218,23 @@ export function createIconsMainModule(): MainToolModule {
       });
 
       // Pour le plugin Stream Deck (étape suivante) : la bibliothèque en lecture.
+      ctx.registerLocalRoute('GET', /^\/icons\/render$/, async (url) => {
+        const source = state.designs.find((d) => d.id === url.searchParams.get('id'));
+        if (!source) throw new Error('Icône introuvable dans l’atelier');
+        const on = url.searchParams.get('on') !== '0';
+        const d = on ? { ...source } : offVariant(source);
+        const color = url.searchParams.get('color');
+        if (on && color && HEX.test(color) && url.searchParams.get('recolor') !== '0') d.fg = color;
+        const art = d.image && !d.symbol
+          ? { viewBox: '0 0 144 144', body: '', paint: 'fill' as const, image: d.image }
+          : d.symbol ? await getArt(d.symbol) : null;
+        const badgeArt = d.badge?.symbol ? await getArt(d.badge.symbol) : null;
+        const rawValue = url.searchParams.get('value');
+        const value = rawValue === null ? null : Number(rawValue);
+        return { image: svgDataUrl(renderIconSvg({ design: d, art, badgeArt,
+          indicatorState: { on, color, value: value !== null && Number.isFinite(value) ? value : null } })) };
+      });
+
       ctx.registerLocalRoute('GET', /^\/icons\/library$/, () => ({
         designs: state.designs.map((d) => ({ id: d.id, name: d.name, folder: d.folder })),
         folders: state.folders

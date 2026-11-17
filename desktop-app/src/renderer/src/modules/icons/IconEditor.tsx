@@ -9,6 +9,7 @@ import {
   symbolKey,
   styleLook,
   type IconColors,
+  type IconIndicator,
   type IconCorner,
   type IconDesign,
   type IconShadow,
@@ -380,6 +381,40 @@ export function IconEditor({
             <Icon name="plus" size={14} /> {t('icons.addBadge')}
           </button>
         )}
+      </section>
+
+      <section className="ic-sec">
+        <h3 className="lbl-mono">{t('icons.indicator')}</h3>
+        <p className="muted petit">{t('icons.indicatorHelp')}</p>
+        {d.indicator ? (
+          <>
+            <div className="ic-two">
+              <label className="ic-slider"><span className="lbl">{t('icons.shape')}</span>
+                <select className="select" value={d.indicator.shape} onChange={(e) => d.indicator && set({ indicator: { ...d.indicator, shape: e.target.value as IconIndicator['shape'] } })}>
+                  {(['bar', 'dot', 'pill'] as const).map((shape) => <option key={shape} value={shape}>{t(`icons.indicator.${shape}`)}</option>)}
+                </select>
+              </label>
+              <label className="ic-slider"><span className="lbl">{t('icons.indicator.position')}</span>
+                <select className="select" value={d.indicator.position} onChange={(e) => d.indicator && set({ indicator: { ...d.indicator, position: e.target.value as IconIndicator['position'] } })}>
+                  {(['top', 'bottom', 'left', 'right'] as const).map((pos) => <option key={pos} value={pos}>{t(`icons.indicator.${pos}`)}</option>)}
+                </select>
+              </label>
+              <ColorField label={t('icons.stateOn')} value={d.indicator.color} onChange={(color) => d.indicator && set({ indicator: { ...d.indicator, color } })} />
+              <ColorField label={t('icons.stateOff')} value={d.indicator.colorOff} onChange={(colorOff) => d.indicator && set({ indicator: { ...d.indicator, colorOff } })} />
+            </div>
+            <label className="ic-slider"><span className="lbl">{t('icons.indicator.behavior')}</span>
+              <select className="select" value={d.indicator.mode} onChange={(e) => d.indicator && set({ indicator: { ...d.indicator, mode: e.target.value as IconIndicator['mode'] } })}>
+                {(['fixed', 'state', 'value'] as const).map((mode) => <option key={mode} value={mode}>{t(`icons.indicator.${mode}`)}</option>)}
+              </select>
+            </label>
+            <label className="ic-ck"><input type="checkbox" checked={d.indicator.colorMode === 'entity'} onChange={(e) => d.indicator && set({ indicator: { ...d.indicator, colorMode: e.target.checked ? 'entity' : 'fixed' } })} />{t('icons.indicator.liveColor')}</label>
+            <div className="ic-two">
+              <Slider label={t('icons.indicator.preview')} value={d.indicator.value} min={0} max={100} step={1} unit="%" onChange={(value) => d.indicator && set({ indicator: { ...d.indicator, value } })} />
+              <Slider label={t('icons.indicator.size')} value={d.indicator.size} min={3} max={18} step={1} onChange={(size) => d.indicator && set({ indicator: { ...d.indicator, size } })} />
+            </div>
+            <button type="button" className="btn xs gh" onClick={() => set({ indicator: null })}>{t('icons.indicator.remove')}</button>
+          </>
+        ) : <button type="button" className="btn xs gh" onClick={() => set({ indicator: { shape: 'bar', position: 'bottom', color: '#4fd1b5', colorOff: '#596174', colorMode: 'entity', mode: 'value', value: 100, size: 6 } })}><Icon name="plus" size={14} />{t('icons.indicator.add')}</button>}
       </section>
 
       <section className="ic-sec">

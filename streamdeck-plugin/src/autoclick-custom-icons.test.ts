@@ -10,7 +10,7 @@ vi.mock('@elgato/streamdeck', () => ({
   SingletonAction: class {}
 }));
 vi.mock('./ha/actions', () => ({ registerHaActions: vi.fn() }));
-const key = () => ({ id: 'key', setTitle: vi.fn(async () => {}), setImage: vi.fn(async () => {}), showAlert: vi.fn(async () => {}) });
+const key = () => ({ id: 'key', setTitle: vi.fn(async () => {}), setState: vi.fn(async () => {}), setImage: vi.fn(async () => {}), showAlert: vi.fn(async () => {}) });
 const event = (action: ReturnType<typeof key>, settings: object) => ({ action, payload: { settings } });
 let selected = 'profile-a';
 let running: string | null = 'profile-a';
@@ -34,8 +34,9 @@ describe.each(['autoclick-profile', 'autoclick-toggle'])('%s : icônes personnal
     await vi.advanceTimersByTimeAsync(0);
     expect(k.setTitle).toHaveBeenLastCalledWith('Mon profil');
     // La seule réinitialisation enlève l’ancien dessin du plugin ; Stream Deck conserve l’image utilisateur.
-    expect(k.setImage).toHaveBeenCalledTimes(1);
-    expect(k.setImage).toHaveBeenCalledWith();
+    expect(k.setImage).toHaveBeenCalledTimes(2);
+    expect(k.setImage).toHaveBeenCalledWith(undefined, { state: 0 });
+    expect(k.setImage).toHaveBeenCalledWith(undefined, { state: 1 });
     k.setImage.mockClear();
     await vi.advanceTimersByTimeAsync(3600);
     expect(k.setImage).not.toHaveBeenCalled();
@@ -48,6 +49,21 @@ describe.each(['autoclick-profile', 'autoclick-toggle'])('%s : icônes personnal
     }
   });
 
+  it('suit le profil qui tourne sans allumer les autres profils simplement sélectionnés', async () => {
+    const action = actions.get(`com.supernon0.multioutils.${uuid}`);
+    const k = key();
+    await action.onWillAppear(event(k, { profileId: 'profile-a', customIcon: true }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(k.setState).toHaveBeenLastCalledWith(1);
+    running = 'profile-b';
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(k.setState).toHaveBeenLastCalledWith(uuid === 'autoclick-profile' ? 0 : 1);
+    running = null;
+    await vi.advanceTimersByTimeAsync(1200);
+    expect(k.setState).toHaveBeenLastCalledWith(0);
+    expect(k.setTitle).toHaveBeenLastCalledWith('Mon profil');
+  });
+
   it('permet de basculer entre l’image personnalisée et le mode animé existant', async () => {
     const action = actions.get(`com.supernon0.multioutils.${uuid}`);
     const k = key();
@@ -55,7 +71,7 @@ describe.each(['autoclick-profile', 'autoclick-toggle'])('%s : icônes personnal
     await vi.advanceTimersByTimeAsync(0);
     expect(k.setImage).toHaveBeenLastCalledWith(expect.stringContaining('data:image/svg+xml'));
     await action.onDidReceiveSettings(event(k, { profileId: 'profile-a', customIcon: true }));
-    expect(k.setImage).toHaveBeenLastCalledWith();
+    expect(k.setImage).toHaveBeenLastCalledWith(undefined, { state: 1 });
     k.setImage.mockClear();
     await vi.advanceTimersByTimeAsync(2400);
     expect(k.setImage).not.toHaveBeenCalled();

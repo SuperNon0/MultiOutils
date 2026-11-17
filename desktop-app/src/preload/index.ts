@@ -18,6 +18,11 @@ function subscribe<T>(channel: string, cb: (payload: T) => void): Unsubscribe {
 }
 
 const api: PreloadApi = {
+  haKeyEditor: {
+    init: () => ipcRenderer.invoke('ha-key-editor:init'),
+    send: (message) => ipcRenderer.send('ha-key-editor:send', message),
+    onMessage: (cb) => subscribe('ha-key-editor:message', cb)
+  },
   haPicker: {
     data: () => ipcRenderer.invoke('ha-picker:data'),
     choose: (id) => ipcRenderer.send('ha-picker:choose', id),

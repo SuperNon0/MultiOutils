@@ -1,3 +1,6 @@
+import { cleanIndicator, renderIndicator, type IconIndicator, type IndicatorState } from '@multioutils/shared';
+export type { IconIndicator } from '@multioutils/shared';
+
 /**
  * Atelier d'icônes (module « Icônes ») : modèle de données et dessin SVG.
  * Partagé par le main (bibliothèque, export, pack Stream Deck) et le
@@ -81,6 +84,7 @@ export interface IconDesign extends IconColors {
   /** Épaisseur du trait (Tabler). */
   strokeWidth: number;
   text?: { value: string; size: number; color?: string; position: 'top' | 'center' | 'bottom'; weight: number };
+  indicator?: IconIndicator | null;
   badge?: { symbol: SymbolRef; fg: string; bg: string; corner: IconCorner } | null;
   /** Version « éteint » (paire d'états) : couleurs et symbole qui changent. */
   off?: (Partial<IconColors> & { symbol?: SymbolRef | null }) | null;
@@ -105,7 +109,7 @@ export interface IconStyle {
   id: string;
   name: string;
   look: Pick<IconDesign, 'fg' | 'bg' | 'bg2' | 'shape' | 'gradientAngle' | 'shadow' | 'scale' | 'strokeWidth'> &
-    Partial<Pick<IconDesign, 'dx' | 'dy' | 'rotate' | 'imageKeep'> & {
+    Partial<Pick<IconDesign, 'dx' | 'dy' | 'rotate' | 'imageKeep' | 'indicator'> & {
       text: NonNullable<IconDesign['text']> | null;
       badge: Omit<NonNullable<IconDesign['badge']>, 'symbol'> | null;
       off: Partial<IconColors> | null;
@@ -292,6 +296,7 @@ export function sanitizeDesign(v: unknown): IconDesign | null {
             weight: num(textRaw.weight, 300, 900, 600)
           }
         : undefined,
+    indicator: cleanIndicator(r.indicator),
     badge:
       badgeRaw && badgeSym
         ? { symbol: badgeSym, fg: hex(badgeRaw.fg, '#ffffff'), bg: hex(badgeRaw.bg, '#ff3b30'), corner: CORNERS.includes(badgeRaw.corner as IconCorner) ? (badgeRaw.corner as IconCorner) : 'tr' }
@@ -329,7 +334,7 @@ export function styleLook(d: IconDesign): IconStyle['look'] {
   return structuredClone({
     fg: d.fg, bg: d.bg, bg2: d.bg2, shape: d.shape, gradientAngle: d.gradientAngle,
     shadow: d.shadow, scale: d.scale, strokeWidth: d.strokeWidth,
-    imageKeep: d.imageKeep ?? true,
+    imageKeep: d.imageKeep ?? true, indicator: d.indicator ?? null,
     dx: d.dx, dy: d.dy, rotate: d.rotate, text: d.text ?? null,
     badge: d.badge ? { fg: d.badge.fg, bg: d.badge.bg, corner: d.badge.corner } : null,
     off: d.off ? { fg: d.off.fg, bg: d.off.bg, bg2: d.off.bg2 } : null
@@ -356,6 +361,7 @@ export function sanitizeStyle(v: unknown): IconStyle | null {
       fg: d.fg, bg: d.bg, bg2: d.bg2, shape: d.shape, gradientAngle: d.gradientAngle,
       shadow: d.shadow, scale: d.scale, strokeWidth: d.strokeWidth,
       ...('imageKeep' in raw ? { imageKeep: raw.imageKeep !== false } : {}),
+      ...('indicator' in raw ? { indicator: full.indicator } : {}),
       ...('dx' in raw ? { dx: full.dx } : {}),
       ...('dy' in raw ? { dy: full.dy } : {}),
       ...('rotate' in raw ? { rotate: full.rotate } : {}),
@@ -449,12 +455,13 @@ export interface RenderInput {
   badgeArt?: SymbolArt | null;
   /** Côté en pixels (144 par défaut, 288 pour les écrans haute résolution). */
   size?: number;
+  indicatorState?: IndicatorState;
 }
 
 let uidSeq = 0;
 
 /** Dessine l'icône en SVG (chaîne complète). */
-export function renderIconSvg({ design: d, art, badgeArt, size = 144 }: RenderInput): string {
+export function renderIconSvg({ design: d, art, badgeArt, size = 144, indicatorState }: RenderInput): string {
   const S = size;
   const uid = (++uidSeq).toString(36);
   const defs: string[] = [];
@@ -504,6 +511,7 @@ export function renderIconSvg({ design: d, art, badgeArt, size = 144 }: RenderIn
     parts.push(`<circle cx="${bx}" cy="${by}" r="${r}" fill="${b.bg}" stroke="${d.shape === 'none' ? 'none' : d.bg}" stroke-width="${(S * 0.02).toFixed(1)}"/>`);
     parts.push(symbolMarkup(badgeArt, b.fg, { x: bx - r * 0.62, y: by - r * 0.62, size: r * 1.24 }, Math.max(1.5, d.strokeWidth), false, uid + 'b'));
   }
+  parts.push(renderIndicator(d.indicator, indicatorState, S));
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}">${defs.length ? `<defs>${defs.join('')}</defs>` : ''}${parts.join('')}</svg>`;
 }
 

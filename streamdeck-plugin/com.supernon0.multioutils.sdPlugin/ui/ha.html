@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="ha.css" />
   </head>
   <body>
+    <button type="button" class="btn pri grand" id="full-editor">Ouvrir tous les paramètres dans MultiOutils</button>
     <div class="conn" id="conn"><i></i><span id="conn-t">Connexion…</span><button type="button" class="lien" id="conn-b">Connexion directe</button></div>
 
     <section class="carte" id="direct" hidden>
@@ -50,6 +51,11 @@
     <section class="carte">
       <h3>Apparence</h3>
       <div class="apercu"><img id="apercu" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" /><p class="aide">Aperçu de la touche, avec l'état actuel.</p></div>
+      <label class="coche"><input type="checkbox" id="customIcon" /> Utiliser mes deux images dans Stream Deck (éteint / allumé)</label>
+      <p class="aide">Les états 1 et 2 de Stream Deck permettent de choisir vos deux images. Le nom et la confirmation restent affichés par-dessus. Pour un indicateur vivant, choisissez plutôt une icône de l’atelier ci-dessous.</p>
+      <label>Icône de l’atelier MultiOutils<select id="libraryIcon"><option value="">Automatique / Material Design</option></select></label>
+      <button type="button" class="btn" id="library-refresh">Actualiser les icônes de l’atelier</button>
+      <p class="aide">Les barres et pastilles créées dans l’atelier suivent l’état, la luminosité et la couleur de l’entité. MultiOutils doit rester ouvert.</p>
       <label>Style
         <select id="style">
           <option value="accent">Classique (fond sombre, symbole coloré)</option>

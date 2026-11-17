@@ -49,6 +49,11 @@ export interface HaPickerData {
 }
 
 export interface PreloadApi {
+  haKeyEditor: {
+    init(): Promise<{ action: string; settings: Record<string, unknown> }>;
+    send(message: { event: string; payload: Record<string, unknown> }): void;
+    onMessage(cb: (message: { event: string; payload?: Record<string, unknown>; settings?: Record<string, unknown> }) => void): Unsubscribe;
+  };
   /** Grand sélecteur d'entités Home Assistant ouvert depuis le Stream Deck. */
   haPicker: {
     data(): Promise<HaPickerData>;
