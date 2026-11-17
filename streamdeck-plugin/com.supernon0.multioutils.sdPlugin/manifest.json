@@ -1,7 +1,7 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "Name": "MultiOutils",
-  "Version": "0.9.1.0",
+  "Version": "0.9.2.0",
   "Author": "SuperNon0",
   "UUID": "com.supernon0.multioutils",
   "Description": "Pilote MultiOutils (captures, presse-papiers, bureau, autoclic) et Home Assistant : entités, services, états en direct, touches PC. Nécessite l'application MultiOutils lancée (Home Assistant peut aussi se connecter directement).",
@@ -173,12 +173,18 @@
     },
     {
       "UUID": "com.supernon0.multioutils.desktop-hide",
-      "Name": "Bureau : masquer les zones",
-      "Tooltip": "Masque ou réaffiche toutes les zones du bureau",
+      "Name": "Bureau : masquer / afficher les zones",
+      "Tooltip": "Bascule les zones : œil ouvert = visibles, œil barré = masquées (sauf les zones Toujours visible)",
       "Icon": "imgs/desktop-hide",
+      "DisableAutomaticStates": true,
       "States": [
         {
-          "Image": "imgs/key-desktop-hide"
+          "Image": "imgs/key-desktop-peek",
+          "Title": "Zones\nvisibles"
+        },
+        {
+          "Image": "imgs/key-desktop-hide",
+          "Title": "Zones\nmasquées"
         }
       ]
     },

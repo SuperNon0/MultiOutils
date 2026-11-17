@@ -10378,6 +10378,99 @@ function registerPcActions() {
     }
 }
 
+const BASE_URL$1 = 'http://127.0.0.1:41320';
+/** Deux états du manifeste, pilotés par l'app et personnalisables dans Stream Deck. */
+let DesktopToggleHide = (() => {
+    let _classDecorators = [action({ UUID: 'com.supernon0.multioutils.desktop-hide' })];
+    let _classDescriptor;
+    let _classExtraInitializers = [];
+    let _classThis;
+    let _classSuper = SingletonAction;
+    (class extends _classSuper {
+        static { _classThis = this; }
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            __esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, { kind: "class", name: _classThis.name, metadata: _metadata }, null, _classExtraInitializers);
+            _classThis = _classDescriptor.value;
+            if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+            __runInitializers(_classThis, _classExtraInitializers);
+        }
+        keys = new Map();
+        timer = null;
+        reading = null;
+        pressing = false;
+        async onWillAppear(ev) {
+            if (!ev.action.isKey())
+                return;
+            this.keys.set(ev.action.id, ev.action);
+            if (!this.timer)
+                this.timer = setInterval(() => void this.refresh(), 1000);
+            await this.refresh();
+        }
+        onWillDisappear(ev) {
+            this.keys.delete(ev.action.id);
+            if (this.keys.size === 0 && this.timer) {
+                clearInterval(this.timer);
+                this.timer = null;
+            }
+        }
+        async draw() {
+            try {
+                const res = await fetch(`${BASE_URL$1}/desktop/visibility`, { signal: AbortSignal.timeout(2500) });
+                if (!res.ok)
+                    throw new Error(`HTTP ${res.status}`);
+                const state = await res.json();
+                if (typeof state.hidden !== 'boolean' || typeof state.enabled !== 'boolean')
+                    throw new Error('état inconnu');
+                await Promise.all([...this.keys.values()].map(async (key) => {
+                    if (!state.enabled) {
+                        await key.setTitle('Bureau\ndésactivé');
+                        await key.showAlert();
+                        return;
+                    }
+                    await key.setState(state.hidden ? 1 : 0);
+                    await key.setTitle(); // titre du manifeste ou titre personnalisé
+                }));
+            }
+            catch {
+                await Promise.all([...this.keys.values()].map(async (key) => {
+                    await key.setTitle('Indisponible');
+                    await key.showAlert();
+                }));
+            }
+        }
+        async refresh() {
+            if (this.pressing)
+                return;
+            if (!this.reading)
+                this.reading = this.draw().finally(() => { this.reading = null; });
+            await this.reading;
+        }
+        async onKeyDown(ev) {
+            // Une seule opération à la fois : aucune réponse de lecture périmée après l'appui.
+            if (this.pressing)
+                return;
+            this.pressing = true;
+            try {
+                await this.reading;
+                const res = await fetch(`${BASE_URL$1}/command/desktop.toggleHide`, {
+                    method: 'POST', signal: AbortSignal.timeout(3000)
+                });
+                if (!res.ok)
+                    throw new Error(`HTTP ${res.status}`);
+                await this.draw();
+            }
+            catch {
+                await ev.action.showAlert();
+            }
+            finally {
+                this.pressing = false;
+            }
+        }
+    });
+    return _classThis;
+})();
+
 /**
  * Plugin Stream Deck MultiOutils (docs/00 §8) : chaque touche appelle le
  * service localhost de l'app (127.0.0.1:41320). Le plugin ne parle JAMAIS au
@@ -10809,25 +10902,6 @@ let DesktopPeek = (() => {
             __runInitializers(_classThis, _classExtraInitializers);
         }
         command = 'desktop.peek';
-    });
-    return _classThis;
-})();
-let DesktopToggleHide = (() => {
-    let _classDecorators = [action({ UUID: 'com.supernon0.multioutils.desktop-hide' })];
-    let _classDescriptor;
-    let _classExtraInitializers = [];
-    let _classThis;
-    let _classSuper = IconKey;
-    (class extends _classSuper {
-        static { _classThis = this; }
-        static {
-            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-            __esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, { kind: "class", name: _classThis.name, metadata: _metadata }, null, _classExtraInitializers);
-            _classThis = _classDescriptor.value;
-            if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
-            __runInitializers(_classThis, _classExtraInitializers);
-        }
-        command = 'desktop.toggleHide';
     });
     return _classThis;
 })();
