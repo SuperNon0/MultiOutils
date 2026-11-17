@@ -7,6 +7,7 @@ import {
   exportFileName,
   newIconId,
   symbolKey,
+  svgDataUrl,
   styleLook,
   type IconColors,
   type IconIndicator,
@@ -20,7 +21,7 @@ import {
 import { ui } from '../../encre/ui';
 import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
-import { artOf, designSvg, designUrl, importImage, svgToPng } from './art';
+import { artOf, designSvg, importImage, svgToPng } from './art';
 import { PHOSPHOR_WEIGHTS, SymbolPicker, SymbolThumb } from './SymbolPicker';
 
 const SHAPES: IconShape[] = ['squircle', 'rounded', 'round', 'square', 'none'];
@@ -163,6 +164,7 @@ export function IconEditor({
 
   const sym = d.symbol;
   const offOn = !!d.off;
+  const previewSvg = designSvg(d, 288, showOff && offOn);
 
   return (
     <div className="ic-editor">
@@ -179,7 +181,7 @@ export function IconEditor({
           onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }}
         />
         <div className="ic-ed-preview">
-          <img src={designUrl(d, 288, showOff && offOn)} alt="" width={132} height={132} />
+          <img src={svgDataUrl(previewSvg)} alt="" width={132} height={132} />
           {offOn && (
             <div className="seg ic-seg">
               <button type="button" className={!showOff ? 'on' : ''} onClick={() => setShowOff(false)}>{t('icons.stateOn')}</button>
@@ -207,7 +209,7 @@ export function IconEditor({
               type="button"
               className="btn xs"
               title={t('icons.copy')}
-              onClick={() => void svgToPng(designSvg(d, 288), 288).then((png) => window.api.icons.copyImage(png)).then(() => ui.toast(t('icons.copied')))}
+              onClick={() => void svgToPng(previewSvg, 288).then((png) => window.api.icons.copyImage(png)).then(() => ui.toast(t('icons.copied')))}
             >
               <Icon name="copy" size={14} />
             </button>
