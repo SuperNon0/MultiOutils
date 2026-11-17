@@ -180,7 +180,8 @@
           "Image": "imgs/key-autoclick",
           "TitleAlignment": "bottom"
         }
-      ]
+      ],
+      "PropertyInspectorPath": "ui/autoclick-progress.html"
     },
     {
       "UUID": "com.supernon0.multioutils.autoclick-count",
@@ -192,7 +193,8 @@
           "Image": "imgs/key-autoclick-profile",
           "TitleAlignment": "bottom"
         }
-      ]
+      ],
+      "PropertyInspectorPath": "ui/autoclick-progress.html"
     },
     {
       "UUID": "com.supernon0.multioutils.desktop-peek",

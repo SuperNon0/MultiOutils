@@ -13,7 +13,7 @@
     label.append(check, document.createTextNode('Icône personnalisée dans Stream Deck'));
     const note = document.createElement('p');
     note.className = 'hint';
-    note.textContent = 'Choisis tes deux images via les états 1 (au repos) et 2 (profil en cours) dans Stream Deck. Le nom du profil reste affiché par-dessus ; laisse le champ Titre vide pour le nom automatique. Dans ce mode, l’image ne s’anime plus. Désactive pour retrouver l’icône animée MultiOutils.';
+    note.textContent = 'Choisis tes deux images via les états 1 (au repos) et 2 (profil en cours) dans Stream Deck. Le nom du profil reste affiché par-dessus ; laisse le champ Titre vide pour le nom automatique et choisis sa couleur dans les options du titre Stream Deck. Dans ce mode, l’image ne s’anime plus. Désactive pour retrouver l’icône animée MultiOutils.';
     host.append(label, note);
     function render() { check.checked = getSettings().customIcon === true; }
     render();

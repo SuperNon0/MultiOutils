@@ -21,6 +21,7 @@ export interface KeyLook {
   fallback?: string;
   title?: string;
   value?: string;
+  textColor?: string;
   /** Jauge de 0 à 100. */
   gauge?: number | null;
   /** Indisponible (entité) ou hors ligne (connexion). */
@@ -113,6 +114,7 @@ export function renderKey(k: KeyLook): string {
     parts.push(`<rect width="144" height="144" rx="22" fill="url(#s)"/>`);
     text = '#ffffff';
   }
+  if (k.textColor && /^#[0-9a-f]{6}$/i.test(k.textColor)) text = k.textColor;
   if (active && (k.style === 'symbole' || k.style === 'teinte')) parts.push(`<rect x="2" y="2" width="140" height="140" rx="20" fill="none" stroke="${alpha(k.color, 0.75)}" stroke-width="3"/>`);
   parts.push(icon);
 
@@ -120,7 +122,7 @@ export function renderKey(k: KeyLook): string {
     const v = fit(k.value as string, 11);
     const size = v.length <= 5 ? 30 : v.length <= 8 ? 24 : 19;
     const y = k.image ? 30 : 34;
-    parts.push(`<text x="72" y="${y}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${size}" font-weight="700" fill="${k.image ? '#ffffff' : text}">${esc(v)}</text>`);
+    parts.push(`<text x="72" y="${y}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${size}" font-weight="700" fill="${text}">${esc(v)}</text>`);
   }
   if (hasTitle) {
     const t = fit(k.title as string, 14);
@@ -137,8 +139,8 @@ export function renderKey(k: KeyLook): string {
   else if (k.unavailable) parts.push(`<circle cx="18" cy="18" r="8" fill="#ef7d6b" stroke="${k.background}" stroke-width="3"/>`);
   if (k.confirm) {
     parts.push(`<rect width="144" height="144" rx="22" fill="rgba(191,63,44,.92)"/>`);
-    parts.push(`<text x="72" y="66" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="#fff">${esc(fit(k.confirm, 12))}</text>`);
-    parts.push(`<text x="72" y="96" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="17" fill="#fff" opacity=".9">Rappuie</text>`);
+    parts.push(`<text x="72" y="66" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="${k.textColor && /^#[0-9a-f]{6}$/i.test(k.textColor) ? k.textColor : '#ffffff'}">${esc(fit(k.confirm, 12))}</text>`);
+    parts.push(`<text x="72" y="96" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="17" fill="${k.textColor && /^#[0-9a-f]{6}$/i.test(k.textColor) ? k.textColor : '#ffffff'}" opacity=".9">Rappuie</text>`);
   }
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144"${k.dimmed ? ' opacity="0.35"' : ''}>${parts.join('')}</svg>`;
   return `data:image/svg+xml;charset=utf8,${encodeURIComponent(svg)}`;

@@ -693,6 +693,7 @@
       if (key === 'customIcon' && v) { delete settings.libraryIcon; $('libraryIcon').value = ''; }
       if (key === 'libraryIcon' && v) { settings.customIcon = false; $('customIcon').checked = false; }
       if (key === 'titleMode') $('titleText').hidden = v !== 'custom';
+      if (key === 'customIcon' || key === 'libraryIcon') renderTextColorMode();
     };
   }
   bindField('style', 'style');
@@ -706,8 +707,15 @@
   bindField('decimals', 'decimals', 'number');
   $('color').oninput = () => set('color', $('color').value);
   $('colorOff').oninput = () => set('colorOff', $('colorOff').value);
+  $('textColor').oninput = () => set('textColor', $('textColor').value);
+  function renderTextColorMode() {
+    const native = !!settings.customIcon || !!settings.libraryIcon;
+    $('text-color-field').hidden = native;
+    $('native-text-help').hidden = !native;
+  }
   document.querySelectorAll('[data-raz]').forEach((b) => (b.onclick = () => {
     set(b.dataset.raz, undefined, true);
+    if (b.dataset.raz === 'textColor') $('textColor').value = '#ffffff';
   }));
   // cases dont la valeur par défaut dépend du type d'entité : on garde « vrai/faux » explicites
   $('gauge').onchange = () => set('gauge', $('gauge').checked);
@@ -718,6 +726,8 @@
     $('style').value = settings.style || 'accent';
     $('color').value = /^#[0-9a-f]{6}$/i.test(settings.color || '') ? settings.color : '#a99bff';
     $('colorOff').value = /^#[0-9a-f]{6}$/i.test(settings.colorOff || '') ? settings.colorOff : '#555b66';
+    $('textColor').value = /^#[0-9a-f]{6}$/i.test(settings.textColor || '') ? settings.textColor : '#ffffff';
+    renderTextColorMode();
     $('icon').value = settings.icon || '';
     $('iconOff').value = settings.iconOff || '';
     $('customIcon').checked = settings.customIcon === true;
@@ -801,7 +811,7 @@
     const m = MODELES.find((x) => x.id === $('modele').value);
     if (!m) return;
     const keep = {};
-    for (const key of ['entity', 'confirm', 'customIcon', 'libraryIcon', 'icon', 'iconOff', 'color', 'colorOff', 'lightColor', 'rules']) if (settings[key] !== undefined) keep[key] = settings[key];
+    for (const key of ['entity', 'confirm', 'customIcon', 'libraryIcon', 'icon', 'iconOff', 'color', 'colorOff', 'textColor', 'lightColor', 'rules']) if (settings[key] !== undefined) keep[key] = settings[key];
     settings = Object.assign(keep, JSON.parse(JSON.stringify(m.s)), { modelId: m.id, titleMode: 'custom', titleText: m.t.replace(/^[^:]+ : /, '') });
     if (!settings.entity) delete settings.entity;
     save(true);

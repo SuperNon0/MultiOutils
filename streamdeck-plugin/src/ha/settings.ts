@@ -55,6 +55,8 @@ export interface HaKeySettings {
   /** Affichage. */
   titleMode?: 'auto' | 'custom' | 'none';
   titleText?: string;
+  /** Couleur du texte dessiné par le plugin ; absente = contraste automatique. */
+  textColor?: string;
   customIcon?: boolean;
   libraryIcon?: string;
   valueMode?: 'auto' | 'show' | 'hide';
