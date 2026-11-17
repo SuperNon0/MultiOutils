@@ -44,7 +44,7 @@ interface Env {
 
 interface SdKey {
   id: string;
-  setTitle(title: string): Promise<void>;
+  setTitle(title?: string): Promise<void>;
   setImage(image: string): Promise<void>;
   showAlert(): Promise<void>;
   showOk(): Promise<void>;
@@ -72,7 +72,7 @@ interface GlobalSettings extends JsonObject {
   clip?: JsonObject;
 }
 
-export function registerHaActions(env: Env): { rerender(): void } {
+export function registerHaActions(env: Env): void {
   const hub = new HaHub((...a) => streamDeck.logger.debug(a.map(String).join(' ')));
   const entries = new Map<string, Entry>();
   let blink = false;
@@ -150,10 +150,6 @@ export function registerHaActions(env: Env): { rerender(): void } {
       e.lastSvg = svg;
       await e.key.setImage(svg);
     }
-  };
-
-  const drawAll = (): void => {
-    for (const e of entries.values()) void draw(e);
   };
 
   hub.onChange((ids) => {
@@ -379,8 +375,7 @@ export function registerHaActions(env: Env): { rerender(): void } {
     }
     streamDeck.actions.registerAction(new HaKey());
   }
-  registerPcActions(env);
-  return { rerender: drawAll };
+  registerPcActions();
 }
 
 /* ───────── touches PC ───────── */
@@ -393,35 +388,23 @@ const PC: Array<{ uuid: string; command: string; glyph: string; label: string; c
 ];
 
 interface PcSettings extends JsonObject {
-  color?: string;
   confirm?: boolean;
 }
 
-function registerPcActions(env: Env): void {
+/** Touches PC : l'image reste celle du manifeste (ou celle choisie dans
+ *  Stream Deck) ; la confirmation s'affiche dans le titre. */
+function registerPcActions(): void {
   for (const def of PC) {
     const keys = new Map<string, { key: SdKey; s: PcSettings; until: number }>();
-    const draw = (k: { key: SdKey; s: PcSettings; until: number }): Promise<void> => {
-      const t = env.theme();
-      return k.key.setImage(
-        renderKey({
-          style: 'accent',
-          background: t.background,
-          dark: t.theme === 'dark',
-          color: HEX.test(k.s.color ?? '') ? (k.s.color as string) : t.accent,
-          on: true,
-          fallback: FALLBACK[def.glyph],
-          title: def.label,
-          confirm: k.until > Date.now() ? 'Confirmer ?' : undefined
-        })
-      );
-    };
+    const draw = (k: { key: SdKey; s: PcSettings; until: number }): Promise<void> =>
+      k.until > Date.now() ? k.key.setTitle('Confirmer ?') : k.key.setTitle();
     class PcKey extends SingletonAction<PcSettings> {
       override readonly manifestId = def.uuid;
       override onWillAppear(ev: WillAppearEvent<PcSettings>): Promise<void> {
         const key = ev.action as unknown as SdKey;
         const k = { key, s: ev.payload.settings ?? {}, until: 0 };
         keys.set(key.id, k);
-        return draw(k);
+        return Promise.resolve();
       }
       override onWillDisappear(ev: WillDisappearEvent<PcSettings>): void {
         keys.delete((ev.action as unknown as SdKey).id);
@@ -430,7 +413,6 @@ function registerPcActions(env: Env): void {
         const k = keys.get((ev.action as unknown as SdKey).id);
         if (!k) return;
         k.s = ev.payload.settings ?? {};
-        return draw(k);
       }
       override async onKeyDown(ev: KeyDownEvent<PcSettings>): Promise<void> {
         const k = keys.get((ev.action as unknown as SdKey).id);
@@ -442,8 +424,10 @@ function registerPcActions(env: Env): void {
           setTimeout(() => void draw(k), CONFIRM_MS + 50);
           return;
         }
-        k.until = 0;
-        await draw(k);
+        if (needConfirm) {
+          k.until = 0;
+          await draw(k);
+        }
         try {
           const res = await fetch(`http://127.0.0.1:41320/command/${def.command}`, { method: 'POST', signal: AbortSignal.timeout(3000) });
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -455,6 +439,4 @@ function registerPcActions(env: Env): void {
     }
     streamDeck.actions.registerAction(new PcKey());
   }
-  // re-dessin quand l'accent de l'app change : géré par rerender des touches HA ;
-  // les touches PC sont redessinées à chaque apparition.
 }
