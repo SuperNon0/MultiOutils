@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.13.1",
+    "date": "2026-11-17",
+    "titre": "Suivi de l’autoclic et personnalisation des zones",
+    "nouveautes": [
+      "Deux touches Stream Deck affichent le temps écoulé et le nombre de clics du profil avec une image personnalisable.",
+      "Le menu du bureau permet de choisir le type de zone après le tracé. Dans une note, le clic droit propose les suggestions orthographiques et les commandes couper, copier et coller.",
+      "Dans Home Assistant, retrouve les cartes par pièce et choisis la couleur du texte des icônes automatiques dans Apparence.",
+      "Le plugin Stream Deck 0.10.2.0 est disponible dans Réglages → Mises à jour."
+    ],
+    "corrections": [
+      "Les touches de visibilité des zones laissent le titre à ta main. La liste des entités utilise un seul défilement vertical."
+    ]
+  },
+  {
     "version": "0.13.0",
     "date": "2026-11-17",
     "titre": "Tous les réglages réunis, zones à deux états et historique",
