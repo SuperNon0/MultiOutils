@@ -1,12 +1,35 @@
 [
   {
-    "version": "0.12.0",
-    "date": "2026-11-16",
+    "version": "0.13.0",
+    "date": "2026-11-17",
     "titre": "Historique des mises à jour",
     "nouveautes": [
       "Après chaque mise à jour, une fenêtre « Quoi de neuf » montre ce que la nouvelle version apporte (et les versions sautées entre-temps).",
       "Réglages → Mises à jour : historique complet de toutes les versions de MultiOutils, avec leurs nouveautés et corrections.",
       "Les notes d'une version disponible s'affichent proprement avant de cliquer « Mettre à jour », et chaque release GitHub porte désormais ses notes."
+    ]
+  },
+  {
+    "version": "0.12.0",
+    "date": "2026-11-17",
+    "titre": "Touches Home Assistant par modèle",
+    "nouveautes": [
+      "Stream Deck : une action par modèle de touche Home Assistant (Lumière, Interrupteur, Volet, Thermostat, Capteur, Lecteur, Scène ou script, Caméra), avec les bonnes entités et des réglages de départ adaptés ; l'ancienne action devient « HA : Avancé (tout) ».",
+      "Bouton « Choisir dans une grande fenêtre » : un sélecteur MultiOutils rangé par pièce et par étage, avec icônes, état et recherche dans toute la maison.",
+      "Panneau de réglages du Stream Deck lisible sans défilement horizontal, liste rangée par pièce (plugin 0.9.0)."
+    ]
+  },
+  {
+    "version": "0.11.1",
+    "date": "2026-11-17",
+    "titre": "Refonte des widgets du bureau",
+    "nouveautes": [
+      "Widgets des zones (Home Assistant, capteurs, courbe, notes, presse-papiers, recherche, mini cloud) redessinés dans le style « encre », aux couleurs de la zone.",
+      "Textes des widgets traduits en français et en anglais, chiffres de la courbe au format de la langue."
+    ],
+    "corrections": [
+      "Une zone forcée en clair ou en sombre garde l'accent choisi au lieu de repasser en lavande.",
+      "Plus de compteur « 0 » dans le titre des widgets."
     ]
   },
   {
