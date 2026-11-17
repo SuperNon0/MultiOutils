@@ -55,6 +55,9 @@
     const meta = document.createElement('div'); meta.className = 'entity-results-meta';
     meta.innerHTML = '<span id="res-count"></span><button type="button" id="res-more" class="lien" hidden>Afficher plus</button>';
     $('res').before(meta);
+    const rooms = document.createElement('nav'); rooms.className = 'entity-rooms'; rooms.setAttribute('aria-label', 'Pièces'); rooms.id = 'entity-rooms';
+    const area = document.createElement('div'); area.className = 'entity-browser';
+    $('res').before(area); area.append(rooms, $('res')); 
 
     function closeHelp(restoreFocus = false) {
       if (!openHelp) return;
