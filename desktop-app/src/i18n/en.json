@@ -1181,7 +1181,7 @@
   "desktop.set.enabled": "Turn on zones",
   "desktop.set.enabledSub": "Shows zones on the desktop when MultiOutils starts",
   "desktop.set.hideNative": "Hide Windows icons",
-  "desktop.set.hideNativeSub": "Zones then show every icon. They come back as soon as MultiOutils stops.",
+  "desktop.set.hideNativeSub": "Turn this off to drag a selection rectangle around icons on the Windows desktop.",
   "desktop.set.opacity": "Background opacity",
   "desktop.set.opacitySub": "Glass background in MultiOutils colours",
   "desktop.set.snap": "Snapping",
