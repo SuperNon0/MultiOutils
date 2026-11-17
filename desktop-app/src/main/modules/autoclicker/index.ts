@@ -42,6 +42,10 @@ export function createAutoclickerMainModule(): MainToolModule {
   let runningId: string | null = null;
   let remaining = 0; // > 0 : clics restants ; -1 : illimité
   let done = 0;
+  let startedAt: number | null = null;
+  let stoppedAt: number | null = null;
+  let lastProfileId: string | null = null;
+  let runTarget: number | null = null;
   let lastShortcut = '';
 
   const kvGet = (key: string): string | null => {
@@ -121,6 +125,7 @@ export function createAutoclickerMainModule(): MainToolModule {
     if (!runningId) return;
     const name = getStore().profiles.find((p) => p.id === runningId)?.name ?? '';
     runningId = null;
+    stoppedAt = Date.now();
     if (notify) ctx.notify(ctx.i18n.t('autoclick.notif.stopped', { name, n: done }));
     ctx.events.emit('tray-refresh');
     broadcastState();
@@ -135,6 +140,7 @@ export function createAutoclickerMainModule(): MainToolModule {
         timer = null;
         const name = profile.name;
         runningId = null;
+        stoppedAt = Date.now();
         ctx.notify(ctx.i18n.t('autoclick.notif.done', { name, n: done }));
         ctx.events.emit('tray-refresh');
         broadcastState();
@@ -169,6 +175,10 @@ export function createAutoclickerMainModule(): MainToolModule {
     remaining = profile.repeat === 'infinite' ? -1 : Math.max(1, Math.floor(profile.repeatCount));
     done = 0;
     runningId = id;
+    lastProfileId = id;
+    startedAt = Date.now();
+    stoppedAt = null;
+    runTarget = remaining < 0 ? null : remaining;
     ctx.notify(ctx.i18n.t('autoclick.notif.started', { name: profile.name }));
     ctx.events.emit('tray-refresh');
     broadcastState();
@@ -236,6 +246,19 @@ export function createAutoclickerMainModule(): MainToolModule {
           runningProfileId: runningId,
           selectedId: s.selectedId,
           available: clickerAvailable()
+        };
+      });
+      // Une photographie cohérente pour les touches d'information Stream Deck.
+      ctx.registerLocalRoute('GET', /^\/autoclick\/progress$/, () => {
+        const store = getStore();
+        const currentId = runningId ?? store.selectedId;
+        const profile = store.profiles.find((p) => p.id === currentId);
+        const hasRun = currentId != null && currentId === lastProfileId && startedAt != null;
+        return {
+          running: runningId != null,
+          elapsedMs: hasRun ? Math.max(0, (stoppedAt ?? Date.now()) - startedAt!) : 0,
+          done: hasRun ? done : 0,
+          target: runningId && hasRun ? runTarget : profile?.repeat === 'count' ? Math.max(1, Math.floor(profile.repeatCount)) : null
         };
       });
       // Touche « profil » du Stream Deck : SÉLECTIONNE le profil (ne lance pas).

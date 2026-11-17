@@ -121,6 +121,7 @@ function NotesWidget({ zone }: { zone: Zone }): ReactNode {
         className="wg-note"
         value={text}
         spellCheck
+        onContextMenu={(e) => e.stopPropagation()}
         placeholder={t('desktop.notes.ph')}
         onPointerDown={keepInside}
         onKeyDown={(e) => e.stopPropagation()}

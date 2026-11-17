@@ -9,6 +9,7 @@ import streamDeck, {
 } from '@elgato/streamdeck';
 import { registerHaActions } from './ha/actions';
 import { DesktopToggleHide, DesktopPeek } from './desktop-visibility';
+import { AutoclickTime, AutoclickCount } from './autoclick-progress';
 
 /**
  * Plugin Stream Deck MultiOutils (docs/00 §8) : chaque touche appelle le
@@ -368,6 +369,8 @@ streamDeck.actions.registerAction(new ClipsPinCurrent());
 streamDeck.actions.registerAction(new ColorPickerStart());
 streamDeck.actions.registerAction(new AutoclickToggle());
 streamDeck.actions.registerAction(new AutoclickProfile());
+streamDeck.actions.registerAction(new AutoclickTime());
+streamDeck.actions.registerAction(new AutoclickCount());
 streamDeck.actions.registerAction(new DesktopPeek());
 streamDeck.actions.registerAction(new DesktopToggleHide());
 streamDeck.actions.registerAction(new DesktopSortNow());

@@ -1630,13 +1630,15 @@ export function createDesktopMainModule(): MainToolModule {
       });
 
       // ---- Calque de dessin
-      ipcMain.on('desktop:draw:done', (_e, payload: { displayId: string; rect: Rect; kind: ZoneKind } | null) => {
+      ipcMain.on('desktop:draw:done', (_e, payload: { displayId: string; rect: Rect; kind: ZoneKind | ZonePreset } | null) => {
         draw.close();
         if (!payload || !payload.rect) return;
         const d = displayFor(String(payload.displayId));
         const r = payload.rect;
         const abs = { x: d.bounds.x + r.x, y: d.bounds.y + r.y, width: r.width, height: r.height };
-        void createZone(payload.kind === 'folder' ? 'folder' : 'shortcuts', toRelative(clampToArea(abs, d.workArea)));
+        const bounds = toRelative(clampToArea(abs, d.workArea));
+        if (ZONE_PRESETS.includes(payload.kind as ZonePreset)) createPreset(payload.kind as ZonePreset, bounds);
+        else void createZone(payload.kind === 'folder' ? 'folder' : 'shortcuts', bounds);
       });
       ipcMain.on('desktop:draw:cancel', () => draw.close());
 

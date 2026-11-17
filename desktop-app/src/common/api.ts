@@ -212,7 +212,7 @@ export interface PreloadApi {
       note(text: string): void;
     };
     /** Calque de dessin. */
-    drawDone(payload: { displayId: string; rect: import('./desktop').Rect; kind: import('./desktop').ZoneKind }): void;
+    drawDone(payload: { displayId: string; rect: import('./desktop').Rect; kind: import('./desktop').ZoneKind | import('./desktop').ZonePreset }): void;
     drawCancel(): void;
   };
   settings: {

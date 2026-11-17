@@ -1078,3 +1078,5 @@ body[data-fenetre='zone-pages'] #root {
   --acc-dim: color-mix(in srgb, var(--accent) 14%, transparent);
   --acc-line: color-mix(in srgb, var(--accent) 45%, transparent);
 }
+
+.zd .pop { max-height: calc(100vh - 24px); overflow-y: auto; }

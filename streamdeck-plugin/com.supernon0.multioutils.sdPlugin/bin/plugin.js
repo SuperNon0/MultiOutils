@@ -10530,17 +10530,14 @@ class DesktopVisibilitySwitch extends SingletonAction {
                 throw new Error('état inconnu');
             await Promise.all([...this.keys.values()].map(async (key) => {
                 if (!state.enabled) {
-                    await key.setTitle('Bureau\ndésactivé');
                     await key.showAlert();
                     return;
                 }
                 await key.setState(state[this.field] ? 1 : 0);
-                await key.setTitle(); // titre du manifeste ou titre personnalisé
             }));
         }
         catch {
             await Promise.all([...this.keys.values()].map(async (key) => {
-                await key.setTitle('Indisponible');
                 await key.showAlert();
             }));
         }
@@ -10611,6 +10608,90 @@ let DesktopPeek = (() => {
         }
         command = 'desktop.peek';
         field = 'peek';
+    });
+    return _classThis;
+})();
+
+function progressTitle(kind, state) {
+    if (kind === 'count')
+        return `${state.done} / ${state.target ?? '∞'}`;
+    const seconds = Math.max(0, Math.floor(state.elapsedMs / 1000));
+    const h = Math.floor(seconds / 3600), m = Math.floor(seconds / 60) % 60, s = seconds % 60;
+    return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+}
+class ProgressAction extends SingletonAction {
+    keys = new Map();
+    timer = null;
+    reading = false;
+    async refresh() {
+        if (this.reading)
+            return;
+        this.reading = true;
+        try {
+            const res = await fetch('http://127.0.0.1:41320/autoclick/progress', { signal: AbortSignal.timeout(2500) });
+            if (!res.ok)
+                throw new Error('unavailable');
+            const data = await res.json();
+            await Promise.all([...this.keys.values()].map((key) => key.setTitle(progressTitle(this.kind, data))));
+        }
+        catch {
+            await Promise.all([...this.keys.values()].map((key) => key.setTitle('—')));
+        }
+        finally {
+            this.reading = false;
+        }
+    }
+    async onWillAppear(ev) {
+        if (!ev.action.isKey())
+            return;
+        this.keys.set(ev.action.id, ev.action);
+        if (!this.timer)
+            this.timer = setInterval(() => void this.refresh(), 1000);
+        await this.refresh();
+    }
+    onWillDisappear(ev) {
+        this.keys.delete(ev.action.id);
+        if (!this.keys.size && this.timer) {
+            clearInterval(this.timer);
+            this.timer = null;
+        }
+    }
+}
+let AutoclickTime = (() => {
+    let _classDecorators = [action({ UUID: 'com.supernon0.multioutils.autoclick-time' })];
+    let _classDescriptor;
+    let _classExtraInitializers = [];
+    let _classThis;
+    let _classSuper = ProgressAction;
+    (class extends _classSuper {
+        static { _classThis = this; }
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            __esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, { kind: "class", name: _classThis.name, metadata: _metadata }, null, _classExtraInitializers);
+            _classThis = _classDescriptor.value;
+            if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+            __runInitializers(_classThis, _classExtraInitializers);
+        }
+        kind = 'time';
+    });
+    return _classThis;
+})();
+let AutoclickCount = (() => {
+    let _classDecorators = [action({ UUID: 'com.supernon0.multioutils.autoclick-count' })];
+    let _classDescriptor;
+    let _classExtraInitializers = [];
+    let _classThis;
+    let _classSuper = ProgressAction;
+    (class extends _classSuper {
+        static { _classThis = this; }
+        static {
+            const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
+            __esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, { kind: "class", name: _classThis.name, metadata: _metadata }, null, _classExtraInitializers);
+            _classThis = _classDescriptor.value;
+            if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
+            __runInitializers(_classThis, _classExtraInitializers);
+        }
+        kind = 'count';
     });
     return _classThis;
 })();
@@ -11134,6 +11215,8 @@ streamDeck.actions.registerAction(new ClipsPinCurrent());
 streamDeck.actions.registerAction(new ColorPickerStart());
 streamDeck.actions.registerAction(new AutoclickToggle());
 streamDeck.actions.registerAction(new AutoclickProfile());
+streamDeck.actions.registerAction(new AutoclickTime());
+streamDeck.actions.registerAction(new AutoclickCount());
 streamDeck.actions.registerAction(new DesktopPeek());
 streamDeck.actions.registerAction(new DesktopToggleHide());
 streamDeck.actions.registerAction(new DesktopSortNow());
