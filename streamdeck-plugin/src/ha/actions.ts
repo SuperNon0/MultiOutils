@@ -5,7 +5,6 @@
  * (ui/ha.html), qui parle au plugin par sendToPlugin.
  */
 import streamDeck, {
-  action,
   SingletonAction,
   type DidReceiveSettingsEvent,
   type JsonObject,
@@ -28,6 +27,7 @@ import {
 } from '../../../packages/shared/src/ha/model';
 import type { HaRawState } from '../../../packages/shared/src/ha/socket';
 import { HaHub, type DirectConfig } from './hub';
+import { HA_KINDS, type HaKind } from './kinds';
 import { fallbackFor, FALLBACK, renderKey, type KeyStyle } from './render';
 import { gaugeByDefault, planPress, showsValueByDefault, type HaKeySettings } from './settings';
 
@@ -284,7 +284,7 @@ export function registerHaActions(env: Env): { rerender(): void } {
     void streamDeck.ui.current?.sendToPropertyInspector(payload);
   };
 
-  const onMessage = async (e: Entry | undefined, msg: Record<string, unknown>): Promise<void> => {
+  const onMessage = async (e: Entry | undefined, msg: Record<string, unknown>, kind: HaKind): Promise<void> => {
     const cmd = msg.cmd;
     try {
       if (cmd === 'status') {
@@ -313,6 +313,16 @@ export function registerHaActions(env: Env): { rerender(): void } {
         await streamDeck.settings.setGlobalSettings(next);
         applyGlobals(next);
         reply({ cmd, ok: true });
+      } else if (cmd === 'pick' && e) {
+        if (hub.status.mode !== 'app') return reply({ cmd, error: 'Le grand sélecteur a besoin de MultiOutils ouvert.' });
+        const id = await hub.pick(e.s.entity, kind.domains, String(msg.title ?? ''));
+        if (!id) return reply({ cmd, ok: false });
+        const same = (e.s.entity ?? '').split('.')[0] === id.split('.')[0];
+        const { mode: _m, preset: _p, ...rest } = e.s;
+        const s: HaKeySettings = same ? { ...e.s, entity: id } : { ...rest, entity: id };
+        await e.key.setSettings(s as unknown as JsonObject);
+        setSettings(e, s);
+        reply({ cmd, ok: true, settings: s as unknown as JsonObject });
       } else if (cmd === 'copy' && e) {
         const { entity: _ent, ...rest } = e.s;
         const next: GlobalSettings = { ...globals, clip: rest as unknown as JsonObject };
@@ -331,36 +341,44 @@ export function registerHaActions(env: Env): { rerender(): void } {
     }
   };
 
-  @action({ UUID: 'com.supernon0.multioutils.ha' })
-  class HaKey extends SingletonAction<JsonObject> {
-    override onWillAppear(ev: WillAppearEvent<JsonObject>): void {
-      const key = ev.action as unknown as SdKey;
-      const e: Entry = { key, s: {}, watching: '' };
-      entries.set(key.id, e);
-      setSettings(e, (ev.payload.settings ?? {}) as unknown as HaKeySettings);
-      hub.start();
+  // une action par modèle de touche (lumière, volet, capteur…), même code
+  for (const kind of HA_KINDS) {
+    class HaKey extends SingletonAction<JsonObject> {
+      override readonly manifestId = kind.uuid;
+      override async onWillAppear(ev: WillAppearEvent<JsonObject>): Promise<void> {
+        const key = ev.action as unknown as SdKey;
+        const e: Entry = { key, s: {}, watching: '' };
+        entries.set(key.id, e);
+        let s = (ev.payload.settings ?? {}) as unknown as HaKeySettings;
+        // touche neuve : réglages de départ du modèle
+        if (!Object.keys(s).length && Object.keys(kind.defaults).length) {
+          s = { ...kind.defaults } as HaKeySettings;
+          await key.setSettings(s as unknown as JsonObject);
+        }
+        setSettings(e, s);
+        hub.start();
+      }
+      override onWillDisappear(ev: WillDisappearEvent<JsonObject>): void {
+        const id = (ev.action as unknown as SdKey).id;
+        const e = entries.get(id);
+        if (e?.watching) hub.unwatch(e.watching);
+        entries.delete(id);
+      }
+      override onDidReceiveSettings(ev: DidReceiveSettingsEvent<JsonObject>): void {
+        const e = entries.get((ev.action as unknown as SdKey).id);
+        if (e) setSettings(e, (ev.payload.settings ?? {}) as unknown as HaKeySettings);
+      }
+      override async onKeyDown(ev: KeyDownEvent<JsonObject>): Promise<void> {
+        const e = entries.get((ev.action as unknown as SdKey).id);
+        if (e) await press(e);
+      }
+      override async onSendToPlugin(ev: SendToPluginEvent<JsonValue, JsonObject>): Promise<void> {
+        const e = entries.get((ev.action as unknown as SdKey).id);
+        await onMessage(e, (ev.payload ?? {}) as Record<string, unknown>, kind);
+      }
     }
-    override onWillDisappear(ev: WillDisappearEvent<JsonObject>): void {
-      const id = (ev.action as unknown as SdKey).id;
-      const e = entries.get(id);
-      if (e?.watching) hub.unwatch(e.watching);
-      entries.delete(id);
-    }
-    override onDidReceiveSettings(ev: DidReceiveSettingsEvent<JsonObject>): void {
-      const e = entries.get((ev.action as unknown as SdKey).id);
-      if (e) setSettings(e, (ev.payload.settings ?? {}) as unknown as HaKeySettings);
-    }
-    override async onKeyDown(ev: KeyDownEvent<JsonObject>): Promise<void> {
-      const e = entries.get((ev.action as unknown as SdKey).id);
-      if (e) await press(e);
-    }
-    override async onSendToPlugin(ev: SendToPluginEvent<JsonValue, JsonObject>): Promise<void> {
-      const e = entries.get((ev.action as unknown as SdKey).id);
-      await onMessage(e, (ev.payload ?? {}) as Record<string, unknown>);
-    }
+    streamDeck.actions.registerAction(new HaKey());
   }
-
-  streamDeck.actions.registerAction(new HaKey());
   registerPcActions(env);
   return { rerender: drawAll };
 }

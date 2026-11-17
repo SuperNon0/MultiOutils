@@ -18,7 +18,7 @@
       <div class="rang"><button type="button" class="btn pri" id="d-save">Enregistrer</button><button type="button" class="btn" id="d-clear">Effacer le jeton</button><span class="etat" id="d-etat"></span></div>
     </section>
 
-    <section class="carte">
+    <section class="carte" id="modele-carte">
       <h3>Modèle de touche</h3>
       <div class="rang">
         <select id="modele"><option value="">Choisir un modèle prêt à l'emploi…</option></select>
@@ -26,8 +26,9 @@
     </section>
 
     <section class="carte">
-      <h3>Entité</h3>
+      <h3 id="ent-titre">Entité</h3>
       <div class="choisie" id="choisie" hidden><div><b id="ch-nom"></b><span id="ch-info"></span></div><button type="button" class="lien" id="ch-changer">Changer</button></div>
+      <button type="button" class="btn pri grand" id="grand">Choisir dans une grande fenêtre</button>
       <div id="chercher">
         <input id="q" placeholder="Chercher : salon, lampe, température…" autocomplete="off" />
         <div class="filtres">

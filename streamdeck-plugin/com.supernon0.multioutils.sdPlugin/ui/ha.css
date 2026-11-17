@@ -11,6 +11,7 @@
   --danger: #ef7d6b;
 }
 * { box-sizing: border-box; }
+html, body { overflow-x: hidden; max-width: 100%; }
 [hidden] { display: none !important; }
 body {
   margin: 0;
@@ -51,19 +52,25 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--a
 .conn.warn i { background: var(--warn); }
 .conn.err i { background: var(--danger); }
 .conn .lien { margin-left: auto; }
-.filtres { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
-.liste { max-height: 220px; overflow: auto; border: 1px solid var(--border); border-radius: 8px; }
-.liste .ent { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; padding: 6px 9px; border-top: 1px solid var(--border); cursor: pointer; }
-.liste .ent:first-child { border-top: 0; }
+.filtres { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 5px; }
+.carte { min-width: 0; }
+select { text-overflow: ellipsis; }
+.btn.grand { height: 38px; width: 100%; }
+.liste { max-height: 300px; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--border); border-radius: 8px; }
+.liste .groupe { position: sticky; top: 0; z-index: 1; background: var(--card); color: var(--muted); font-size: 10.5px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; padding: 7px 9px 4px; border-top: 1px solid var(--border); }
+.liste .groupe:first-child { border-top: 0; }
+.liste .ent { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-top: 1px solid var(--border); cursor: pointer; min-width: 0; }
+.liste .groupe + .ent { border-top: 0; }
 .liste .ent:hover, .liste .ent:focus { background: var(--pop); outline: none; }
+.liste .ent .t { display: grid; min-width: 0; flex: 1; }
 .liste .ent b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.liste .ent span { color: var(--muted); font-size: 11.5px; }
-.liste .ent .v { text-align: right; }
+.liste .ent span { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.liste .ent .v { flex: none; max-width: 40%; text-align: right; }
 .liste .aide { padding: 8px 9px; }
 .choisie { display: flex; gap: 8px; align-items: center; background: var(--pop); border-radius: 8px; padding: 7px 9px; }
 .choisie > div { display: grid; min-width: 0; flex: 1; }
 .choisie b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.choisie span { color: var(--muted); font-size: 11.5px; }
+.choisie span { color: var(--muted); font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .coul { display: flex; gap: 8px; align-items: center; }
 .apercu { display: flex; gap: 10px; align-items: center; }
 .apercu img { width: 72px; height: 72px; border-radius: 12px; background: #000; flex: none; }

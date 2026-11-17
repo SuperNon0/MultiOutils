@@ -22,6 +22,9 @@ const HaDashboardBar = lazy(() =>
   import('./modules/launcher/ha/HaDashboardBar').then((m) => ({ default: m.HaDashboardBar }))
 );
 
+// Grand sélecteur d'entités HA (ouvert depuis le Stream Deck).
+const HaPicker = lazy(() => import('./modules/launcher/ha/HaPicker').then((m) => ({ default: m.HaPicker })));
+
 // Lanceur : chargé à part (son code et launcher.css ne pèsent pas sur la fenêtre principale).
 const Launcher = lazy(() => import('./windows/Launcher'));
 
@@ -50,7 +53,7 @@ function Root(): ReactNode {
 
 function SatelliteOrApp(): ReactNode {
   const match = window.location.hash.match(
-    /^#\/(region|quickbar|picker|eyedropper|ha-toasts|ha-dashboard|zone|zone-draw|zone-peek|zone-pages)(?:\/(.+))?$/
+    /^#\/(region|quickbar|picker|eyedropper|ha-toasts|ha-dashboard|ha-picker|zone|zone-draw|zone-peek|zone-pages)(?:\/(.+))?$/
   );
   const [lang, setLang] = useState<Language | null>(null);
 
@@ -96,6 +99,10 @@ function SatelliteOrApp(): ReactNode {
       ) : route === 'zone-peek' ? (
         <Suspense fallback={null}>
           <ZonePeek />
+        </Suspense>
+      ) : route === 'ha-picker' ? (
+        <Suspense fallback={null}>
+          <HaPicker />
         </Suspense>
       ) : route === 'ha-dashboard' ? (
         <Suspense fallback={null}>
