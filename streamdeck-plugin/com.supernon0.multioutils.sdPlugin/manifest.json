@@ -1,7 +1,7 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "Name": "MultiOutils",
-  "Version": "0.9.1.0",
+  "Version": "0.9.3.0",
   "Author": "SuperNon0",
   "UUID": "com.supernon0.multioutils",
   "Description": "Pilote MultiOutils (captures, presse-papiers, bureau, autoclic) et Home Assistant : entités, services, états en direct, touches PC. Nécessite l'application MultiOutils lancée (Home Assistant peut aussi se connecter directement).",
@@ -139,24 +139,24 @@
       "Name": "Autoclic marche/arrêt",
       "Tooltip": "Démarre ou arrête le profil d'autoclic sélectionné (triangle = arrêté, carré animé = en cours)",
       "Icon": "imgs/autoclick",
-      "PropertyInspectorPath": "ui/key-color.html",
+      "PropertyInspectorPath": "ui/autoclick-toggle.html",
       "States": [
         {
           "Image": "imgs/key-autoclick",
-          "TitleAlignment": "bottom"
+          "TitleAlignment": "top"
         }
       ]
     },
     {
       "UUID": "com.supernon0.multioutils.autoclick-profile",
       "Name": "Autoclic — profil",
-      "Tooltip": "Sélectionne un profil d'autoclic (choisi dans les réglages de la touche, liste mise à jour depuis l'application). S'allume à sa couleur quand sélectionné, animé quand il tourne.",
+      "Tooltip": "Sélectionne un profil d'autoclic (choisi dans les réglages de la touche, liste mise à jour depuis l'application). Icône personnalisable dans Stream Deck ou animation MultiOutils.",
       "Icon": "imgs/autoclick-profile",
       "PropertyInspectorPath": "ui/autoclick-profile.html",
       "States": [
         {
           "Image": "imgs/key-autoclick-profile",
-          "TitleAlignment": "bottom"
+          "TitleAlignment": "top"
         }
       ]
     },

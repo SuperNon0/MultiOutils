@@ -9987,7 +9987,7 @@ function gaugeByDefault(entity) {
  * éteindre, redémarrer). Les réglages se font dans le panneau de la touche
  * (ui/ha.html), qui parle au plugin par sendToPlugin.
  */
-const HEX$1 = /^#[0-9a-f]{6}$/i;
+const HEX = /^#[0-9a-f]{6}$/i;
 const CONFIRM_MS = 3000;
 function registerHaActions(env) {
     const hub = new HaHub((...a) => streamDeck.logger.debug(a.map(String).join(' ')));
@@ -10026,12 +10026,12 @@ function registerHaActions(env) {
         }
         const iconPath = iconName.startsWith('mdi:') ? hub.icon(iconName) : null;
         // couleur
-        let color = HEX$1.test(s.color ?? '') ? s.color : t.accent;
-        if (!on && HEX$1.test(s.colorOff ?? ''))
+        let color = HEX.test(s.color ?? '') ? s.color : t.accent;
+        if (!on && HEX.test(s.colorOff ?? ''))
             color = s.colorOff;
         if (s.lightColor !== false)
             color = lightColor(st) ?? color;
-        if (rule?.color && HEX$1.test(rule.color))
+        if (rule?.color && HEX.test(rule.color))
             color = rule.color;
         // textes
         const title = s.titleMode === 'none' ? '' : s.titleMode === 'custom' ? (s.titleText ?? '') : (st?.attributes?.friendly_name ?? (id ? id.split('.')[1] : 'Home Assistant'));
@@ -10401,8 +10401,6 @@ async function sendCommand(command, ev) {
 }
 /** Palette fixe des touches dessinées (le doré historique). */
 const theme = { theme: 'dark', accent: '#e8c547', background: '#16181c', live: '#4fc3a1' };
-const HEX = /^#[0-9a-f]{6}$/i;
-const keyColor = (color) => (typeof color === 'string' && HEX.test(color) ? color : theme.accent);
 /** Touche simple : une commande de l'app ; l'image reste celle du manifeste
  *  ou celle choisie dans Stream Deck. */
 class IconKey extends SingletonAction {
@@ -10667,7 +10665,8 @@ async function appPost(path) {
 async function renderEntry(e) {
     if (e.kind === 'toggle') {
         await e.action.setTitle(selectedId ? (names.get(selectedId) ?? '') : '');
-        await e.action.setImage(toggleImage(runningId != null, glow, keyColor(e.color)));
+        if (!e.customIcon)
+            await e.action.setImage(toggleImage(runningId != null, glow, theme.accent));
         return;
     }
     await e.action.setTitle(e.profileId ? (names.get(e.profileId) ?? '?') : '—');
@@ -10676,7 +10675,8 @@ async function renderEntry(e) {
         : e.profileId != null && selectedId === e.profileId
             ? 'selected'
             : 'classic';
-    await e.action.setImage(mouseImage(state, glow, keyColor(e.color)));
+    if (!e.customIcon)
+        await e.action.setImage(mouseImage(state, glow, theme.accent));
 }
 /** Interroge l'app : profils (liste live), profil sélectionné et profil en
  *  cours, puis rafraîchit toutes les touches. */
@@ -10713,7 +10713,9 @@ let AutoclickToggle = (() => {
         }
         async onWillAppear(ev) {
             const key = ev.action;
-            entries.set(key.id, { action: key, kind: 'toggle', color: ev.payload.settings?.color });
+            entries.set(key.id, { action: key, kind: 'toggle', customIcon: ev.payload.settings?.customIcon === true });
+            if (ev.payload.settings?.customIcon === true)
+                await key.setImage();
             await renderEntry(entries.get(key.id));
             void poll();
         }
@@ -10724,7 +10726,10 @@ let AutoclickToggle = (() => {
         async onDidReceiveSettings(ev) {
             const entry = entries.get(ev.action.id);
             if (entry) {
-                entry.color = ev.payload.settings?.color;
+                const customIcon = ev.payload.settings?.customIcon === true;
+                if (customIcon && !entry.customIcon)
+                    await entry.action.setImage();
+                entry.customIcon = customIcon;
                 await renderEntry(entry);
             }
         }
@@ -10759,8 +10764,10 @@ let AutoclickProfile = (() => {
                 action: key,
                 kind: 'profile',
                 profileId: ev.payload.settings?.profileId,
-                color: ev.payload.settings?.color
+                customIcon: ev.payload.settings?.customIcon === true
             });
+            if (ev.payload.settings?.customIcon === true)
+                await key.setImage();
             await renderEntry(entries.get(key.id));
             void poll();
         }
@@ -10772,7 +10779,10 @@ let AutoclickProfile = (() => {
             const entry = entries.get(ev.action.id);
             if (entry) {
                 entry.profileId = ev.payload.settings?.profileId;
-                entry.color = ev.payload.settings?.color;
+                const customIcon = ev.payload.settings?.customIcon === true;
+                if (customIcon && !entry.customIcon)
+                    await entry.action.setImage();
+                entry.customIcon = customIcon;
                 await renderEntry(entry);
             }
             void poll();
@@ -10932,7 +10942,7 @@ void streamDeck.connect();
 setInterval(() => {
     glow = !glow;
     for (const e of entries.values())
-        if (isLive(e))
+        if (!e.customIcon && isLive(e))
             void renderEntry(e);
 }, 500);
 // Sondage régulier : état + nouveaux profils, même si le changement vient de

@@ -14,6 +14,19 @@ Boutons Stream Deck pour piloter l'application MultiOutils (docs/00 §8) :
 | **HA : Avancé (tout)** | Toutes les entités et tous les modes : basculer, préréglage, liste, pas, lecteur, caméra, service libre, événement, modèle affiché |
 | PC : veille / verrouiller / éteindre / redémarrer | Commandes du PC (confirmation sur la touche pour éteindre et redémarrer) |
 
+## Icônes personnalisées pour l’autoclic
+
+Pour les touches **Autoclic marche/arrêt** et **Autoclic — profil**, active
+**Icône personnalisée dans Stream Deck** dans les réglages de la touche, puis
+choisis ton image depuis sa vignette dans Stream Deck. Le plugin conserve cette
+image et actualise uniquement le nom du profil, superposé en haut de la touche.
+Laisse le champ **Titre** vide pour garder le nom automatique ; Stream Deck
+permet d’ajuster sa position, sa police et sa couleur.
+
+Dans ce mode, l’image reste fixe même quand le profil tourne. Désactive l’option
+pour retrouver les icônes animées MultiOutils. Le sélecteur de couleur a été retiré :
+les couleurs d’une icône personnalisée se règlent dans l’image elle-même.
+
 ## Home Assistant
 
 La touche **Home Assistant** se règle entièrement dans le panneau du logiciel

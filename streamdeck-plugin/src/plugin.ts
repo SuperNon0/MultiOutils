@@ -46,11 +46,8 @@ interface Theme {
 /** Palette fixe des touches dessinées (le doré historique). */
 const theme: Theme = { theme: 'dark', accent: '#e8c547', background: '#16181c', live: '#4fc3a1' };
 
-/** Réglages communs : couleur propre à la touche (#rrggbb) ou vide. */
-type KeySettings = JsonObject & { color?: string };
-
-const HEX = /^#[0-9a-f]{6}$/i;
-const keyColor = (color: unknown): string => (typeof color === 'string' && HEX.test(color) ? color : theme.accent);
+/** Réglages des touches : laisser Stream Deck gérer une image personnalisée. */
+type KeySettings = JsonObject & { customIcon?: boolean };
 
 /** Touche simple : une commande de l'app ; l'image reste celle du manifeste
  *  ou celle choisie dans Stream Deck. */
@@ -118,7 +115,9 @@ class ColorPickerStart extends IconKey {
 //                       tourne. La liste vient de l'app (nouveau profil → auto).
 //  • « marche/arrêt » → lance / stoppe le profil sélectionné. Triangle à la couleur de la touche à
 //                       l'arrêt, carré animé en marche ; nom du profil
-//                       sélectionné affiché dessous.
+//                       sélectionné affiché par-dessus.
+// En mode personnalisé, seules les mises à jour du titre sont envoyées ;
+// l’image et sa personnalisation restent gérées par Stream Deck.
 
 /** Réglages d'une touche profil : l'id du profil choisi dans le panneau. */
 type ProfileSettings = KeySettings & { profileId?: string };
@@ -127,7 +126,7 @@ type ProfileSettings = KeySettings & { profileId?: string };
 interface SdKey {
   id: string;
   setTitle(title: string): Promise<void>;
-  setImage(image: string): Promise<void>;
+  setImage(image?: string): Promise<void>;
   showAlert(): Promise<void>;
 }
 
@@ -135,7 +134,7 @@ interface Entry {
   action: SdKey;
   kind: 'profile' | 'toggle';
   profileId?: string;
-  color?: string;
+  customIcon?: boolean;
 }
 
 const entries = new Map<string, Entry>();
@@ -216,7 +215,7 @@ async function appPost(path: string): Promise<boolean> {
 async function renderEntry(e: Entry): Promise<void> {
   if (e.kind === 'toggle') {
     await e.action.setTitle(selectedId ? (names.get(selectedId) ?? '') : '');
-    await e.action.setImage(toggleImage(runningId != null, glow, keyColor(e.color)));
+    if (!e.customIcon) await e.action.setImage(toggleImage(runningId != null, glow, theme.accent));
     return;
   }
   await e.action.setTitle(e.profileId ? (names.get(e.profileId) ?? '?') : '—');
@@ -226,7 +225,7 @@ async function renderEntry(e: Entry): Promise<void> {
       : e.profileId != null && selectedId === e.profileId
         ? 'selected'
         : 'classic';
-  await e.action.setImage(mouseImage(state, glow, keyColor(e.color)));
+  if (!e.customIcon) await e.action.setImage(mouseImage(state, glow, theme.accent));
 }
 
 /** Interroge l'app : profils (liste live), profil sélectionné et profil en
@@ -255,7 +254,8 @@ function isLive(e: Entry): boolean {
 class AutoclickToggle extends SingletonAction<KeySettings> {
   override async onWillAppear(ev: WillAppearEvent<KeySettings>): Promise<void> {
     const key = ev.action as unknown as SdKey;
-    entries.set(key.id, { action: key, kind: 'toggle', color: ev.payload.settings?.color });
+    entries.set(key.id, { action: key, kind: 'toggle', customIcon: ev.payload.settings?.customIcon === true });
+    if (ev.payload.settings?.customIcon === true) await key.setImage();
     await renderEntry(entries.get(key.id)!);
     void poll();
   }
@@ -266,7 +266,9 @@ class AutoclickToggle extends SingletonAction<KeySettings> {
   override async onDidReceiveSettings(ev: DidReceiveSettingsEvent<KeySettings>): Promise<void> {
     const entry = entries.get((ev.action as unknown as SdKey).id);
     if (entry) {
-      entry.color = ev.payload.settings?.color;
+      const customIcon = ev.payload.settings?.customIcon === true;
+      if (customIcon && !entry.customIcon) await entry.action.setImage();
+      entry.customIcon = customIcon;
       await renderEntry(entry);
     }
   }
@@ -286,8 +288,9 @@ class AutoclickProfile extends SingletonAction<ProfileSettings> {
       action: key,
       kind: 'profile',
       profileId: ev.payload.settings?.profileId,
-      color: ev.payload.settings?.color
+      customIcon: ev.payload.settings?.customIcon === true
     });
+    if (ev.payload.settings?.customIcon === true) await key.setImage();
     await renderEntry(entries.get(key.id)!);
     void poll();
   }
@@ -301,7 +304,9 @@ class AutoclickProfile extends SingletonAction<ProfileSettings> {
     const entry = entries.get((ev.action as unknown as SdKey).id);
     if (entry) {
       entry.profileId = ev.payload.settings?.profileId;
-      entry.color = ev.payload.settings?.color;
+      const customIcon = ev.payload.settings?.customIcon === true;
+      if (customIcon && !entry.customIcon) await entry.action.setImage();
+      entry.customIcon = customIcon;
       await renderEntry(entry);
     }
     void poll();
@@ -380,7 +385,7 @@ void streamDeck.connect();
 // Animation des touches « en cours » : alterne le halo ~toutes les 500 ms.
 setInterval(() => {
   glow = !glow;
-  for (const e of entries.values()) if (isLive(e)) void renderEntry(e);
+  for (const e of entries.values()) if (!e.customIcon && isLive(e)) void renderEntry(e);
 }, 500);
 // Sondage régulier : état + nouveaux profils, même si le changement vient de
 // l'app ou d'une autre touche.
