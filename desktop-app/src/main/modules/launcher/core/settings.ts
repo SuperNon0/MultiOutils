@@ -71,6 +71,7 @@ const strList = (v: unknown, fallback: string[]): string[] =>
 export function defaultHaSettings(): HaSettings {
   return {
     url: '',
+    remoteUrl: '',
     link: { enabled: false, deviceName: '', sensors: true, sensorInterval: 60, commands: true, powerCommands: true, buttons: true },
     notifications: { enabled: true, position: 'bottom-right', duration: 8, sound: true, soundName: 'carillon', volume: 70, doNotDisturb: false },
     dashboard: { shortcut: 'Alt+Shift+H', path: '', width: 460, height: 760, hideOnBlur: true }
@@ -91,12 +92,13 @@ export function sanitizeDashboardPath(v: unknown): string {
 export function sanitizeHaSettings(raw: unknown): HaSettings {
   const d = defaultHaSettings();
   if (!raw || typeof raw !== 'object') return d;
-  const r = raw as { url?: unknown; link?: Partial<HaSettings['link']>; notifications?: Partial<HaSettings['notifications']>; dashboard?: Partial<HaSettings['dashboard']> };
+  const r = raw as { url?: unknown; remoteUrl?: unknown; link?: Partial<HaSettings['link']>; notifications?: Partial<HaSettings['notifications']>; dashboard?: Partial<HaSettings['dashboard']> };
   const l = r.link ?? {};
   const n = r.notifications ?? {};
   const db = r.dashboard ?? {};
   return {
     url: str(r.url, '').trim().slice(0, 300),
+    remoteUrl: str(r.remoteUrl, '').trim().slice(0, 300),
     link: {
       enabled: bool(l.enabled, d.link.enabled),
       deviceName: str(l.deviceName, '').trim().slice(0, 60),
@@ -135,6 +137,7 @@ export function mergeHaSettings(current: HaSettings, patch: HaSettingsPatch | un
   if (!patch) return current;
   return sanitizeHaSettings({
     url: patch.url ?? current.url,
+    remoteUrl: patch.remoteUrl ?? current.remoteUrl,
     link: { ...current.link, ...(patch.link ?? {}) },
     notifications: { ...current.notifications, ...(patch.notifications ?? {}) },
     dashboard: { ...current.dashboard, ...(patch.dashboard ?? {}) }

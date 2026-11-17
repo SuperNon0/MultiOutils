@@ -23,7 +23,28 @@ import type {
 
 export type Unsubscribe = () => void;
 
+export type IconLibraryPublic = import('./icons').IconLibraryState & { builtinThemes: import('./icons').IconTheme[] };
+
 export interface PreloadApi {
+  /** Module Icônes : atelier d'icônes (common/icons.ts). */
+  icons: {
+    state(): Promise<IconLibraryPublic>;
+    saveDesigns(list: import('./icons').IconDesign[]): Promise<import('./icons').IconDesign[]>;
+    removeDesigns(ids: string[]): Promise<import('./icons').IconDesign[]>;
+    saveFolder(f: import('./icons').IconFolder): Promise<import('./icons').IconFolder | null>;
+    removeFolder(id: string): Promise<void>;
+    saveTheme(t: import('./icons').IconTheme): Promise<import('./icons').IconTheme | null>;
+    removeTheme(id: string): Promise<void>;
+    saveStyle(s: import('./icons').IconStyle): Promise<import('./icons').IconStyle | null>;
+    removeStyle(id: string): Promise<void>;
+    pushRecent(key: string): Promise<void>;
+    catalog(lib: import('./icons').SymbolLib, pack?: string): Promise<import('./icons').SymbolCatalog>;
+    packs(): Promise<import('./icons').StreamDeckPackInfo[]>;
+    arts(refs: import('./icons').SymbolRef[]): Promise<Record<string, import('./icons').SymbolArt | null>>;
+    exportFiles(files: Array<{ name: string; data: string; base64?: boolean }>): Promise<{ ok: boolean; canceled?: boolean; dir?: string; count?: number }>;
+    copyImage(dataUrl: string): Promise<boolean>;
+    onChanged(cb: (state: IconLibraryPublic) => void): Unsubscribe;
+  };
   backup: {
     create(): Promise<{ ok: boolean; path?: string; canceled?: boolean; error?: string }>;
     restore(): Promise<{ ok: boolean; canceled?: boolean; error?: string }>;

@@ -1,10 +1,10 @@
 {
   "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
   "Name": "MultiOutils",
-  "Version": "0.7.0.0",
+  "Version": "0.8.0.0",
   "Author": "SuperNon0",
   "UUID": "com.supernon0.multioutils",
-  "Description": "Pilote MultiOutils : captures plein écran / zone / fenêtre / différée, ouverture de la bibliothèque, dernière capture dans le presse-papier. Nécessite l'application MultiOutils lancée.",
+  "Description": "Pilote MultiOutils (captures, presse-papiers, bureau, autoclic) et Home Assistant : entités, services, états en direct, touches PC. Nécessite l'application MultiOutils lancée (Home Assistant peut aussi se connecter directement).",
   "Icon": "imgs/plugin",
   "Category": "MultiOutils",
   "CategoryIcon": "imgs/plugin",
@@ -239,6 +239,66 @@
       "States": [
         {
           "Image": "imgs/key-desktop-show"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.ha",
+      "Name": "Home Assistant",
+      "Tooltip": "Pilote ou affiche une entité Home Assistant (lumière, volet, scène, capteur, service…)",
+      "Icon": "imgs/ha",
+      "PropertyInspectorPath": "ui/ha.html",
+      "States": [
+        {
+          "Image": "imgs/key-ha"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.pc-sleep",
+      "Name": "PC : veille",
+      "Tooltip": "Met le PC en veille",
+      "Icon": "imgs/pc-sleep",
+      "PropertyInspectorPath": "ui/key-color.html",
+      "States": [
+        {
+          "Image": "imgs/key-pc-sleep"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.pc-lock",
+      "Name": "PC : verrouiller",
+      "Tooltip": "Verrouille la session Windows",
+      "Icon": "imgs/pc-lock",
+      "PropertyInspectorPath": "ui/key-color.html",
+      "States": [
+        {
+          "Image": "imgs/key-pc-lock"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.pc-shutdown",
+      "Name": "PC : éteindre",
+      "Tooltip": "Éteint le PC (30 s pour annuler, confirmation sur la touche)",
+      "Icon": "imgs/pc-shutdown",
+      "PropertyInspectorPath": "ui/key-color.html",
+      "States": [
+        {
+          "Image": "imgs/key-pc-shutdown"
+        }
+      ]
+    },
+    {
+      "UUID": "com.supernon0.multioutils.pc-restart",
+      "Name": "PC : redémarrer",
+      "Tooltip": "Redémarre le PC (30 s pour annuler, confirmation sur la touche)",
+      "Icon": "imgs/pc-restart",
+      "PropertyInspectorPath": "ui/key-color.html",
+      "States": [
+        {
+          "Image": "imgs/key-pc-restart"
         }
       ]
     }

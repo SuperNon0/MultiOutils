@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MultiOutils — Home Assistant</title>
+    <link rel="stylesheet" href="ha.css" />
+  </head>
+  <body>
+    <div class="conn" id="conn"><i></i><span id="conn-t">Connexion…</span><button type="button" class="lien" id="conn-b">Connexion directe</button></div>
+
+    <section class="carte" id="direct" hidden>
+      <h3>Connexion directe en secours</h3>
+      <p class="aide">Utilisée seulement quand MultiOutils n'est pas lancé. Ces réglages sont gardés par le logiciel Stream Deck, pour tout le plugin.</p>
+      <label>Adresse locale<input id="d-url" class="mono" placeholder="http://homeassistant.local:8123" /></label>
+      <label>Adresse distante (facultatif)<input id="d-remote" class="mono" placeholder="https://xxxx.ui.nabu.casa" /></label>
+      <label>Jeton d'accès longue durée<input id="d-token" type="password" class="mono" placeholder="eyJhbGciOi…" autocomplete="off" /></label>
+      <div class="rang"><button type="button" class="btn pri" id="d-save">Enregistrer</button><button type="button" class="btn" id="d-clear">Effacer le jeton</button><span class="etat" id="d-etat"></span></div>
+    </section>
+
+    <section class="carte">
+      <h3>Modèle de touche</h3>
+      <div class="rang">
+        <select id="modele"><option value="">Choisir un modèle prêt à l'emploi…</option></select>
+      </div>
+    </section>
+
+    <section class="carte">
+      <h3>Entité</h3>
+      <div class="choisie" id="choisie" hidden><div><b id="ch-nom"></b><span id="ch-info"></span></div><button type="button" class="lien" id="ch-changer">Changer</button></div>
+      <div id="chercher">
+        <input id="q" placeholder="Chercher : salon, lampe, température…" autocomplete="off" />
+        <div class="filtres">
+          <select id="f-etage"><option value="">Tous les étages</option></select>
+          <select id="f-piece"><option value="">Toutes les pièces</option></select>
+          <select id="f-type"><option value="">Tous les types</option></select>
+        </div>
+        <div class="liste" id="res"><p class="aide">Chargement des entités…</p></div>
+      </div>
+    </section>
+
+    <section class="carte">
+      <h3>Action à l'appui</h3>
+      <select id="mode"></select>
+      <div id="mode-zone"></div>
+      <label class="coche"><input type="checkbox" id="confirm" /> Demander une confirmation (appuyer deux fois)</label>
+    </section>
+
+    <section class="carte">
+      <h3>Apparence</h3>
+      <div class="apercu"><img id="apercu" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" /><p class="aide">Aperçu de la touche, avec l'état actuel.</p></div>
+      <label>Style
+        <select id="style">
+          <option value="accent">Comme l'app (fond de l'app, symbole coloré)</option>
+          <option value="plein">Fond plein coloré</option>
+          <option value="symbole">Fond noir, symbole coloré</option>
+          <option value="teinte">Teinté</option>
+        </select>
+      </label>
+      <div class="deux">
+        <label>Couleur allumé<span class="coul"><input type="color" id="color" /><button type="button" class="lien" data-raz="color">Comme l'app</button></span></label>
+        <label>Couleur éteint<span class="coul"><input type="color" id="colorOff" /><button type="button" class="lien" data-raz="colorOff">Atténuée</button></span></label>
+      </div>
+      <div class="deux">
+        <label>Icône allumé<input id="icon" class="mono" placeholder="Celle de Home Assistant" list="icones" /></label>
+        <label>Icône éteint<input id="iconOff" class="mono" placeholder="Pareil" list="icones" /></label>
+      </div>
+      <datalist id="icones"></datalist>
+      <p class="aide">Nom d'icône Material Design, par exemple <code>mdi:lamp</code>. Vide : l'icône de l'entité dans Home Assistant.</p>
+      <label>Nom affiché
+        <span class="rang"><select id="titleMode"><option value="auto">Nom de l'entité</option><option value="custom">Personnalisé</option><option value="none">Aucun</option></select><input id="titleText" placeholder="Nom sur la touche" /></span>
+      </label>
+      <label>Valeur
+        <span class="rang"><select id="valueMode"><option value="auto">Automatique</option><option value="show">Toujours</option><option value="hide">Jamais</option></select><input id="decimals" type="number" min="0" max="4" placeholder="Décimales" /></span>
+      </label>
+      <label class="coche"><input type="checkbox" id="gauge" /> Jauge (luminosité, position, volume, batterie…)</label>
+      <label class="coche"><input type="checkbox" id="lightColor" /> Prendre la couleur réelle de la lampe</label>
+      <label class="coche"><input type="checkbox" id="art" /> Pochette de l'album pendant la lecture</label>
+    </section>
+
+    <section class="carte">
+      <h3>Règles d'affichage</h3>
+      <p class="aide">La première règle qui correspond change la couleur, l'icône ou fait clignoter la touche.</p>
+      <div id="regles"></div>
+      <button type="button" class="btn" id="regle-plus">Ajouter une règle</button>
+    </section>
+
+    <section class="carte">
+      <div class="rang">
+        <button type="button" class="btn pri" id="tester">Tester</button>
+        <button type="button" class="btn" id="copier">Copier les réglages</button>
+        <button type="button" class="btn" id="coller">Coller</button>
+        <span class="etat" id="etat"></span>
+      </div>
+    </section>
+
+    <script src="ha.js"></script>
+  </body>
+</html>

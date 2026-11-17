@@ -7,6 +7,7 @@ import streamDeck, {
   type WillDisappearEvent,
   type DidReceiveSettingsEvent
 } from '@elgato/streamdeck';
+import { registerHaActions } from './ha/actions';
 
 /**
  * Plugin Stream Deck MultiOutils (docs/00 §8) : chaque touche appelle le
@@ -438,6 +439,9 @@ streamDeck.actions.registerAction(new DesktopPageNext());
 streamDeck.actions.registerAction(new DesktopPagePrev());
 streamDeck.actions.registerAction(new DesktopShow());
 
+// Home Assistant (une touche qui s'adapte à l'entité) + touches PC.
+const ha = registerHaActions({ theme: () => theme });
+
 /** Relit l'accent / le thème de l'app ; redessine toutes les touches s'ils changent. */
 async function refreshTheme(): Promise<void> {
   const next = await appGet<Theme>('/theme');
@@ -448,13 +452,14 @@ async function refreshTheme(): Promise<void> {
   theme = { theme: next.theme, accent: next.accent, background: next.background, live: HEX.test(next.live) ? next.live : theme.live };
   for (const e of iconKeys.values()) await renderIcon(e);
   for (const e of entries.values()) await renderEntry(e);
+  ha.rerender();
 }
 
 void streamDeck.connect();
 
 // Suit les changements d'apparence faits dans l'app.
 setInterval(() => {
-  if (iconKeys.size > 0 || entries.size > 0) void refreshTheme();
+  void refreshTheme();
 }, 4000);
 
 // Animation des touches « en cours » : alterne le halo ~toutes les 500 ms.

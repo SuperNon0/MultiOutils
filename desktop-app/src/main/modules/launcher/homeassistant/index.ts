@@ -28,6 +28,7 @@ import { haBaseUrl } from '../core/homeassistant';
 import { DashboardWindow } from './dashboard';
 import { HaLink, type HaLinkCoreStatus } from './link';
 import { PcSensors } from './sensors';
+import { createStreamDeckBridge } from './streamdeck-bridge';
 import { ToastWindow } from './toasts';
 
 const REG_KEY = 'launcher.ha.registration';
@@ -241,8 +242,12 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
     });
   };
 
-  const runCommand = (command: HaCommand, extra: { url?: string }): void => {
-    const cfg = s().link;
+  /**
+   * `local` : demandé depuis le PC lui-même (touche Stream Deck), donc sans
+   * passer par les autorisations données à Home Assistant.
+   */
+  const runCommand = (command: HaCommand, extra: { url?: string }, local = false): void => {
+    const cfg = local ? { commands: true, powerCommands: true } : s().link;
     if (command === 'dashboard') return void dashboard.show();
     if (command === 'launcher') return void deps.showLauncher();
     if (command === 'open_url' && extra.url) {
@@ -323,7 +328,10 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
   });
 
   // veille, réveil, verrouillage : on reconnecte / on renvoie l'état tout de suite
-  const onResume = (): void => link.nudge();
+  const onResume = (): void => {
+    link.nudge();
+    streamDeck.nudge();
+  };
   const onLockChange = (): void => void link.pushSensors(false);
   powerMonitor.on('resume', onResume);
   powerMonitor.on('unlock-screen', onResume);
@@ -412,12 +420,25 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
 
   ctx.registerLocalCommand('homeassistant.dashboard', () => dashboard.toggle());
 
+  // Touches PC du Stream Deck (veille, verrouillage, extinction, redémarrage).
+  ctx.registerLocalCommand('pc.sleep', () => runCommand('sleep', {}, true));
+  ctx.registerLocalCommand('pc.lock', () => runCommand('lock', {}, true));
+  ctx.registerLocalCommand('pc.shutdown', () => runCommand('shutdown', {}, true));
+  ctx.registerLocalCommand('pc.restart', () => runCommand('restart', {}, true));
+  ctx.registerLocalCommand('pc.cancelShutdown', () => {
+    if (isWin) run('shutdown.exe', ['/a']);
+  });
+
+  // Pont Home Assistant du plugin Stream Deck (même adresse, même jeton).
+  const streamDeck = createStreamDeckBridge({ ctx, settings: s, token: deps.token });
+
   const api: HaIntegration = {
     status,
     async apply(before) {
       const cur = s();
       const urlChanged = !before || before.url !== cur.url;
       if (urlChanged) dashboard.invalidate();
+      if (before && (urlChanged || before.remoteUrl !== cur.remoteUrl)) streamDeck.restart();
       const linkChanged =
         !before ||
         urlChanged ||
@@ -446,6 +467,7 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
     },
     tokenChanged() {
       dashboard.resetSession();
+      streamDeck.restart();
       if (s().link.enabled) link.start();
     },
     openDashboard: (path) => dashboard.show(path),
@@ -473,6 +495,7 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
       powerMonitor.off('unlock-screen', onResume);
       powerMonitor.off('lock-screen', onLockChange);
       link.stop(false);
+      streamDeck.dispose();
       toastWin.destroy();
       dashboard.destroy();
     }
