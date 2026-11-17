@@ -272,6 +272,12 @@ export class HaHub {
     }
   }
 
+  /** Grand sélecteur d'entités dans une fenêtre MultiOutils ; null = annulé. */
+  async pick(current?: string, domains: string[] = [], title = ''): Promise<string | null> {
+    const r = await appFetch<{ id?: string | null }>('/ha/pick', { method: 'POST', body: JSON.stringify({ current: current ?? '', domains, title }), timeout: 15 * 60_000 });
+    return typeof r?.id === 'string' && r.id ? r.id : null;
+  }
+
   async openCamera(id: string): Promise<void> {
     await appFetch('/ha/camera/open', { method: 'POST', body: JSON.stringify({ id }) });
   }

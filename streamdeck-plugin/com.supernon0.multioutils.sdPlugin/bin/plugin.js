@@ -9585,6 +9585,11 @@ class HaHub {
             return null;
         }
     }
+    /** Grand sélecteur d'entités dans une fenêtre MultiOutils ; null = annulé. */
+    async pick(current, domains = [], title = '') {
+        const r = await appFetch('/ha/pick', { method: 'POST', body: JSON.stringify({ current: current ?? '', domains, title }), timeout: 15 * 60_000 });
+        return typeof r?.id === 'string' && r.id ? r.id : null;
+    }
     async openCamera(id) {
         await appFetch('/ha/camera/open', { method: 'POST', body: JSON.stringify({ id }) });
     }
@@ -9623,6 +9628,20 @@ class HaHub {
             this.iconTimer = setTimeout(() => void this.loadIcons(), 30);
     }
 }
+
+const U = 'com.supernon0.multioutils.ha';
+const HA_KINDS = [
+    { id: 'light', uuid: `${U}.light`, domains: ['light'], defaults: { mode: 'toggle', gauge: true } },
+    { id: 'switch', uuid: `${U}.switch`, domains: ['switch', 'input_boolean', 'fan', 'humidifier', 'siren', 'valve', 'lock', 'vacuum'], defaults: { mode: 'toggle' } },
+    { id: 'cover', uuid: `${U}.cover`, domains: ['cover'], defaults: { mode: 'toggle', gauge: true } },
+    { id: 'climate', uuid: `${U}.climate`, domains: ['climate', 'water_heater'], defaults: { mode: 'auto', valueMode: 'show' } },
+    { id: 'sensor', uuid: `${U}.sensor`, domains: ['sensor', 'binary_sensor', 'weather', 'person', 'device_tracker', 'input_number', 'number'], defaults: { mode: 'display', valueMode: 'show' } },
+    { id: 'media', uuid: `${U}.media`, domains: ['media_player'], defaults: { mode: 'media', media: 'play_pause', art: true } },
+    { id: 'scene', uuid: `${U}.scene`, domains: ['scene', 'script', 'automation', 'button', 'input_button'], defaults: { mode: 'auto', style: 'plein' } },
+    { id: 'camera', uuid: `${U}.camera`, domains: ['camera'], defaults: { mode: 'camera', refresh: 5, titleMode: 'none' } },
+    // l'action d'origine reste : tous les types, tous les modes (service libre, événement…)
+    { id: 'all', uuid: U, domains: [], defaults: {} }
+];
 
 /**
  * Dessin des touches Home Assistant (SVG 144×144) : icône, couleur selon
@@ -9962,6 +9981,12 @@ function gaugeByDefault(entity) {
     return ['light', 'cover', 'media_player', 'fan'].includes(haDomainOf(entity));
 }
 
+/**
+ * Touches Home Assistant du plugin : une seule action « Home Assistant » qui
+ * s'adapte à l'entité choisie, plus les touches PC (veille, verrouiller,
+ * éteindre, redémarrer). Les réglages se font dans le panneau de la touche
+ * (ui/ha.html), qui parle au plugin par sendToPlugin.
+ */
 const HEX$1 = /^#[0-9a-f]{6}$/i;
 const CONFIRM_MS = 3000;
 function registerHaActions(env) {
@@ -10184,7 +10209,7 @@ function registerHaActions(env) {
     const reply = (payload) => {
         void streamDeck.ui.current?.sendToPropertyInspector(payload);
     };
-    const onMessage = async (e, msg) => {
+    const onMessage = async (e, msg, kind) => {
         const cmd = msg.cmd;
         try {
             if (cmd === 'status') {
@@ -10221,6 +10246,19 @@ function registerHaActions(env) {
                 applyGlobals(next);
                 reply({ cmd, ok: true });
             }
+            else if (cmd === 'pick' && e) {
+                if (hub.status.mode !== 'app')
+                    return reply({ cmd, error: 'Le grand sélecteur a besoin de MultiOutils ouvert.' });
+                const id = await hub.pick(e.s.entity, kind.domains, String(msg.title ?? ''));
+                if (!id)
+                    return reply({ cmd, ok: false });
+                const same = (e.s.entity ?? '').split('.')[0] === id.split('.')[0];
+                const { mode: _m, preset: _p, ...rest } = e.s;
+                const s = same ? { ...e.s, entity: id } : { ...rest, entity: id };
+                await e.key.setSettings(s);
+                setSettings(e, s);
+                reply({ cmd, ok: true, settings: s });
+            }
             else if (cmd === 'copy' && e) {
                 const { entity: _ent, ...rest } = e.s;
                 const next = { ...globals, clip: rest };
@@ -10241,26 +10279,21 @@ function registerHaActions(env) {
             reply({ cmd: String(cmd), error: err instanceof Error ? err.message : String(err) });
         }
     };
-    let HaKey = (() => {
-        let _classDecorators = [action({ UUID: 'com.supernon0.multioutils.ha' })];
-        let _classDescriptor;
-        let _classExtraInitializers = [];
-        let _classThis;
-        let _classSuper = SingletonAction;
-        (class extends _classSuper {
-            static { _classThis = this; }
-            static {
-                const _metadata = typeof Symbol === "function" && Symbol.metadata ? Object.create(_classSuper[Symbol.metadata] ?? null) : void 0;
-                __esDecorate(null, _classDescriptor = { value: _classThis }, _classDecorators, { kind: "class", name: _classThis.name, metadata: _metadata }, null, _classExtraInitializers);
-                _classThis = _classDescriptor.value;
-                if (_metadata) Object.defineProperty(_classThis, Symbol.metadata, { enumerable: true, configurable: true, writable: true, value: _metadata });
-                __runInitializers(_classThis, _classExtraInitializers);
-            }
-            onWillAppear(ev) {
+    // une action par modèle de touche (lumière, volet, capteur…), même code
+    for (const kind of HA_KINDS) {
+        class HaKey extends SingletonAction {
+            manifestId = kind.uuid;
+            async onWillAppear(ev) {
                 const key = ev.action;
                 const e = { key, s: {}, watching: '' };
                 entries.set(key.id, e);
-                setSettings(e, (ev.payload.settings ?? {}));
+                let s = (ev.payload.settings ?? {});
+                // touche neuve : réglages de départ du modèle
+                if (!Object.keys(s).length && Object.keys(kind.defaults).length) {
+                    s = { ...kind.defaults };
+                    await key.setSettings(s);
+                }
+                setSettings(e, s);
                 hub.start();
             }
             onWillDisappear(ev) {
@@ -10282,12 +10315,11 @@ function registerHaActions(env) {
             }
             async onSendToPlugin(ev) {
                 const e = entries.get(ev.action.id);
-                await onMessage(e, (ev.payload ?? {}));
+                await onMessage(e, (ev.payload ?? {}), kind);
             }
-        });
-        return _classThis;
-    })();
-    streamDeck.actions.registerAction(new HaKey());
+        }
+        streamDeck.actions.registerAction(new HaKey());
+    }
     registerPcActions(env);
     return { rerender: drawAll };
 }

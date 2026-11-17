@@ -15,12 +15,15 @@
  *   POST /ha/event              { type, data? }
  *   POST /ha/template           { template }
  *   POST /ha/camera/open        { id } : la caméra en grand dans une fenêtre
+ *   POST /ha/pick               { current?, domains?, title? } : grand sélecteur d'entités,
+ *                               répond { id } (null si fermé sans choisir)
  */
-import { BrowserWindow, nativeImage } from 'electron';
+import { BrowserWindow, ipcMain, nativeImage, screen } from 'electron';
+import { loadRenderer, preloadPath } from '../../../windows';
 import WebSocket from 'ws';
 import * as mdi from '@mdi/js';
 import { HaSocket, cleanHaUrl, type WsCtor } from '@multioutils/shared/src/ha/socket';
-import { buildCatalog, mdiExportName, normalizeServices, type HaCatalog, type HaServiceInfo } from '@multioutils/shared/src/ha/model';
+import { buildCatalog, defaultIcon, mdiExportName, normalizeServices, type HaCatalog, type HaServiceInfo } from '@multioutils/shared/src/ha/model';
 import type { MainHostContext } from '../../../module-registry';
 import type { HaSettings } from '../../../../common/launcher';
 
@@ -205,6 +208,86 @@ export function createStreamDeckBridge(deps: Deps): StreamDeckBridge {
     return { image: `data:image/jpeg;base64,${img.toJPEG(82).toString('base64')}` };
   };
 
+  /* ───────── grand sélecteur d'entités (fenêtre MultiOutils) ───────── */
+
+  let pickerWin: BrowserWindow | null = null;
+  let pickerJob: { current: string; domains: string[]; title: string; resolve: (id: string | null) => void } | null = null;
+
+  const finishPick = (id: string | null): void => {
+    const job = pickerJob;
+    pickerJob = null;
+    job?.resolve(id);
+    if (pickerWin && !pickerWin.isDestroyed()) pickerWin.close();
+  };
+
+  const openPicker = (body: unknown): Promise<{ id: string | null }> => {
+    const b = obj(body) ?? {};
+    const domains = Array.isArray(b.domains) ? b.domains.map(String).filter((d) => /^[a-z0-9_]+$/.test(d)).slice(0, 20) : [];
+    // un seul sélecteur à la fois : l'ancien demandeur reçoit « rien »
+    pickerJob?.resolve(null);
+    return new Promise((resolve) => {
+      pickerJob = { current: str(b.current), domains, title: str(b.title).slice(0, 80), resolve: (id) => resolve({ id }) };
+      if (pickerWin && !pickerWin.isDestroyed()) {
+        pickerWin.webContents.send('ha-picker:refresh');
+      } else {
+        const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+        const width = Math.min(1100, area.width - 80);
+        const height = Math.min(760, area.height - 80);
+        pickerWin = new BrowserWindow({
+          width,
+          height,
+          x: Math.round(area.x + (area.width - width) / 2),
+          y: Math.round(area.y + (area.height - height) / 2),
+          minWidth: 560,
+          minHeight: 420,
+          title: 'Choisir une entité',
+          backgroundColor: '#0b0f17',
+          autoHideMenuBar: true,
+          show: false,
+          webPreferences: { preload: preloadPath(), contextIsolation: true, nodeIntegration: false }
+        });
+        pickerWin.setAlwaysOnTop(true, 'floating');
+        loadRenderer(pickerWin, 'ha-picker');
+        pickerWin.once('ready-to-show', () => {
+          pickerWin?.show();
+          pickerWin?.focus();
+        });
+        pickerWin.on('closed', () => {
+          pickerWin = null;
+          if (pickerJob) finishPick(null);
+        });
+      }
+      if (pickerWin) {
+        pickerWin.show();
+        pickerWin.focus();
+      }
+    });
+  };
+
+  ipcMain.removeHandler('ha-picker:data');
+  ipcMain.handle('ha-picker:data', async () => {
+    const cat = await catalog();
+    const lib = mdi as unknown as Record<string, string>;
+    const paths: Record<string, string> = {};
+    const entities = cat.entities.map((e) => {
+      const icon = defaultIcon(socket.getState(e.id), e.id);
+      const key = mdiExportName(icon);
+      if (key && lib[key]) paths[icon] = lib[key];
+      return { ...e, icon };
+    });
+    return {
+      entities,
+      areas: cat.areas,
+      floors: cat.floors,
+      icons: paths,
+      current: pickerJob?.current ?? '',
+      domains: pickerJob?.domains ?? [],
+      title: pickerJob?.title ?? ''
+    };
+  });
+  ipcMain.removeAllListeners('ha-picker:choose');
+  ipcMain.on('ha-picker:choose', (_e, id: unknown) => finishPick(typeof id === 'string' && ENTITY_ID.test(id) ? id : null));
+
   const openCamera = async (body: unknown): Promise<unknown> => {
     const id = str(obj(body)?.id);
     if (!ENTITY_ID.test(id) || !id.startsWith('camera.')) throw new Error('caméra inconnue');
@@ -280,6 +363,7 @@ export function createStreamDeckBridge(deps: Deps): StreamDeckBridge {
     return { result: await socket.renderTemplate(template) };
   });
   route('POST', /^\/ha\/camera\/open$/, (_u, body) => openCamera(body));
+  route('POST', /^\/ha\/pick$/, (_u, body) => openPicker(body));
 
   return {
     restart() {
@@ -295,6 +379,7 @@ export function createStreamDeckBridge(deps: Deps): StreamDeckBridge {
       socket.stop();
       for (const w of [...waiters]) w();
       if (cameraWin && !cameraWin.isDestroyed()) cameraWin.destroy();
+      finishPick(null);
     }
   };
 }

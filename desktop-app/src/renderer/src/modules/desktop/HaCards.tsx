@@ -2,75 +2,239 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { HaEntity, HaWidgetAction } from '../../../../common/desktop';
 import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
+import './widgets.css';
+
+/** Icônes au trait propres à certains capteurs (absentes du sprite encre). */
+const SENSOR_GLYPHS: Record<string, ReactNode> = {
+  temperature: (
+    <>
+      <path d="M10 13.5V5a2 2 0 0 1 4 0v8.5a4 4 0 1 1-4 0Z" />
+      <path d="M12 9v7" />
+    </>
+  ),
+  humidity: <path d="M12 3.5c3 3.6 5.5 6.6 5.5 10a5.5 5.5 0 0 1-11 0c0-3.4 2.5-6.4 5.5-10Z" />,
+  battery: (
+    <>
+      <rect x="3" y="7" width="16" height="10" rx="2.5" />
+      <path d="M21 10.5v3M6.5 10v4M10 10v4" />
+    </>
+  )
+};
+
+const ONE_SHOT = ['scene', 'script', 'button', 'input_button'];
 
 function EntityIcon({ entity }: { entity: HaEntity }): ReactNode {
-  if (entity.deviceClass === 'temperature') return <svg className="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 14.5V5a3 3 0 0 1 6 0v9.5a5 5 0 1 1-6 0Z"/><path d="M12 8v10"/></svg>;
-  return <Icon name={entity.domain === 'light' ? 'sun' : entity.domain === 'media_player' ? 'play' : entity.domain === 'sensor' ? 'signal' : 'zap'} size={16}/>;
+  const glyph = entity.deviceClass ? SENSOR_GLYPHS[entity.deviceClass] : undefined;
+  if (glyph) {
+    return (
+      <svg className="i" viewBox="0 0 24 24" aria-hidden="true">
+        {glyph}
+      </svg>
+    );
+  }
+  const byDomain: Record<string, string> = {
+    light: 'sun',
+    switch: 'plug',
+    input_boolean: 'plug',
+    fan: 'refresh',
+    media_player: 'play',
+    scene: 'sparkle',
+    script: 'zap',
+    button: 'zap',
+    input_button: 'zap',
+    lock: 'lock',
+    cover: 'layers',
+    climate: 'sun',
+    binary_sensor: entity.deviceClass === 'door' || entity.deviceClass === 'window' ? 'home' : 'dot'
+  };
+  return <Icon name={byDomain[entity.domain] ?? 'signal'} size={16} />;
 }
 
 function Brightness({ entity, disabled, onChange }: { entity: HaEntity; disabled: boolean; onChange(value: number): void }): ReactNode {
   const { t } = useI18n();
   const [value, setValue] = useState(entity.brightness ?? 0);
   useEffect(() => setValue(entity.brightness ?? 0), [entity.brightness]);
-  return <label className="ha-brightness"><span>{t('desktop.ha.brightness')}<b>{value} %</b></span>
-    <input type="range" min={0} max={100} step={1} value={value} disabled={disabled} aria-label={t('desktop.ha.brightness')}
-      onChange={(e) => setValue(Number(e.target.value))}
-      onPointerUp={(e) => onChange(Number(e.currentTarget.value))}
-      onKeyUp={(e) => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) onChange(Number(e.currentTarget.value)); }}/>
-  </label>;
+  const commit = (v: number): void => onChange(v);
+  return (
+    <label className="ha-slider" style={{ '--v': `${value}%` } as React.CSSProperties}>
+      <input
+        type="range"
+        min={0}
+        max={100}
+        step={1}
+        value={value}
+        disabled={disabled}
+        aria-label={t('desktop.ha.brightness')}
+        onChange={(e) => setValue(Number(e.target.value))}
+        onPointerUp={(e) => commit(Number(e.currentTarget.value))}
+        onKeyUp={(e) => {
+          if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
+            commit(Number(e.currentTarget.value));
+          }
+        }}
+      />
+      <span className="ha-slider-v">{value} %</span>
+    </label>
+  );
 }
 
-export function HaCards({ entities, layout, readOnly = false, preview = false, onRefresh }: {
-  entities: HaEntity[]; layout: 'cards' | 'compact'; readOnly?: boolean; preview?: boolean; onRefresh?(): Promise<void>;
+/**
+ * Appareils Home Assistant d'une zone du Bureau : tuiles (2 colonnes) ou
+ * liste compacte. Même balisage pour les deux dispositions ; seule la grille
+ * change (voir widgets.css).
+ */
+export function HaCards({
+  entities,
+  layout,
+  readOnly = false,
+  preview = false,
+  onRefresh
+}: {
+  entities: HaEntity[];
+  layout: 'cards' | 'compact';
+  readOnly?: boolean;
+  preview?: boolean;
+  onRefresh?(): Promise<void>;
 }): ReactNode {
   const { t, lang } = useI18n();
   const [busy, setBusy] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const numberFormat = new Intl.NumberFormat(lang === 'fr' ? 'fr-FR' : 'en-GB', { maximumFractionDigits: 1 });
+
   const act = async (entity: HaEntity, action?: HaWidgetAction, value?: number): Promise<void> => {
     if (preview || readOnly || busy.has(entity.id)) return;
-    setBusy((old) => new Set(old).add(entity.id)); setError(null);
+    setBusy((old) => new Set(old).add(entity.id));
+    setError(null);
     try {
-      const ok = action ? (await window.api.ha.control(entity.id, action, value)).ok : await window.api.ha.toggle(entity.id);
+      const ok = action
+        ? (await window.api.ha.control(entity.id, action, value)).ok
+        : await window.api.ha.toggle(entity.id);
       if (!ok) throw new Error('control');
       await onRefresh?.();
-    } catch { setError(t('desktop.ha.controlError')); }
-    finally { setBusy((old) => { const next = new Set(old); next.delete(entity.id); return next; }); }
+    } catch {
+      setError(t('desktop.ha.controlError'));
+    } finally {
+      setBusy((old) => {
+        const next = new Set(old);
+        next.delete(entity.id);
+        return next;
+      });
+    }
   };
-  return <div className={`ha-cards ${layout}`} onPointerDown={(e) => e.stopPropagation()}>
-    {entities.map((entity) => {
-      const sensor = ['sensor', 'binary_sensor'].includes(entity.domain);
-      const unavailable = ['unknown', 'unavailable'].includes(entity.state);
-      const number = !unavailable && entity.state.trim() !== '' ? Number(entity.state) : NaN;
-      const numeric = Number.isFinite(number);
-      const text = unavailable ? '—' : numeric ? new Intl.NumberFormat(lang === 'fr' ? 'fr-FR' : 'en-GB', { maximumFractionDigits: 2 }).format(number) : entity.state;
-      const disabled = preview || readOnly || busy.has(entity.id) || unavailable;
-      const oneShot = ['scene', 'script', 'button', 'input_button'].includes(entity.domain);
-      return <article className={`ha-card${entity.on ? ' on' : ''}${sensor ? ' sensor' : ''}${unavailable ? ' unavailable' : ''}`} key={entity.id} title={entity.id}>
-        <div className="ha-card-head"><strong>{entity.name}</strong><EntityIcon entity={entity}/></div>
-        {sensor ? <>
-          <div className="ha-card-value">{text}{entity.unit && <span> {entity.unit}</span>}</div>
-          {entity.unit === '%' && numeric && number >= 0 && number <= 100 && <progress value={number} max={100} aria-label={entity.name}/>}
-          <div className="ha-card-caption">{unavailable ? t('desktop.ha.unavailable') : entity.deviceClass ? t('desktop.ha.live') : entity.id.split('.')[1]?.replace(/_/g, ' ')}</div>
-        </> : entity.domain === 'media_player' ? <>
-          <div className="ha-card-caption">{entity.mediaTitle ?? (entity.state === 'playing' ? t('desktop.ha.playing') : t('desktop.ha.media'))}</div>
-          {entity.mediaArtist && <div className="ha-card-caption">{entity.mediaArtist}</div>}
-          <div className="ha-media-actions">
-            {entity.mediaControls?.previous && <button className="ha-media-button" disabled={disabled} aria-label={t('desktop.ha.previous')} onClick={() => void act(entity, 'previous')}><Icon name="chevl" size={18}/></button>}
-            {entity.mediaControls?.playPause && <button className="ha-media-button is-primary" disabled={disabled} aria-label={t('desktop.ha.playPause')} onClick={() => void act(entity, 'playPause')}>
-              {entity.state === 'playing' ? <svg className="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" strokeWidth="3"/></svg> : <Icon name="play" size={19}/>}
-            </button>}
-            {entity.mediaControls?.next && <button className="ha-media-button" disabled={disabled} aria-label={t('desktop.ha.next')} onClick={() => void act(entity, 'next')}><Icon name="chev" size={18}/></button>}
-          </div>
-          {!entity.mediaControls?.playPause && !entity.mediaControls?.previous && !entity.mediaControls?.next &&
-            <button className="ha-state-button" disabled={disabled} onClick={() => void act(entity)}>{t(entity.on ? 'desktop.ha.off' : 'desktop.ha.on')}</button>}
-        </> : <>
-          <div className="ha-card-state"><span>{unavailable ? t('desktop.ha.unavailable') : oneShot ? t('desktop.ha.ready') : t(entity.on ? 'desktop.ha.isOn' : 'desktop.ha.isOff')}</span>
-            <button className={`ha-state-button${entity.on ? ' on' : ''}`} disabled={disabled} aria-pressed={!oneShot && entity.on}
-              aria-label={entity.name} onClick={() => void act(entity)}>{t(oneShot ? 'desktop.ha.run' : entity.on ? 'desktop.ha.on' : 'desktop.ha.off')}</button></div>
-          {entity.supportsBrightness && (entity.brightness !== undefined || !entity.on) && <Brightness entity={entity} disabled={disabled} onChange={(value) => void act(entity, 'brightness', value)}/>}
-        </>}
-      </article>;
-    })}
-    {error && <p className="ha-control-error" role="status">{error}</p>}
-  </div>;
+
+  return (
+    <div className={`ha-list ${layout}`} onPointerDown={(e) => e.stopPropagation()}>
+      {entities.map((entity) => {
+        const unavailable = ['unknown', 'unavailable'].includes(entity.state);
+        const sensor = entity.domain === 'sensor';
+        const binary = entity.domain === 'binary_sensor';
+        const media = entity.domain === 'media_player';
+        const oneShot = ONE_SHOT.includes(entity.domain);
+        const disabled = preview || readOnly || busy.has(entity.id) || unavailable;
+        const number = sensor && !unavailable && entity.state.trim() !== '' ? Number(entity.state) : NaN;
+        const numeric = Number.isFinite(number);
+
+        let stateText: string;
+        if (unavailable) stateText = t('desktop.ha.unavailable');
+        else if (binary) stateText = t(entity.on ? 'desktop.ha.detected' : 'desktop.ha.clear');
+        else if (sensor) stateText = numeric ? '' : entity.state;
+        else if (media) {
+          stateText = entity.mediaTitle
+            ? [entity.mediaTitle, entity.mediaArtist].filter(Boolean).join(' · ')
+            : t(entity.state === 'playing' ? 'desktop.ha.playing' : entity.state === 'paused' ? 'desktop.ha.paused' : 'desktop.ha.media');
+        } else if (oneShot) stateText = t('desktop.ha.ready');
+        else {
+          stateText = t(entity.on ? 'desktop.ha.isOn' : 'desktop.ha.isOff');
+        }
+
+        let end: ReactNode = null;
+        if (sensor && numeric) {
+          end = (
+            <span className="ha-value">
+              {numberFormat.format(number)}
+              {entity.unit && <small>{entity.unit}</small>}
+            </span>
+          );
+        } else if (oneShot) {
+          end = (
+            <button type="button" className="ha-run" disabled={disabled} onClick={() => void act(entity)}>
+              <Icon name="play" size={12} />
+              {t('desktop.ha.run')}
+            </button>
+          );
+        } else if (!sensor && !binary && !(media && entity.mediaControls?.playPause)) {
+          end = (
+            <input
+              type="checkbox"
+              className="sw"
+              checked={entity.on}
+              disabled={disabled}
+              aria-label={entity.name}
+              onChange={() => void act(entity)}
+            />
+          );
+        }
+
+        const controls = entity.mediaControls;
+        return (
+          <article
+            key={entity.id}
+            title={entity.id}
+            className={`ha-tile${entity.on ? ' on' : ''}${sensor || binary ? ' sensor' : ''}${unavailable ? ' unavailable' : ''}`}
+          >
+            <span className="ha-ico">
+              <EntityIcon entity={entity} />
+            </span>
+            <span className="ha-txt">
+              <b>{entity.name}</b>
+              {stateText && <span>{stateText}</span>}
+            </span>
+            {end && <span className="ha-end">{end}</span>}
+            {entity.supportsBrightness && (entity.brightness !== undefined || !entity.on) && (
+              <Brightness entity={entity} disabled={disabled} onChange={(value) => void act(entity, 'brightness', value)} />
+            )}
+            {sensor && numeric && entity.unit === '%' && number >= 0 && number <= 100 && (
+              <span className="ha-gauge" style={{ '--v': `${number}%` } as React.CSSProperties} aria-hidden="true" />
+            )}
+            {media && controls && (controls.previous || controls.playPause || controls.next) && (
+              <span className="ha-media">
+                {controls.previous && (
+                  <button type="button" disabled={disabled} aria-label={t('desktop.ha.previous')} onClick={() => void act(entity, 'previous')}>
+                    <Icon name="chevl" size={16} />
+                  </button>
+                )}
+                {controls.playPause && (
+                  <button
+                    type="button"
+                    className="pp"
+                    disabled={disabled}
+                    aria-label={t('desktop.ha.playPause')}
+                    onClick={() => void act(entity, 'playPause')}
+                  >
+                    {entity.state === 'playing' ? (
+                      <svg className="i" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M9 6.5v11M15 6.5v11" />
+                      </svg>
+                    ) : (
+                      <Icon name="play" size={15} />
+                    )}
+                  </button>
+                )}
+                {controls.next && (
+                  <button type="button" disabled={disabled} aria-label={t('desktop.ha.next')} onClick={() => void act(entity, 'next')}>
+                    <Icon name="chev" size={16} />
+                  </button>
+                )}
+              </span>
+            )}
+          </article>
+        );
+      })}
+      {error && (
+        <p className="ha-error" role="status">
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }

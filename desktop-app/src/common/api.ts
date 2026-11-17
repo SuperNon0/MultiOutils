@@ -25,7 +25,36 @@ export type Unsubscribe = () => void;
 
 export type IconLibraryPublic = import('./icons').IconLibraryState & { builtinThemes: import('./icons').IconTheme[] };
 
+export interface HaPickerEntity {
+  id: string;
+  name: string;
+  domain: string;
+  state: string;
+  area?: string;
+  areaName?: string;
+  floorName?: string;
+  icon?: string;
+  unit?: string;
+}
+export interface HaPickerData {
+  entities: HaPickerEntity[];
+  areas: Array<{ id: string; name: string; floor?: string }>;
+  floors: Array<{ id: string; name: string; level?: number }>;
+  /** Tracés SVG (viewBox 24) des icônes mdi:… utilisées. */
+  icons: Record<string, string>;
+  current: string;
+  /** Types d'entités acceptés (vide = tous). */
+  domains: string[];
+  title: string;
+}
+
 export interface PreloadApi {
+  /** Grand sélecteur d'entités Home Assistant ouvert depuis le Stream Deck. */
+  haPicker: {
+    data(): Promise<HaPickerData>;
+    choose(id: string | null): void;
+    onRefresh(cb: () => void): Unsubscribe;
+  };
   /** Module Icônes : atelier d'icônes (common/icons.ts). */
   icons: {
     state(): Promise<IconLibraryPublic>;

@@ -10,7 +10,8 @@ Boutons Stream Deck pour piloter l'application MultiOutils (docs/00 §8) :
 | Ouvrir le presse-papiers | Ouvre le module Presse-papiers de l'app |
 | Copier le dernier clip | Recopie le dernier élément de l'historique (y compris venus de l'iPhone) |
 | Garder le clip courant | Épingle le contenu actuel du presse-papiers (jamais supprimé) |
-| **Home Assistant** | Une touche qui s'adapte à l'entité choisie : basculer, allumer/éteindre, préréglage (luminosité, couleur, position, consigne…), parcourir une liste, ajuster d'un pas, lecteur, caméra, service libre, événement, modèle affiché |
+| **HA : Lumière, Interrupteur, Volet, Thermostat, Capteur, Lecteur, Scène ou script, Caméra** | Une action par modèle de touche : le panneau ne propose que les entités de ce type et part des bons réglages. Bouton « Choisir dans une grande fenêtre » : sélecteur par pièce, avec icônes, dans MultiOutils |
+| **HA : Avancé (tout)** | Toutes les entités et tous les modes : basculer, préréglage, liste, pas, lecteur, caméra, service libre, événement, modèle affiché |
 | PC : veille / verrouiller / éteindre / redémarrer | Commandes du PC (confirmation sur la touche pour éteindre et redémarrer) |
 
 ## Home Assistant

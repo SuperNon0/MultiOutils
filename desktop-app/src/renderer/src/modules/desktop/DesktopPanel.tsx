@@ -127,11 +127,11 @@ function WidgetDetail({ zone, full }: { zone: Zone; full: ZoneStyle & { opacity:
       <div className="bz-ha">
         {zone.widget !== 'ha-chart' && zone.entities.length > 0 && <div className="bz-widget-preview">
           <span className="lbl-mono">{t('desktop.ha.preview')}</span>
-          <div className="ha-preview-frame" data-zone-theme={full.theme === 'inherit' ? undefined : full.theme}
+          <div className="zw-preview" data-zone-theme={full.theme === 'inherit' ? undefined : full.theme}
             style={{ '--zc': zone.color ?? 'var(--accent)', '--preview-opacity': full.opacity / 100,
               '--preview-bg': full.bg ?? 'var(--pop)', borderRadius: full.radius,
               borderColor: full.border ? 'var(--line2)' : 'transparent' } as React.CSSProperties}>
-            {full.titleBar !== 'hidden' && <div className="ha-preview-title">{zone.title}</div>}
+            {full.titleBar !== 'hidden' && <div className="zw-preview-title">{zone.title}</div>}
             <HaCards entities={zone.entities.map((id) => ents.find((entity) => entity.id === id)).filter((entity): entity is HaEntity => !!entity)}
               layout={zone.widgetLayout} preview readOnly/>
           </div>

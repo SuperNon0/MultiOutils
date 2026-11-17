@@ -15,6 +15,21 @@
   let entityState = null;
   const $ = (id) => document.getElementById(id);
 
+  /* Une action par modèle de touche : types d'entités proposés et titre. */
+  const KINDS = {
+    light: { t: 'Lumière', d: ['light'] },
+    switch: { t: 'Interrupteur ou prise', d: ['switch', 'input_boolean', 'fan', 'humidifier', 'siren', 'valve', 'lock', 'vacuum'] },
+    cover: { t: 'Volet', d: ['cover'] },
+    climate: { t: 'Thermostat', d: ['climate', 'water_heater'] },
+    sensor: { t: 'Capteur', d: ['sensor', 'binary_sensor', 'weather', 'person', 'device_tracker', 'input_number', 'number'] },
+    media: { t: 'Lecteur', d: ['media_player'] },
+    scene: { t: 'Scène ou script', d: ['scene', 'script', 'automation', 'button', 'input_button'] },
+    camera: { t: 'Caméra', d: ['camera'] }
+  };
+  let kindId = '';
+  const kind = () => KINDS[kindId] || null;
+  const allowed = (domain) => !kind() || kind().d.includes(domain);
+
   /* ───────── échanges avec le Stream Deck ───────── */
 
   function send(event, payload) {
@@ -44,6 +59,7 @@
     try {
       const a = JSON.parse(actionInfo);
       actionUUID = a.action;
+      kindId = (/^com\.supernon0\.multioutils\.ha\.([a-z]+)$/.exec(actionUUID || '') || [])[1] || '';
       settings = (a.payload && a.payload.settings) || {};
     } catch (e) {
       settings = {};
@@ -74,6 +90,7 @@
 
   function onPlugin(m) {
     if (m.error) {
+      if (m.cmd === 'pick') $('grand').disabled = false;
       etat(m.error, 'err');
       if (m.cmd === 'catalog') $('res').innerHTML = '<p class="aide">' + esc(m.error) + '</p>';
       return;
@@ -100,6 +117,17 @@
       $('d-etat').textContent = 'Enregistré.';
       $('d-token').value = '';
       setTimeout(() => toPlugin({ cmd: 'status' }), 1500);
+    } else if (m.cmd === 'pick') {
+      $('grand').disabled = false;
+      if (m.ok && m.settings) {
+        settings = m.settings;
+        entityState = null;
+        renderChosen.open = false;
+        renderAll();
+        toPlugin({ cmd: 'state', id: settings.entity });
+        setTimeout(() => toPlugin({ cmd: 'preview' }), 300);
+        etat('Entité choisie.', 'ok');
+      } else etat('');
     } else if (m.cmd === 'copy') etat('Réglages copiés. Colle-les sur une autre touche.', 'ok');
     else if (m.cmd === 'paste') {
       if (m.ok && m.settings) {
@@ -170,8 +198,12 @@
     $('f-etage').innerHTML = '<option value="">Tous les étages</option>' + floors.map((f) => '<option>' + esc(f.name) + '</option>').join('');
     $('f-etage').hidden = floors.length === 0;
     $('f-piece').innerHTML = '<option value="">Toutes les pièces</option>' + areas.map((a) => '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>').join('');
-    const doms = [...new Set(catalog.entities.map((e) => e.domain))].sort((a, b) => (DOMAINS[a] || a).localeCompare(DOMAINS[b] || b, 'fr'));
+    const doms = [...new Set(catalog.entities.map((e) => e.domain).filter(allowed))].sort((a, b) => (DOMAINS[a] || a).localeCompare(DOMAINS[b] || b, 'fr'));
     $('f-type').innerHTML = '<option value="">Tous les types</option>' + doms.map((d) => '<option value="' + d + '">' + esc(DOMAINS[d] || d) + '</option>').join('');
+    $('f-type').hidden = doms.length < 2;
+    // seulement les pièces qui ont des entités de ce modèle
+    const used = new Set(catalog.entities.filter((e) => allowed(e.domain)).map((e) => e.area));
+    $('f-piece').innerHTML = '<option value="">Toutes les pièces</option>' + areas.filter((a) => used.has(a.id)).map((a) => '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>').join('');
   }
 
   const norm = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -181,22 +213,30 @@
     const words = norm($('q').value).split(/\s+/).filter(Boolean);
     const fe = $('f-etage').value, fp = $('f-piece').value, ft = $('f-type').value;
     const list = catalog.entities
+      .filter((e) => allowed(e.domain))
       .filter((e) => (!fe || e.floorName === fe) && (!fp || e.area === fp) && (!ft || e.domain === ft))
       .filter((e) => {
-        const hay = norm(e.name + ' ' + e.id + ' ' + (e.areaName || '') + ' ' + (e.floorName || ''));
+        const hay = norm(e.name + ' ' + e.id + ' ' + (e.areaName || '') + ' ' + (e.floorName || '') + ' ' + (DOMAINS[e.domain] || ''));
         return words.every((w) => hay.includes(w));
       })
-      .slice(0, 80);
+      .sort((a, b) => (a.areaName || '\uffff').localeCompare(b.areaName || '\uffff', 'fr') || a.name.localeCompare(b.name, 'fr'))
+      .slice(0, 150);
     if (!list.length) {
       box.innerHTML = '<p class="aide">Aucune entité trouvée.</p>';
       return;
     }
+    let last = null;
     box.innerHTML = list
-      .map(
-        (e) =>
-          '<div class="ent" tabindex="0" data-id="' + esc(e.id) + '"><b>' + esc(e.name) + '</b><span class="v">' + esc(fmt(e.state, e.unit)) + '</span><span>' +
-          esc([DOMAINS[e.domain] || e.domain, e.areaName].filter(Boolean).join(' · ')) + '</span><span class="v mono">' + esc(e.id) + '</span></div>'
-      )
+      .map((e) => {
+        const room = e.areaName || 'Sans pièce';
+        const head = room !== last ? '<div class="groupe">' + esc(room) + '</div>' : '';
+        last = room;
+        return (
+          head +
+          '<div class="ent" tabindex="0" title="' + esc(e.id) + '" data-id="' + esc(e.id) + '"><div class="t"><b>' + esc(e.name) + '</b><span>' +
+          esc(DOMAINS[e.domain] || e.domain) + '</span></div><span class="v">' + esc(fmt(e.state, e.unit)) + '</span></div>'
+        );
+      })
       .join('');
     box.querySelectorAll('.ent').forEach((el) => {
       const pick = () => chooseEntity(el.dataset.id);
@@ -239,10 +279,16 @@
     if (!has) return;
     const e = catalog && catalog.entities.find((x) => x.id === id);
     $('ch-nom').textContent = e ? e.name : id;
-    $('ch-info').textContent = [e && (DOMAINS[e.domain] || e.domain), e && e.areaName, entityState ? fmt(entityState.state, entityState.attributes && entityState.attributes.unit_of_measurement) : '', id]
+    $('choisie').title = id;
+    $('ch-info').textContent = [e && (DOMAINS[e.domain] || e.domain), e && e.areaName, entityState ? fmt(entityState.state, entityState.attributes && entityState.attributes.unit_of_measurement) : '']
       .filter(Boolean)
       .join(' · ');
   }
+  $('grand').onclick = () => {
+    $('grand').disabled = true;
+    etat('Choisis l’entité dans la fenêtre MultiOutils…');
+    toPlugin({ cmd: 'pick', title: kind() ? kind().t : '' });
+  };
   $('ch-changer').onclick = () => {
     renderChosen.open = !renderChosen.open;
     renderChosen();
@@ -683,22 +729,26 @@
   /* ───────── modèles de touches ───────── */
 
   const MODELES = [
-    { id: 'lampe', t: 'Lumière : basculer, luminosité en jauge', s: { mode: 'toggle', gauge: true, style: 'accent' } },
-    { id: 'lampe-cycle', t: 'Lumière : 100 % › 50 % › 10 % › éteinte', s: { mode: 'cycle', cycle: '100, 50, 10, 0', gauge: true } },
-    { id: 'lampe-soir', t: 'Lumière : ambiance chaude 30 %', s: { mode: 'preset', preset: { brightness: 30, kelvin: 2700 } } },
-    { id: 'volet', t: 'Volet : ouvrir / fermer avec position', s: { mode: 'toggle', gauge: true } },
-    { id: 'volet-3', t: 'Volet : 3 positions (ouvert, mi-hauteur, fermé)', s: { mode: 'cycle', cycle: '100, 50, 0', gauge: true } },
-    { id: 'temp', t: 'Capteur : température avec alerte au-dessus de 25 °', s: { mode: 'display', valueMode: 'show', decimals: 1, rules: [{ when: 'above', value: '25', color: '#ef7d6b' }] } },
-    { id: 'thermo-plus', t: 'Thermostat : +0,5 °', s: { mode: 'adjust', step: 0.5, valueMode: 'show' } },
-    { id: 'thermo-moins', t: 'Thermostat : −0,5 °', s: { mode: 'adjust', step: -0.5, valueMode: 'show' } },
-    { id: 'prise', t: 'Prise : basculer, fond plein', s: { mode: 'toggle', style: 'plein' } },
-    { id: 'scene', t: 'Scène ou script : lancer', s: { mode: 'auto', style: 'plein' } },
-    { id: 'lecteur', t: 'Lecteur : lecture / pause avec pochette', s: { mode: 'media', media: 'play_pause', art: true, gauge: true } },
-    { id: 'camera', t: 'Caméra : image toutes les 5 s, ouvrir en grand', s: { mode: 'camera', refresh: 5, titleMode: 'none' } },
-    { id: 'porte', t: 'Porte : clignote si ouverte', s: { mode: 'display', rules: [{ when: 'is', value: 'on', color: '#ef7d6b', blink: true }] } },
-    { id: 'alarme', t: 'Action sensible : confirmation obligatoire', s: { confirm: true, style: 'plein', color: '#ef7d6b' } }
+    { id: 'lampe', k: 'light', t: 'Lumière : basculer, luminosité en jauge', s: { mode: 'toggle', gauge: true, style: 'accent' } },
+    { id: 'lampe-cycle', k: 'light', t: 'Lumière : 100 % › 50 % › 10 % › éteinte', s: { mode: 'cycle', cycle: '100, 50, 10, 0', gauge: true } },
+    { id: 'lampe-soir', k: 'light', t: 'Lumière : ambiance chaude 30 %', s: { mode: 'preset', preset: { brightness: 30, kelvin: 2700 } } },
+    { id: 'volet', k: 'cover', t: 'Volet : ouvrir / fermer avec position', s: { mode: 'toggle', gauge: true } },
+    { id: 'volet-3', k: 'cover', t: 'Volet : 3 positions (ouvert, mi-hauteur, fermé)', s: { mode: 'cycle', cycle: '100, 50, 0', gauge: true } },
+    { id: 'temp', k: 'sensor', t: 'Capteur : température avec alerte au-dessus de 25 °', s: { mode: 'display', valueMode: 'show', decimals: 1, rules: [{ when: 'above', value: '25', color: '#ef7d6b' }] } },
+    { id: 'thermo-plus', k: 'climate', t: 'Thermostat : +0,5 °', s: { mode: 'adjust', step: 0.5, valueMode: 'show' } },
+    { id: 'thermo-moins', k: 'climate', t: 'Thermostat : −0,5 °', s: { mode: 'adjust', step: -0.5, valueMode: 'show' } },
+    { id: 'prise', k: 'switch', t: 'Prise : basculer, fond plein', s: { mode: 'toggle', style: 'plein' } },
+    { id: 'scene', k: 'scene', t: 'Scène ou script : lancer', s: { mode: 'auto', style: 'plein' } },
+    { id: 'lecteur', k: 'media', t: 'Lecteur : lecture / pause avec pochette', s: { mode: 'media', media: 'play_pause', art: true, gauge: true } },
+    { id: 'camera', k: 'camera', t: 'Caméra : image toutes les 5 s, ouvrir en grand', s: { mode: 'camera', refresh: 5, titleMode: 'none' } },
+    { id: 'porte', k: 'sensor', t: 'Porte : clignote si ouverte', s: { mode: 'display', rules: [{ when: 'is', value: 'on', color: '#ef7d6b', blink: true }] } },
+    { id: 'alarme', k: '', t: 'Action sensible : confirmation obligatoire', s: { confirm: true, style: 'plein', color: '#ef7d6b' } }
   ];
-  $('modele').innerHTML += MODELES.map((m) => '<option value="' + m.id + '">' + esc(m.t) + '</option>').join('');
+  function fillModeles() {
+    const list = MODELES.filter((m) => !kindId || m.k === kindId || !m.k);
+    $('modele').innerHTML = '<option value="">Choisir un modèle prêt à l’emploi…</option>' + list.map((m) => '<option value="' + m.id + '">' + esc(kindId ? m.t.replace(/^[^:]+ : /, '') : m.t) + '</option>').join('');
+    $('modele-carte').hidden = list.length === 0;
+  }
   $('modele').onchange = () => {
     const m = MODELES.find((x) => x.id === $('modele').value);
     $('modele').value = '';
@@ -721,6 +771,9 @@
   $('coller').onclick = () => toPlugin({ cmd: 'paste' });
 
   function renderAll() {
+    fillModeles();
+    $('ent-titre').textContent = kind() ? kind().t : 'Entité';
+    $('q').placeholder = kind() ? 'Chercher : ' + kind().t.toLowerCase() + ', pièce…' : 'Chercher : salon, lampe, température…';
     renderChosen();
     renderResults();
     renderMode();

@@ -548,7 +548,7 @@ export function ZoneWindow(): ReactNode {
             zone.title
           )}
         </span>
-        <span className="zw-n">{entries.length}</span>
+        {zone.kind !== 'widget' && <span className="zw-n">{entries.length}</span>}
       </>
     );
   }

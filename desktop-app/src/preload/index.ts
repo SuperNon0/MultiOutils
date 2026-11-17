@@ -18,6 +18,11 @@ function subscribe<T>(channel: string, cb: (payload: T) => void): Unsubscribe {
 }
 
 const api: PreloadApi = {
+  haPicker: {
+    data: () => ipcRenderer.invoke('ha-picker:data'),
+    choose: (id) => ipcRenderer.send('ha-picker:choose', id),
+    onRefresh: (cb) => subscribe('ha-picker:refresh', cb)
+  },
   icons: {
     state: () => ipcRenderer.invoke('icons:state'),
     saveDesigns: (list) => ipcRenderer.invoke('icons:saveDesigns', list),
