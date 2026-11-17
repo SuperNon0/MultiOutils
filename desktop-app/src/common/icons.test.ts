@@ -123,52 +123,78 @@ describe('recherche en français', () => {
 });
 
 
-describe('styles complets et compatibilité', () => {
-  it('conserve toute l’apparence après enregistrement et rechargement JSON', () => {
+describe('styles sans symboles ni images', () => {
+  it('sauvegarde tous les réglages sans aucune référence d’icône', () => {
     const source = defaultDesign({
       symbol: { lib: 'tabler', name: 'eye-check', weight: 'filled' },
+      image: 'data:image/png;base64,AAAA', imageKeep: false,
       fg: '#a99bff', bg: '#141b28', bg2: '#111122', shape: 'rounded',
       gradientAngle: 45, shadow: 'glow', scale: 0.7, dx: 12, dy: -8, rotate: 30, strokeWidth: 3,
       text: { value: 'Zones visibles', size: 22, weight: 700, position: 'bottom', color: '#ffffff' },
       badge: { symbol: { lib: 'mdi', name: 'check' }, fg: '#ffffff', bg: '#ff0000', corner: 'bl' },
       off: { symbol: { lib: 'tabler', name: 'eye-off' }, fg: '#888888', bg: '#222222', bg2: '#333333' }
     });
-    const saved = sanitizeStyle(JSON.parse(JSON.stringify({ id: 'style_complete', name: 'Zones du bureau', look: styleLook(source) })))!;
-    const target = defaultDesign({ name: 'Mon icône', folder: 'folder_a', favorite: true });
+    const raw = JSON.stringify({ id: 'style_complete', name: 'Zones du bureau', look: styleLook(source) });
+    expect(raw).not.toContain('symbol');
+    expect(raw).not.toContain('data:image');
+    const saved = sanitizeStyle(JSON.parse(raw))!;
+    const target = defaultDesign({
+      name: 'Mon icône', folder: 'folder_a', favorite: true,
+      symbol: { lib: 'mdi', name: 'lamp' },
+      badge: { symbol: { lib: 'mdi', name: 'star' }, fg: '#000000', bg: '#ffffff', corner: 'tr' },
+      off: { symbol: { lib: 'mdi', name: 'lamp-off' } }
+    });
     const result = applyStyle(target, saved.look);
     expect(styleLook(result)).toEqual(styleLook(source));
+    expect(result.symbol).toEqual(target.symbol);
+    expect(result.badge?.symbol).toEqual(target.badge?.symbol);
+    expect(result.off?.symbol).toEqual(target.off?.symbol);
     expect(result.id).toBe(target.id);
     expect(result.name).toBe(target.name);
     expect(result.folder).toBe(target.folder);
     expect(result.favorite).toBe(true);
     expect(result.createdAt).toBe(target.createdAt);
-    expect(offVariant(result).symbol?.name).toBe('eye-off');
   });
 
-  it('enregistre les images importées et leur mode de recoloration', () => {
-    const source = defaultDesign({ symbol: null, image: 'data:image/png;base64,AAAA', imageKeep: false });
-    const saved = sanitizeStyle(JSON.parse(JSON.stringify({ id: 'style_image', name: 'Image', look: styleLook(source) })))!;
-    const result = applyStyle(defaultDesign(), saved.look);
+  it('conserve l’image importée de la cible tout en appliquant les autres réglages', () => {
+    const source = defaultDesign({ symbol: { lib: 'mdi', name: 'lamp' }, imageKeep: false, dx: 15 });
+    const target = defaultDesign({ symbol: null, image: 'data:image/png;base64,AAAA', imageKeep: true });
+    const result = applyStyle(target, styleLook(source));
     expect(result.symbol).toBeNull();
-    expect(result.image).toBe(source.image);
+    expect(result.image).toBe(target.image);
     expect(result.imageKeep).toBe(false);
+    expect(result.dx).toBe(15);
   });
 
-  it('efface les éléments absents du style au lieu de garder ceux de la cible', () => {
-    const source = defaultDesign({ symbol: null });
-    const saved = sanitizeStyle(JSON.parse(JSON.stringify({ id: 'style_empty', name: 'Sans éléments', look: styleLook(source) })))!;
-    const result = applyStyle(defaultDesign({
-      image: 'data:image/png;base64,AAAA', bg2: '#abcdef',
-      text: { value: 'Ancien', size: 20, weight: 600, position: 'top' },
-      badge: { symbol: { lib: 'mdi', name: 'check' }, fg: '#ffffff', bg: '#000000', corner: 'tr' },
-      off: { bg: '#222222' }, dx: 25, dy: -10, rotate: 90
-    }), saved.look);
-    expect(styleLook(result)).toEqual(styleLook(source));
+  it('supprime les symboles des anciens styles complets au rechargement', () => {
+    const saved = sanitizeStyle({ id: 'style_legacy', name: 'Ancien complet', look: {
+      ...styleLook(defaultDesign()), symbol: { lib: 'mdi', name: 'lamp' }, image: 'data:image/png;base64,AAAA',
+      badge: { symbol: { lib: 'mdi', name: 'star' }, fg: '#ffffff', bg: '#000000', corner: 'br' },
+      off: { symbol: { lib: 'mdi', name: 'lamp-off' }, bg: '#333333' }
+    } })!;
+    expect(JSON.stringify(saved)).not.toContain('symbol');
+    expect(JSON.stringify(saved)).not.toContain('data:image');
+    expect(saved.look.badge).toEqual({ fg: '#ffffff', bg: '#000000', corner: 'br' });
+    expect(saved.look.off?.bg).toBe('#333333');
   });
 
-  it('ne complète pas les anciens styles avec un symbole ou une pastille par défaut', () => {
+  it('n’invente pas de symbole de pastille quand la cible n’en a pas', () => {
+    const look = styleLook(defaultDesign({ badge: { symbol: { lib: 'mdi', name: 'star' }, fg: '#ffffff', bg: '#000000', corner: 'br' } }));
+    expect(applyStyle(defaultDesign({ badge: null }), look).badge).toBeNull();
+  });
+
+  it('préserve les symboles éteint et pastille même si le style n’en avait pas', () => {
+    const target = defaultDesign({
+      off: { symbol: { lib: 'mdi', name: 'lamp-off' }, fg: '#222222' },
+      badge: { symbol: { lib: 'mdi', name: 'star' }, fg: '#ffffff', bg: '#000000', corner: 'br' }
+    });
+    const result = applyStyle(target, styleLook(defaultDesign()));
+    expect(result.off).toEqual({ symbol: target.off!.symbol });
+    expect(result.badge).toEqual(target.badge);
+  });
+
+  it('conserve le comportement partiel des anciens styles', () => {
     const old = sanitizeStyle({ id: 'style_old', name: 'Ancien', look: { fg: '#000000', bg: '#ffffff', shape: 'round', scale: 0.5 } })!;
-    expect(old.look).not.toHaveProperty('symbol');
     expect(old.look).not.toHaveProperty('off');
     const target = defaultDesign({ symbol: { lib: 'mdi', name: 'lamp' }, off: { bg: '#222222' }, dx: 5 });
     const result = applyStyle(target, old.look);
@@ -178,23 +204,14 @@ describe('styles complets et compatibilité', () => {
     expect(result.shape).toBe('round');
   });
 
-  it('valide les champs des styles et refuse les styles mal formés', () => {
+  it('valide les champs et ne partage pas les données imbriquées', () => {
     expect(sanitizeStyle({ id: '../bad', name: 'x', look: {} })).toBeNull();
     expect(sanitizeStyle({ id: 'style_bad', name: 'x', look: [] })).toBeNull();
-    const s = sanitizeStyle({ id: 'style_safe', name: 'x', look: { dx: 100, rotate: 999, image: 'javascript:alert(1)', symbol: null } })!;
-    expect(s.look.dx).toBe(50);
-    expect(s.look.rotate).toBe(180);
-    expect(s.look.image).toBeNull();
-  });
-
-  it('ne partage pas les objets imbriqués entre style et icônes', () => {
-    const source = defaultDesign({ off: { bg: '#222222' } });
-    const look = styleLook(source);
-    const a = applyStyle(defaultDesign(), look);
-    const b = applyStyle(defaultDesign(), look);
+    const saved = sanitizeStyle({ id: 'style_safe', name: 'x', look: { dx: 100, rotate: 999, off: { bg: '#222222' } } })!;
+    expect(saved.look.dx).toBe(50);
+    expect(saved.look.rotate).toBe(180);
+    const a = applyStyle(defaultDesign(), saved.look);
     a.off!.bg = '#ffffff';
-    expect(source.off!.bg).toBe('#222222');
-    expect(look.off!.bg).toBe('#222222');
-    expect(b.off!.bg).toBe('#222222');
+    expect(saved.look.off!.bg).toBe('#222222');
   });
 });

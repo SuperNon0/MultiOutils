@@ -99,16 +99,16 @@ export interface IconTheme extends IconColors {
   builtin?: boolean;
 }
 
-/** Style enregistré : toute l’apparence, sans l’identité ni le classement.
+/** Style enregistré : apparence sans les symboles, les images ni l’identité.
  * Les champs ajoutés restent facultatifs pour lire les anciens styles. */
 export interface IconStyle {
   id: string;
   name: string;
   look: Pick<IconDesign, 'fg' | 'bg' | 'bg2' | 'shape' | 'gradientAngle' | 'shadow' | 'scale' | 'strokeWidth'> &
-    Partial<Pick<IconDesign, 'symbol' | 'dx' | 'dy' | 'rotate' | 'badge' | 'off'> & {
-      image: string | null;
-      imageKeep: boolean;
+    Partial<Pick<IconDesign, 'dx' | 'dy' | 'rotate' | 'imageKeep'> & {
       text: NonNullable<IconDesign['text']> | null;
+      badge: Omit<NonNullable<IconDesign['badge']>, 'symbol'> | null;
+      off: Partial<IconColors> | null;
     }>;
 }
 
@@ -324,14 +324,15 @@ export function applyTheme(d: IconDesign, t: IconColors): IconDesign {
   return { ...d, fg: t.fg, bg: t.bg, bg2: t.bg2, updatedAt: Date.now() };
 }
 
-/** Capture toute l’apparence. Les absences explicites survivent au JSON. */
+/** Capture les réglages visuels sans enregistrer les symboles ou les images. */
 export function styleLook(d: IconDesign): IconStyle['look'] {
   return structuredClone({
     fg: d.fg, bg: d.bg, bg2: d.bg2, shape: d.shape, gradientAngle: d.gradientAngle,
     shadow: d.shadow, scale: d.scale, strokeWidth: d.strokeWidth,
-    symbol: d.symbol, image: d.image ?? null, imageKeep: d.imageKeep ?? true,
+    imageKeep: d.imageKeep ?? true,
     dx: d.dx, dy: d.dy, rotate: d.rotate, text: d.text ?? null,
-    badge: d.badge ?? null, off: d.off ?? null
+    badge: d.badge ? { fg: d.badge.fg, bg: d.badge.bg, corner: d.badge.corner } : null,
+    off: d.off ? { fg: d.off.fg, bg: d.off.bg, bg2: d.off.bg2 } : null
   });
 }
 
@@ -342,7 +343,10 @@ export function sanitizeStyle(v: unknown): IconStyle | null {
   if (typeof r.id !== 'string' || !/^[a-z0-9_-]{3,60}$/i.test(r.id) || typeof r.name !== 'string') return null;
   if (!r.look || typeof r.look !== 'object' || Array.isArray(r.look)) return null;
   const raw = r.look as Record<string, unknown>;
-  const d = sanitizeDesign({ ...raw, id: 'style_tmp' });
+  // Les couleurs de la pastille se valident indépendamment de son symbole.
+  const badge = raw.badge && typeof raw.badge === 'object'
+    ? { ...raw.badge, symbol: { lib: 'mdi', name: 'circle' } } : null;
+  const d = sanitizeDesign({ ...raw, badge, id: 'style_tmp' });
   if (!d) return null;
   const full = styleLook(d);
   return {
@@ -351,9 +355,7 @@ export function sanitizeStyle(v: unknown): IconStyle | null {
     look: {
       fg: d.fg, bg: d.bg, bg2: d.bg2, shape: d.shape, gradientAngle: d.gradientAngle,
       shadow: d.shadow, scale: d.scale, strokeWidth: d.strokeWidth,
-      ...('symbol' in raw ? { symbol: full.symbol } : {}),
-      ...('image' in raw ? { image: full.image } : {}),
-      ...('imageKeep' in raw ? { imageKeep: full.imageKeep } : {}),
+      ...('imageKeep' in raw ? { imageKeep: raw.imageKeep !== false } : {}),
       ...('dx' in raw ? { dx: full.dx } : {}),
       ...('dy' in raw ? { dy: full.dy } : {}),
       ...('rotate' in raw ? { rotate: full.rotate } : {}),
@@ -364,14 +366,20 @@ export function sanitizeStyle(v: unknown): IconStyle | null {
   };
 }
 
-/** Les anciens styles ne modifient que les champs qu’ils avaient enregistrés. */
+/** Réapplique les réglages sans changer les symboles ni l’image de la cible. */
 export function applyStyle(d: IconDesign, s: IconStyle['look']): IconDesign {
-  const look = structuredClone(s);
-  const { image, text, ...rest } = look;
+  const { text, badge, off, ...rest } = structuredClone(s);
+  const offSymbol = d.off && 'symbol' in d.off ? { symbol: d.off.symbol } : {};
+  const nextOff = off
+    ? { fg: off.fg, bg: off.bg, bg2: off.bg2, ...offSymbol }
+    : d.off && 'symbol' in d.off ? offSymbol : null;
   return {
     ...d, ...rest, bg2: s.bg2,
-    ...('image' in s ? { image: image ?? undefined } : {}),
+    symbol: d.symbol, image: d.image,
     ...('text' in s ? { text: text ?? undefined } : {}),
+    // Aucune pastille créée sans symbole choisi sur l’icône cible.
+    badge: badge && d.badge ? { ...d.badge, fg: badge.fg, bg: badge.bg, corner: badge.corner } : d.badge,
+    ...('off' in s ? { off: nextOff } : {}),
     updatedAt: Date.now()
   };
 }
