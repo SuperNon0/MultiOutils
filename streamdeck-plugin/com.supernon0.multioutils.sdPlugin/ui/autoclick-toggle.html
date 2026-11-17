@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MultiOutils — couleur de la touche</title>
+    <title>Autoclic — apparence</title>
     <style>
       :root {
         --bg: #0e0f11;
@@ -27,14 +27,14 @@
     </style>
   </head>
   <body>
-    <div id="color"></div>
-    <script src="key-color.js"></script>
+    <div id="appearance"></div>
+    <script src="autoclick-appearance.js"></script>
     <script>
       let ws = null;
       let piContext = null;
       let settings = {};
-      const picker = mountKeyColor(
-        document.getElementById('color'),
+      const picker = mountAutoclickAppearance(
+        document.getElementById('appearance'),
         () => settings,
         () => {
           if (ws && ws.readyState === 1 && piContext)
