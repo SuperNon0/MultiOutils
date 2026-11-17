@@ -77,6 +77,8 @@
   "settings.capture.includeCursorNote": "Not supported by the capture engine yet — coming later.",
   "settings.capture.format": "Default file format",
   "settings.capture.jpgQuality": "JPG quality",
+  "settings.capture.hideApp": "Hide MultiOutils during capture",
+  "settings.capture.hideAppNote": "Turn off to include MultiOutils windows in your screenshots.",
   "settings.capture.captureAllScreens": "Full screen: capture all screens (otherwise, the screen under the cursor)",
   "settings.capture.delayedSeconds": "Delayed capture delay (seconds)",
   "settings.storage.dir": "Captures storage folder",

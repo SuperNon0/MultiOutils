@@ -43,6 +43,7 @@ export function buildDefaults(defaultStorageDir: string): AppSettings {
     jpgQuality: 90,
     storageDir: defaultStorageDir,
     filenameTemplate: DEFAULT_FILENAME_TEMPLATE,
+    hideAppDuringCapture: true,
     captureAllScreens: false,
     delayedSeconds: 5,
     counter: 1,

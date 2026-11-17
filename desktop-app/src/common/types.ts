@@ -48,6 +48,8 @@ export interface AppSettings {
   jpgQuality: number;
   storageDir: string;
   filenameTemplate: string;
+  /** Masquer les fenêtres MultiOutils avant une capture. */
+  hideAppDuringCapture: boolean;
   captureAllScreens: boolean;
   delayedSeconds: number;
   /** Compteur pour la variable {counter} du modèle de nom. */

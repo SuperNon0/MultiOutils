@@ -25,9 +25,9 @@ export class RegionFlow {
     return this.overlays.length > 0;
   }
 
-  async start(): Promise<void> {
+  async start(hideAppDuringCapture = true): Promise<void> {
     if (this.isActive()) return;
-    this.restoreWindows = await hideAppWindows();
+    this.restoreWindows = await hideAppWindows(hideAppDuringCapture);
 
     // On fige TOUS les écrans avant d'ouvrir le moindre overlay, pour que
     // l'overlay lui-même n'apparaisse jamais dans la capture. Les captures se

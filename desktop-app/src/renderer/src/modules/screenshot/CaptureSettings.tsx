@@ -23,6 +23,12 @@ export function CaptureSettings(): ReactNode {
     <>
       <RegSec>
         <RegSwitch
+          titre={t('settings.capture.hideApp')}
+          sous={t('settings.capture.hideAppNote')}
+          checked={settings.hideAppDuringCapture}
+          onChange={(v) => update({ hideAppDuringCapture: v })}
+        />
+        <RegSwitch
           titre={t('settings.capture.clipboardAuto')}
           checked={settings.clipboardAuto}
           onChange={(v) => update({ clipboardAuto: v })}
