@@ -1,0 +1,632 @@
+/* Widgets des zones du Bureau (notes, Home Assistant, courbe, presse-papiers,
+   recherche, mini cloud). Une seule source de style, uniquement des jetons du
+   kit encre ; --zc est la couleur de la zone (accent de l'appli par défaut).
+   Langage commun : tuiles d'icônes colorées comme les fichiers des zones,
+   rangées de 36 px, chiffres en DM Mono, interrupteurs .sw du kit. */
+
+.zw-body.wg {
+  display: flex;
+  flex-direction: column;
+  container-type: inline-size;
+}
+.zw-body.wg > * {
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------ briques */
+.wg-tile {
+  --tc: var(--zc);
+  width: 28px;
+  height: 28px;
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--tc);
+  background: color-mix(in srgb, var(--tc) 16%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--tc) 30%, transparent);
+}
+.wg-thumb {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+}
+.wg-thumb.ico {
+  object-fit: contain;
+  border: 0;
+}
+.wg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px;
+}
+.wg-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 5px 8px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  text-align: left;
+  color: var(--text);
+  font-size: 12.5px;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.wg-row:not(.static) {
+  cursor: pointer;
+}
+.wg-row:not(.static):hover,
+.wg-row.on {
+  background: color-mix(in srgb, var(--zc) 10%, transparent);
+}
+.wg-row.on {
+  border-color: color-mix(in srgb, var(--zc) 30%, transparent);
+}
+.wg-row-tx {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wg-row-tx.two {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.wg-row-tx.two b,
+.wg-row-tx.two small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wg-row-tx.two b {
+  font-weight: 500;
+  font-size: 13px;
+}
+.wg-row-tx.two small {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.wg-row-end {
+  flex: none;
+  color: var(--muted);
+  font: 500 11px var(--f-mono);
+}
+.wg-row:not(.static) .wg-row-end {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.wg-row:hover .wg-row-end,
+.wg-row.ok .wg-row-end {
+  opacity: 1;
+}
+.wg-row.ok .wg-row-end {
+  color: var(--ok);
+}
+.wg-pill {
+  flex: none;
+  padding: 2px 7px;
+  border-radius: 99px;
+  border: 1px solid var(--line2);
+  color: var(--muted);
+  font: 500 10.5px var(--f-mono);
+}
+.wg-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 8px;
+  color: var(--soft);
+  font-size: 12px;
+  font-weight: 500;
+}
+.wg-action:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--zc) 12%, transparent);
+  color: var(--text);
+}
+.wg-action:disabled {
+  opacity: 0.45;
+}
+
+/* --------------------------------------------------------------- notes */
+.zw-body.notes {
+  overflow: hidden;
+}
+.wg-notes {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.wg-note {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  resize: none;
+  border: 0;
+  outline: 0;
+  padding: 12px 14px;
+  background: transparent;
+  color: var(--text);
+  font: 13.5px/1.65 var(--f-body);
+}
+.wg-note::placeholder {
+  color: var(--muted);
+}
+.wg-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 36px;
+  padding: 0 6px 0 14px;
+  border-top: 1px solid var(--zone-border, var(--line));
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.wg-foot > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wg-foot > span.ok {
+  color: var(--ok);
+}
+
+/* --------------------------------------------- Home Assistant : tuiles */
+.ha-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+  align-content: start;
+}
+@container (max-width: 270px) {
+  .ha-list.cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.ha-tile {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas:
+    'ico end'
+    'txt txt';
+  align-items: center;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--card) 72%, transparent);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.ha-tile.on:not(.sensor) {
+  border-color: color-mix(in srgb, var(--zc) 38%, transparent);
+  background: color-mix(in srgb, var(--zc) 9%, color-mix(in srgb, var(--card) 72%, transparent));
+}
+.ha-tile.unavailable {
+  opacity: 0.55;
+}
+.ha-ico {
+  grid-area: ico;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: var(--muted);
+  background: var(--creux, var(--surface));
+  border: 1px solid var(--line);
+  transition: color 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.ha-ico .i {
+  width: 16px;
+  height: 16px;
+}
+.ha-tile.on .ha-ico,
+.ha-tile.sensor .ha-ico {
+  color: var(--zc);
+  background: color-mix(in srgb, var(--zc) 16%, var(--card));
+  border-color: color-mix(in srgb, var(--zc) 30%, transparent);
+}
+.ha-txt {
+  grid-area: txt;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ha-txt b {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ha-txt span {
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ha-end {
+  grid-area: end;
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.ha-value {
+  font: 600 22px/1 var(--f-body);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  white-space: nowrap;
+}
+.ha-value small {
+  margin-left: 3px;
+  font-size: 0.6em;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--muted);
+}
+.ha-run {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 99px;
+  border: 1px solid color-mix(in srgb, var(--zc) 40%, transparent);
+  color: var(--zc);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+.ha-run:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--zc) 14%, transparent);
+}
+.ha-tile .sw:checked {
+  background: var(--zc);
+}
+.ha-tile button:disabled,
+.ha-tile .sw:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Variateur : barre fine colorée jusqu'à la valeur. */
+.ha-slider {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.ha-slider input {
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  margin: 0;
+  appearance: none;
+  border-radius: 99px;
+  background: linear-gradient(to right, var(--zc) var(--v), var(--line2) var(--v));
+  cursor: pointer;
+}
+.ha-slider input::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--blanc, #fff);
+  box-shadow: 0 0 0 2px var(--zc), var(--sh-sw);
+}
+.ha-slider-v {
+  flex: none;
+  min-width: 36px;
+  text-align: right;
+  font: 500 11px var(--f-mono);
+  color: var(--muted);
+}
+.ha-gauge {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 99px;
+  background: linear-gradient(to right, var(--zc) var(--v), var(--line2) var(--v));
+}
+
+/* Lecteur multimédia : précédent · lecture/pause · suivant. */
+.ha-media {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.ha-media button {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--soft);
+}
+.ha-media button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--zc) 12%, transparent);
+  color: var(--text);
+}
+.ha-media button.pp {
+  width: 34px;
+  height: 34px;
+  background: var(--zc);
+  color: var(--ink);
+}
+.ha-media button.pp:hover:not(:disabled) {
+  background: var(--zc);
+  color: var(--ink);
+  filter: brightness(1.08);
+}
+.ha-media button.pp .i {
+  stroke-width: 2.4;
+}
+
+/* Liste compacte : une rangée par appareil. */
+.ha-list.compact {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  padding: 4px 10px;
+}
+.ha-list.compact .ha-tile {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: 'ico txt end';
+  gap: 4px 12px;
+  padding: 10px 2px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+}
+.ha-list.compact .ha-tile:last-of-type {
+  border-bottom: 0;
+}
+.ha-list.compact .ha-ico {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+}
+.ha-list.compact .ha-value {
+  font-size: 15px;
+}
+.ha-list.compact .ha-slider,
+.ha-list.compact .ha-gauge,
+.ha-list.compact .ha-media {
+  grid-column: 2 / -1;
+}
+.ha-list.compact .ha-media {
+  justify-content: flex-start;
+}
+.ha-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 12px;
+  color: var(--danger);
+}
+
+/* -------------------------------------------------------------- courbe */
+.wg-chart {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 10px 12px 12px 14px;
+}
+.wg-chart-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+}
+.wg-chart-name {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wg-chart-now {
+  margin: 2px 0 6px;
+  font: 600 28px/1.1 var(--f-body);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+.wg-chart-now small {
+  margin-left: 4px;
+  font-size: 0.55em;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+.wg-chart-svg {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 48px;
+  overflow: visible;
+}
+.wg-chart-foot {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font: 500 11px var(--f-mono);
+  color: var(--muted);
+}
+.wg-chart-foot b {
+  color: var(--soft);
+  font-weight: 500;
+}
+
+/* ---------------------------------------------------------- recherche */
+.wg-search {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+.wg-field {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 40px;
+  margin: 10px 10px 4px;
+  padding: 0 6px 0 12px;
+  border-radius: var(--r-md, 10px);
+  border: 1px solid var(--line2);
+  background: color-mix(in srgb, var(--card) 80%, transparent);
+  color: var(--muted);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.wg-field:focus-within {
+  border-color: color-mix(in srgb, var(--zc) 55%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--zc) 16%, transparent);
+  color: var(--text);
+}
+.wg-field input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+}
+.wg-field input::placeholder {
+  color: var(--muted);
+}
+.wg-search .wg-list {
+  overflow-y: auto;
+  min-height: 0;
+}
+.wg-hint {
+  margin: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+/* ---------------------------------------------------------- mini cloud */
+.wg-cloud {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.wg-drop {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 10px 10px 4px;
+  padding: 12px;
+  border: 1.5px dashed var(--line2);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.wg-drop .wg-tile {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+.wg-drop.off .wg-tile {
+  --tc: var(--muted);
+}
+.zw.drop .wg-drop {
+  border-color: var(--zc);
+  background: color-mix(in srgb, var(--zc) 8%, transparent);
+  color: var(--text);
+}
+.wg-state {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--muted);
+  background: var(--creux, var(--surface));
+}
+.wg-row.sent .wg-state {
+  color: var(--ok);
+  background: color-mix(in srgb, var(--ok) 14%, transparent);
+}
+.wg-row.error .wg-state,
+.wg-row.error .wg-row-end {
+  color: var(--danger);
+}
+.wg-row.error .wg-state {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
+.wg-row.sending .wg-state {
+  color: var(--zc);
+  background: color-mix(in srgb, var(--zc) 14%, transparent);
+  animation: wg-pulse 1s ease-in-out infinite;
+}
+@keyframes wg-pulse {
+  50% {
+    opacity: 0.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wg-row.sending .wg-state {
+    animation: none;
+  }
+}
+
+/* --------------------------------------- aperçu dans la page Bureau */
+.bz-widget-preview {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0 14px;
+}
+.zw-preview {
+  --zc: var(--accent);
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border: 1px solid var(--line2);
+  color: var(--text);
+  container-type: inline-size;
+}
+.zw-preview::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: var(--preview-bg);
+  opacity: var(--preview-opacity, 0.9);
+}
+.zw-preview-title {
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  border-bottom: 1px solid var(--line);
+}
