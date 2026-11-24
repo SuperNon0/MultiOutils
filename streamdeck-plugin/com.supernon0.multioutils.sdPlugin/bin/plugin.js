@@ -8629,8 +8629,36 @@ function formatState(s, decimals, lang = 'fr') {
         if (typeof cur === 'number')
             return `${new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(cur)} °`;
     }
+    if (d === 'binary_sensor' && (s.state === 'on' || s.state === 'off')) {
+        const pair = BINARY_FR[String(s.attributes?.device_class ?? '')];
+        if (pair)
+            return s.state === 'on' ? pair[0] : pair[1];
+    }
     return STATE_FR[s.state] ?? s.state;
 }
+/** Capteurs binaires : « actif / inactif » selon leur type (comme Home Assistant). */
+const BINARY_FR = {
+    door: ['Ouvert', 'Fermé'],
+    window: ['Ouvert', 'Fermé'],
+    opening: ['Ouvert', 'Fermé'],
+    garage_door: ['Ouvert', 'Fermé'],
+    lock: ['Déverrouillé', 'Verrouillé'],
+    motion: ['Mouvement', 'Calme'],
+    occupancy: ['Occupé', 'Libre'],
+    presence: ['Présent', 'Absent'],
+    moisture: ['Humide', 'Sec'],
+    smoke: ['Fumée', 'OK'],
+    gas: ['Gaz', 'OK'],
+    carbon_monoxide: ['CO', 'OK'],
+    plug: ['Branché', 'Débranché'],
+    power: ['Alimenté', 'Coupé'],
+    connectivity: ['Connecté', 'Déconnecté'],
+    battery: ['Faible', 'Normale'],
+    battery_charging: ['En charge', 'Pas en charge'],
+    problem: ['Problème', 'OK'],
+    vibration: ['Vibration', 'Calme'],
+    sound: ['Son', 'Calme']
+};
 const STATE_FR = {
     on: 'Allumé',
     off: 'Éteint',
@@ -9648,7 +9676,7 @@ const HA_KINDS = [
  * l'état, nom, valeur, jauge, indicateur de connexion, image (caméra,
  * pochette). Même allure que les autres touches MultiOutils.
  */
-const esc = (s) => s.replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c]);
+const esc$1 = (s) => s.replace(/[<>&"']/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[c]);
 function hexToRgb$1(hex) {
     const n = parseInt(hex.slice(1, 7), 16);
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
@@ -9662,7 +9690,7 @@ function luminance(hex) {
     return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 }
 /** Texte tronqué pour tenir sur la touche. */
-function fit(text, max) {
+function fit$1(text, max) {
     const t = text.trim();
     return t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t;
 }
@@ -9705,7 +9733,7 @@ function renderKey(k) {
     let icon = '';
     if (!k.image) {
         if (k.iconPath)
-            icon = `<path transform="translate(${ix} ${iconTop}) scale(${scale})" d="${esc(k.iconPath)}" fill="${glyph}"/>`;
+            icon = `<path transform="translate(${ix} ${iconTop}) scale(${scale})" d="${esc$1(k.iconPath)}" fill="${glyph}"/>`;
         else if (k.fallback)
             icon = `<g transform="translate(${ix} ${iconTop}) scale(${scale})" fill="none" stroke="${glyph}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${k.fallback}</g>`;
     }
@@ -9727,15 +9755,15 @@ function renderKey(k) {
         parts.push(`<rect x="2" y="2" width="140" height="140" rx="20" fill="none" stroke="${alpha(k.color, 0.75)}" stroke-width="3"/>`);
     parts.push(icon);
     if (hasValue) {
-        const v = fit(k.value, 11);
+        const v = fit$1(k.value, 11);
         const size = v.length <= 5 ? 30 : v.length <= 8 ? 24 : 19;
         const y = k.image ? 30 : 34;
-        parts.push(`<text x="72" y="${y}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${size}" font-weight="700" fill="${text}">${esc(v)}</text>`);
+        parts.push(`<text x="72" y="${y}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${size}" font-weight="700" fill="${text}">${esc$1(v)}</text>`);
     }
     if (hasTitle) {
-        const t = fit(k.title, 14);
+        const t = fit$1(k.title, 14);
         const size = t.length <= 9 ? 21 : t.length <= 12 ? 18 : 16;
-        parts.push(`<text x="72" y="${k.gauge != null ? 122 : 128}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${size}" font-weight="600" fill="${text}" opacity="${k.unavailable ? 0.6 : 0.95}">${esc(t)}</text>`);
+        parts.push(`<text x="72" y="${k.gauge != null ? 122 : 128}" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="${size}" font-weight="600" fill="${text}" opacity="${k.unavailable ? 0.6 : 0.95}">${esc$1(t)}</text>`);
     }
     if (k.gauge != null && Number.isFinite(k.gauge)) {
         const w = Math.round((Math.max(0, Math.min(100, k.gauge)) / 100) * 104);
@@ -9749,7 +9777,7 @@ function renderKey(k) {
         parts.push(`<circle cx="18" cy="18" r="8" fill="#ef7d6b" stroke="${k.background}" stroke-width="3"/>`);
     if (k.confirm) {
         parts.push(`<rect width="144" height="144" rx="22" fill="rgba(191,63,44,.92)"/>`);
-        parts.push(`<text x="72" y="66" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="${k.textColor && /^#[0-9a-f]{6}$/i.test(k.textColor) ? k.textColor : '#ffffff'}">${esc(fit(k.confirm, 12))}</text>`);
+        parts.push(`<text x="72" y="66" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="${k.textColor && /^#[0-9a-f]{6}$/i.test(k.textColor) ? k.textColor : '#ffffff'}">${esc$1(fit$1(k.confirm, 12))}</text>`);
         parts.push(`<text x="72" y="96" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="17" fill="${k.textColor && /^#[0-9a-f]{6}$/i.test(k.textColor) ? k.textColor : '#ffffff'}" opacity=".9">Rappuie</text>`);
     }
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144"${k.dimmed ? ' opacity="0.35"' : ''}>${parts.join('')}</svg>`;
@@ -9795,7 +9823,7 @@ const hexToRgb = (hex) => {
     const n = parseInt(hex.slice(1), 16);
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 };
-const finite = (v) => typeof v === 'number' && Number.isFinite(v);
+const finite$1 = (v) => typeof v === 'number' && Number.isFinite(v);
 /** Valeurs d'un cycle « 100, 50, 10 » ou « Film, Lecture ». */
 function cycleItems(text) {
     return (text ?? '')
@@ -9856,7 +9884,7 @@ function planPress(s, state) {
             if (!items.length)
                 return { kind: 'none', reason: 'Liste vide' };
             if (domain === 'light') {
-                const cur = state?.state === 'on' && finite(attrs.brightness) ? Math.round(attrs.brightness / 2.55) : 0;
+                const cur = state?.state === 'on' && finite$1(attrs.brightness) ? Math.round(attrs.brightness / 2.55) : 0;
                 const next = Number(nextCycle(items, cur));
                 return next <= 0
                     ? { kind: 'service', domain: 'light', service: 'turn_off', target }
@@ -9877,27 +9905,27 @@ function planPress(s, state) {
             return { kind: 'none', reason: 'Cycle non géré pour ce type' };
         }
         case 'adjust': {
-            const step = finite(s.step) && s.step !== 0 ? s.step : 10;
+            const step = finite$1(s.step) && s.step !== 0 ? s.step : 10;
             if (domain === 'light')
                 return { kind: 'service', domain, service: 'turn_on', data: { brightness_step_pct: step }, target };
             if (domain === 'climate') {
-                const cur = finite(attrs.temperature) ? attrs.temperature : 20;
+                const cur = finite$1(attrs.temperature) ? attrs.temperature : 20;
                 return { kind: 'service', domain, service: 'set_temperature', data: { temperature: Math.round((cur + step) * 10) / 10 }, target };
             }
             if (domain === 'cover') {
-                const cur = finite(attrs.current_position) ? attrs.current_position : 0;
+                const cur = finite$1(attrs.current_position) ? attrs.current_position : 0;
                 return { kind: 'service', domain, service: 'set_cover_position', data: { position: Math.max(0, Math.min(100, cur + step)) }, target };
             }
             if (domain === 'fan')
                 return { kind: 'service', domain, service: step > 0 ? 'increase_speed' : 'decrease_speed', data: { percentage_step: Math.abs(step) }, target };
             if (domain === 'media_player') {
-                const cur = finite(attrs.volume_level) ? attrs.volume_level : 0.3;
+                const cur = finite$1(attrs.volume_level) ? attrs.volume_level : 0.3;
                 return { kind: 'service', domain, service: 'volume_set', data: { volume_level: Math.max(0, Math.min(1, Math.round((cur + step / 100) * 100) / 100)) }, target };
             }
             if (domain === 'input_number' || domain === 'number') {
                 const cur = Number(state?.state);
-                const max = finite(attrs.max) ? attrs.max : Infinity;
-                const min = finite(attrs.min) ? attrs.min : -Infinity;
+                const max = finite$1(attrs.max) ? attrs.max : Infinity;
+                const min = finite$1(attrs.min) ? attrs.min : -Infinity;
                 return { kind: 'service', domain, service: 'set_value', data: { value: Math.max(min, Math.min(max, (Number.isFinite(cur) ? cur : 0) + step)) }, target };
             }
             return { kind: 'none', reason: 'Réglage non géré pour ce type' };
@@ -9939,34 +9967,34 @@ function presetPlan(s, domain, target) {
     switch (domain) {
         case 'light': {
             const data = {};
-            if (finite(p.brightness))
+            if (finite$1(p.brightness))
                 data.brightness_pct = p.brightness;
             const rgb = p.color ? hexToRgb(p.color) : null;
             if (rgb)
                 data.rgb_color = rgb;
-            else if (finite(p.kelvin))
+            else if (finite$1(p.kelvin))
                 data.color_temp_kelvin = p.kelvin;
             if (data.brightness_pct === 0)
                 return { kind: 'service', domain, service: 'turn_off', target };
             return { kind: 'service', domain, service: 'turn_on', data, target };
         }
         case 'cover':
-            return { kind: 'service', domain, service: 'set_cover_position', data: { position: finite(p.position) ? p.position : 50 }, target };
+            return { kind: 'service', domain, service: 'set_cover_position', data: { position: finite$1(p.position) ? p.position : 50 }, target };
         case 'climate': {
             if (p.hvac)
                 return { kind: 'service', domain, service: 'set_hvac_mode', data: { hvac_mode: p.hvac }, target };
-            return { kind: 'service', domain, service: 'set_temperature', data: { temperature: finite(p.temperature) ? p.temperature : 20 }, target };
+            return { kind: 'service', domain, service: 'set_temperature', data: { temperature: finite$1(p.temperature) ? p.temperature : 20 }, target };
         }
         case 'fan':
-            return { kind: 'service', domain, service: 'set_percentage', data: { percentage: finite(p.percentage) ? p.percentage : 50 }, target };
+            return { kind: 'service', domain, service: 'set_percentage', data: { percentage: finite$1(p.percentage) ? p.percentage : 50 }, target };
         case 'media_player':
-            return { kind: 'service', domain, service: 'volume_set', data: { volume_level: finite(p.volume) ? p.volume / 100 : 0.3 }, target };
+            return { kind: 'service', domain, service: 'volume_set', data: { volume_level: finite$1(p.volume) ? p.volume / 100 : 0.3 }, target };
         case 'input_select':
         case 'select':
             return p.option ? { kind: 'service', domain, service: 'select_option', data: { option: p.option }, target } : { kind: 'none', reason: 'Option à choisir' };
         case 'input_number':
         case 'number':
-            return { kind: 'service', domain, service: 'set_value', data: { value: finite(p.value) ? p.value : 0 }, target };
+            return { kind: 'service', domain, service: 'set_value', data: { value: finite$1(p.value) ? p.value : 0 }, target };
         default:
             return { kind: 'none', reason: 'Préréglage non géré pour ce type' };
     }
@@ -9981,6 +10009,209 @@ function showsValueByDefault(entity, mode) {
 /** Jauge par défaut. */
 function gaugeByDefault(entity) {
     return ['light', 'cover', 'media_player', 'fan'].includes(haDomainOf(entity));
+}
+
+/**
+ * Panneau lumière : un appui long sur une touche « HA : Lumière » ouvre un
+ * profil Stream Deck fourni avec le plugin, réglé sur la lampe de la touche.
+ *
+ *   ┌────────┬────────┬────────┬────────┬────────┐
+ *   │ Retour │ teinte │ teinte │ teinte │ teinte │
+ *   ├────────┼────────┼────────┼────────┼────────┤
+ *   │ Page   │ teinte │ teinte │ teinte │ teinte │
+ *   ├────────┼────────┼────────┼────────┼────────┤
+ *   │ lum. 1 │ lum. 2 │ lum. 3 │ lum. 4 │ lum. 5 │
+ *   └────────┴────────┴────────┴────────┴────────┘
+ *
+ * Deux pages de 8 teintes (16 en tout). Une teinte est soit une couleur
+ * (ampoule RVB), soit un blanc en kelvins (ampoule à nuances de blanc).
+ * Fonctions pures (testées par vitest).
+ */
+const PANEL_PROFILE = 'profiles/multioutils-lumiere';
+const PANEL_ACTION = 'com.supernon0.multioutils.ha.light-panel';
+const LONG_PRESS_MS = 450;
+const SLOTS_PER_PAGE = 8;
+const PAGES = 2;
+const SLOT_COUNT = SLOTS_PER_PAGE * PAGES;
+const LEVEL_COUNT = 5;
+const DEFAULT_LEVELS = [10, 25, 50, 75, 100];
+const HEX$1 = /^#[0-9a-f]{6}$/i;
+const COLOR_MODES = ['hs', 'xy', 'rgb', 'rgbw', 'rgbww'];
+const finite = (v) => typeof v === 'number' && Number.isFinite(v);
+function lightCaps(st) {
+    const a = st?.attributes ?? {};
+    const modes = Array.isArray(a.supported_color_modes) ? a.supported_color_modes : [];
+    const minK = finite(a.min_color_temp_kelvin) ? Math.round(a.min_color_temp_kelvin) : 2200;
+    const maxK = finite(a.max_color_temp_kelvin) ? Math.round(a.max_color_temp_kelvin) : 6500;
+    return {
+        color: modes.some((m) => COLOR_MODES.includes(m)),
+        white: modes.includes('color_temp'),
+        minK: Math.min(minK, maxK),
+        maxK: Math.max(minK, maxK)
+    };
+}
+/** Type d'ampoule, en mots. */
+function capsLabel(c) {
+    if (c.color && c.white)
+        return 'couleurs et blancs';
+    if (c.color)
+        return 'couleurs';
+    if (c.white)
+        return 'nuances de blanc';
+    return 'luminosité seule';
+}
+const BASE_COLORS = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be', '#007aff', '#5856d6', '#ff2d92'];
+const MORE_COLORS = ['#ff6f61', '#ffb340', '#c6f432', '#7ee8a2', '#64d2ff', '#a0c4ff', '#bf5af2', '#ff9ec7'];
+const BASE_WHITES = [2200, 2700, 3000, 3500, 4000, 4500, 5000, 6500];
+/** Blancs répartis sur la plage de l'ampoule. */
+function spreadWhites(c, n) {
+    return Array.from({ length: n }, (_, i) => Math.round((c.minK + ((c.maxK - c.minK) * i) / (n - 1)) / 50) * 50);
+}
+/** Teintes de départ selon l'ampoule. */
+function defaultSlots(c) {
+    if (c.color && c.white)
+        return [...BASE_COLORS.map((x) => ({ c: x })), ...BASE_WHITES.map((k) => ({ k: clampK(k, c) }))];
+    if (c.color)
+        return [...BASE_COLORS, ...MORE_COLORS].map((x) => ({ c: x }));
+    if (c.white)
+        return spreadWhites(c, SLOT_COUNT).map((k) => ({ k }));
+    return [];
+}
+const clampK = (k, c) => Math.max(c.minK, Math.min(c.maxK, Math.round(k)));
+function cleanSlot(s) {
+    if (!s || typeof s !== 'object')
+        return null;
+    const o = s;
+    if (typeof o.c === 'string' && HEX$1.test(o.c))
+        return { c: o.c.toLowerCase() };
+    if (finite(o.k) && o.k >= 1000 && o.k <= 12000)
+        return { k: Math.round(o.k) };
+    return null;
+}
+/** Teintes affichées : celles réglées sur la touche, sinon celles de départ. */
+function resolveSlots(custom, c) {
+    const base = defaultSlots(c);
+    const list = Array.isArray(custom) ? custom : [];
+    return Array.from({ length: SLOT_COUNT }, (_, i) => (list.length ? cleanSlot(list[i]) : base[i] ?? null));
+}
+function resolveLevels(custom) {
+    const list = Array.isArray(custom) ? custom : [];
+    return DEFAULT_LEVELS.map((d, i) => {
+        const v = list[i];
+        return finite(v) ? Math.max(1, Math.min(100, Math.round(v))) : d;
+    });
+}
+/** Blanc le plus proche d'une couleur (pour une ampoule sans couleurs). */
+function hexToKelvin(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const r = (n >> 16) & 255;
+    const b = n & 255;
+    // plus c'est bleu, plus c'est froid
+    const warm = (r - b + 255) / 510;
+    return Math.round((6500 - warm * 4300) / 50) * 50;
+}
+/** Couleur affichée sur la touche. */
+function slotHex(s) {
+    return s.c ?? kelvinToHex(s.k ?? 4000);
+}
+/** Appel Home Assistant pour une teinte, adapté à l'ampoule. */
+function slotPlan(entity, s, c) {
+    if (!entity)
+        return { kind: 'none', reason: 'Aucune lampe' };
+    if (!s)
+        return { kind: 'none', reason: 'Emplacement vide' };
+    const target = { entity_id: entity };
+    if (s.c) {
+        if (c.color || !c.white)
+            return { kind: 'service', domain: 'light', service: 'turn_on', data: { rgb_color: hexRgb(s.c) }, target };
+        return { kind: 'service', domain: 'light', service: 'turn_on', data: { color_temp_kelvin: clampK(hexToKelvin(s.c), c) }, target };
+    }
+    const k = s.k;
+    // Home Assistant convertit un blanc en couleur pour une ampoule RVB sans blancs.
+    return { kind: 'service', domain: 'light', service: 'turn_on', data: { color_temp_kelvin: c.white ? clampK(k, c) : k }, target };
+}
+function levelPlan(entity, pct) {
+    if (!entity)
+        return { kind: 'none', reason: 'Aucune lampe' };
+    return { kind: 'service', domain: 'light', service: 'turn_on', data: { brightness_pct: pct }, target: { entity_id: entity } };
+}
+const hexRgb = (hex) => {
+    const n = parseInt(hex.slice(1), 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+};
+/** Luminosité actuelle en % (0 si éteinte). */
+function currentLevel(st) {
+    if (st?.state !== 'on')
+        return 0;
+    const b = st.attributes?.brightness;
+    return finite(b) ? Math.round(b / 2.55) : 100;
+}
+/** La teinte correspond-elle à l'état actuel de la lampe ? */
+function slotActive(s, st) {
+    if (!s || st?.state !== 'on')
+        return false;
+    const a = st.attributes ?? {};
+    if (s.c && a.color_mode !== 'color_temp' && Array.isArray(a.rgb_color)) {
+        const [r, g, b] = hexRgb(s.c);
+        const [r2, g2, b2] = a.rgb_color;
+        return Math.abs(r - r2) + Math.abs(g - g2) + Math.abs(b - b2) < 24;
+    }
+    if (s.k && a.color_mode === 'color_temp' && finite(a.color_temp_kelvin))
+        return Math.abs(s.k - a.color_temp_kelvin) <= 60;
+    return false;
+}
+const esc = (s) => s.replace(/[<>&"']/g, (ch) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&#39;' })[ch]);
+const fit = (t, max) => (t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t);
+const lum = (hex) => {
+    const [r, g, b] = hexRgb(hex);
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+};
+const FONT = 'font-family="Segoe UI, Arial, sans-serif"';
+const wrap = (body, dim = false) => `data:image/svg+xml;charset=utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="144" height="144" viewBox="0 0 144 144"${dim ? ' opacity="0.4"' : ''}>${body}</svg>`)}`;
+function textOn(bg) {
+    return lum(bg) > 0.6 ? '#15161a' : '#ffffff';
+}
+/** Touche « teinte » : pastille pleine, coche si c'est la teinte actuelle. */
+function renderSlot(look, s, active) {
+    const fg = look.dark ? '#f0ede6' : '#1b1d22';
+    if (!s) {
+        return wrap(`<rect width="144" height="144" rx="22" fill="${look.background}"/><rect x="34" y="34" width="76" height="76" rx="38" fill="none" stroke="${fg}" stroke-opacity=".25" stroke-width="3" stroke-dasharray="7 7"/>`);
+    }
+    const hex = slotHex(s);
+    const ink = textOn(hex);
+    const label = s.k ? `<text x="72" y="124" text-anchor="middle" ${FONT} font-size="21" font-weight="700" fill="${ink}" opacity=".85">${s.k} K</text>` : '';
+    const ring = active ? `<rect x="5" y="5" width="134" height="134" rx="19" fill="none" stroke="${ink}" stroke-width="6"/>` : '';
+    const check = active ? `<path d="M50 70l15 15 30-32" fill="none" stroke="${ink}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>` : '';
+    return wrap(`<rect width="144" height="144" rx="22" fill="${hex}"/>${ring}${check}${label}`);
+}
+/** Touche « luminosité » : barres et pourcentage, en surbrillance si c'est le niveau actuel. */
+function renderLevel(look, pct, index, active, lampHex) {
+    const color = lampHex ?? look.accent;
+    const fg = look.dark ? '#f0ede6' : '#1b1d22';
+    const bg = active ? color : look.background;
+    const ink = active ? textOn(color) : fg;
+    const bars = Array.from({ length: LEVEL_COUNT }, (_, i) => {
+        const h = 10 + i * 9;
+        const on = i <= index;
+        return `<rect x="${31 + i * 17}" y="${74 - h}" width="12" height="${h}" rx="3" fill="${on ? (active ? ink : color) : ink}" opacity="${on ? 1 : 0.22}"/>`;
+    }).join('');
+    return wrap(`<rect width="144" height="144" rx="22" fill="${bg}"/>${bars}<text x="72" y="118" text-anchor="middle" ${FONT} font-size="32" font-weight="700" fill="${ink}">${pct} %</text>`);
+}
+/** Touche « Retour ». */
+function renderBack(look, name) {
+    const fg = look.dark ? '#f0ede6' : '#1b1d22';
+    return wrap(`<rect width="144" height="144" rx="22" fill="${look.background}"/>` +
+        `<path d="M62 34 38 56l24 22M40 56h44a22 22 0 0 1 0 44h-8" fill="none" stroke="${look.accent}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>` +
+        `<text x="72" y="130" text-anchor="middle" ${FONT} font-size="19" font-weight="600" fill="${fg}">${esc(fit(name || 'Retour', 13))}</text>`);
+}
+/** Touche « Page » : 1/2 ou 2/2, avec ce que contient la page suivante. */
+function renderPage(look, page, caps, lampHex, offline) {
+    const fg = look.dark ? '#f0ede6' : '#1b1d22';
+    const dot = lampHex ? `<circle cx="72" cy="40" r="16" fill="${lampHex}"/>` : `<circle cx="72" cy="40" r="15" fill="none" stroke="${fg}" stroke-opacity=".35" stroke-width="3"/>`;
+    const warn = offline ? `<circle cx="18" cy="18" r="8" fill="#efb36b" stroke="${look.background}" stroke-width="3"/>` : '';
+    return wrap(`<rect width="144" height="144" rx="22" fill="${look.background}"/>${dot}` +
+        `<text x="72" y="94" text-anchor="middle" ${FONT} font-size="30" font-weight="700" fill="${fg}">${page + 1} / ${PAGES}</text>` +
+        `<text x="72" y="124" text-anchor="middle" ${FONT} font-size="17" fill="${fg}" opacity=".7">${esc(capsLabel(caps) === 'luminosité seule' ? 'Page' : 'Teintes')}</text>${warn}`);
 }
 
 /**
@@ -10053,11 +10284,14 @@ function registerHaActions(env) {
         // textes
         const title = s.titleMode === 'none' ? '' : s.titleMode === 'custom' ? (s.titleText ?? '') : (st?.attributes?.friendly_name ?? (id ? id.split('.')[1] : 'Home Assistant'));
         let value = '';
-        const wantValue = s.valueMode === 'show' || (s.valueMode !== 'hide' && showsValueByDefault(id, mode));
+        const customState = (st && !isUnavailable(st) && !Number.isFinite(Number(st.state))
+            ? (isOnState(st) ? s.stateOnText : s.stateOffText) : undefined)?.trim();
+        const hasStateText = !!(s.stateOnText?.trim() || s.stateOffText?.trim());
+        const wantValue = s.valueMode === 'show' || (s.valueMode !== 'hide' && (hasStateText || showsValueByDefault(id, mode)));
         if (mode === 'template')
             value = e.templateValue ?? '…';
         else if (wantValue && st)
-            value = formatState(st, s.decimals ?? null);
+            value = customState || formatState(st, s.decimals ?? null);
         const gauge = (s.gauge ?? gaugeByDefault(id)) ? gaugePercent(st) : null;
         // image (caméra, pochette)
         let image = null;
@@ -10129,7 +10363,138 @@ function registerHaActions(env) {
                 void draw(e);
             }
         }
+        for (const [device, p] of panels)
+            if (!ids || ids.includes(p.entity))
+                drawPanel(device);
     });
+    /* ───────── panneau lumière (appui long) ───────── */
+    const panels = new Map();
+    const panelKeys = new Map();
+    const drawPanelKey = async (k) => {
+        const t = env.theme();
+        const look = { dark: t.theme === 'dark', background: t.background, accent: t.accent };
+        const p = panels.get(k.device);
+        const st = p ? hub.get(p.entity) : undefined;
+        const caps = lightCaps(st);
+        const lamp = lightColor(st);
+        const role = k.s.role;
+        const i = Number(k.s.index) || 0;
+        let svg;
+        if (role === 'back')
+            svg = renderBack(look, p ? p.name : 'Retour');
+        else if (role === 'page')
+            svg = renderPage(look, p?.page ?? 0, caps, lamp, hub.status.state !== 'connected');
+        else if (role === 'slot') {
+            const slot = p ? resolveSlots(p.slots, caps)[(p.page * SLOTS_PER_PAGE) + i] ?? null : null;
+            svg = renderSlot(look, slot, slotActive(slot, st));
+        }
+        else if (role === 'level') {
+            const levels = resolveLevels(p?.levels);
+            const cur = currentLevel(st);
+            svg = renderLevel(look, levels[i], i, !!p && cur > 0 && Math.abs(cur - levels[i]) <= 2, lamp);
+        }
+        else
+            return;
+        if (svg === k.lastSvg)
+            return;
+        k.lastSvg = svg;
+        await k.key.setTitle('');
+        await k.key.setImage(svg);
+    };
+    const drawPanel = (device) => {
+        for (const k of panelKeys.values())
+            if (k.device === device)
+                void drawPanelKey(k);
+    };
+    const openPanel = async (e) => {
+        const device = e.key.device?.id;
+        const entity = e.s.entity ?? '';
+        if (!device || !entity)
+            return void e.key.showAlert();
+        const prev = panels.get(device);
+        if (prev)
+            hub.unwatch(prev.entity);
+        hub.watch(entity);
+        const st = hub.get(entity);
+        const name = e.s.titleMode === 'custom' && e.s.titleText ? e.s.titleText : (st?.attributes?.friendly_name ?? entity.split('.')[1]);
+        panels.set(device, { entity, name, slots: e.s.panelSlots, levels: e.s.panelLevels, page: 0 });
+        for (const k of panelKeys.values())
+            if (k.device === device)
+                k.lastSvg = undefined;
+        try {
+            await streamDeck.profiles.switchToProfile(device, PANEL_PROFILE);
+        }
+        catch (err) {
+            streamDeck.logger.warn('[ha] panneau lumière', err);
+            await e.key.showAlert();
+        }
+        drawPanel(device);
+    };
+    const closePanel = async (device) => {
+        const p = panels.get(device);
+        if (p)
+            hub.unwatch(p.entity);
+        panels.delete(device);
+        await streamDeck.profiles.switchToProfile(device);
+    };
+    const pressPanelKey = async (k) => {
+        const p = panels.get(k.device);
+        if (k.s.role === 'back')
+            return closePanel(k.device);
+        if (!p)
+            return k.key.showAlert();
+        if (k.s.role === 'page') {
+            p.page = (p.page + 1) % PAGES;
+            drawPanel(k.device);
+            return;
+        }
+        const st = hub.get(p.entity);
+        const caps = lightCaps(st);
+        const i = Number(k.s.index) || 0;
+        let plan;
+        if (k.s.role === 'slot')
+            plan = slotPlan(p.entity, resolveSlots(p.slots, caps)[p.page * SLOTS_PER_PAGE + i] ?? null, caps);
+        else if (k.s.role === 'level')
+            plan = levelPlan(p.entity, resolveLevels(p.levels)[i]);
+        else
+            return;
+        if (plan.kind !== 'service')
+            return k.key.showAlert();
+        try {
+            await hub.call(plan.domain, plan.service, plan.data, plan.target);
+        }
+        catch (err) {
+            streamDeck.logger.warn('[ha] panneau lumière', err);
+            await k.key.showAlert();
+        }
+    };
+    class LightPanelKey extends SingletonAction {
+        manifestId = PANEL_ACTION;
+        onWillAppear(ev) {
+            const key = ev.action;
+            const k = { key, s: (ev.payload.settings ?? {}), device: key.device?.id ?? '' };
+            panelKeys.set(key.id, k);
+            hub.start();
+            void drawPanelKey(k);
+        }
+        onWillDisappear(ev) {
+            panelKeys.delete(ev.action.id);
+        }
+        onDidReceiveSettings(ev) {
+            const k = panelKeys.get(ev.action.id);
+            if (!k)
+                return;
+            k.s = (ev.payload.settings ?? {});
+            k.lastSvg = undefined;
+            void drawPanelKey(k);
+        }
+        async onKeyDown(ev) {
+            const k = panelKeys.get(ev.action.id);
+            if (k)
+                await pressPanelKey(k);
+        }
+    }
+    streamDeck.actions.registerAction(new LightPanelKey());
     /** Image de caméra / pochette, rafraîchie à intervalle. */
     const refreshImage = async (e, force = false) => {
         const id = e.s.entity ?? '';
@@ -10223,6 +10588,7 @@ function registerHaActions(env) {
         }
     }, 2000);
     /* ───────── appui ───────── */
+    const usesPanel = (e) => e.s.panel === true && haDomainOf(e.s.entity ?? '') === 'light';
     const press = async (e) => {
         const s = e.s;
         if (s.confirm) {
@@ -10358,6 +10724,10 @@ function registerHaActions(env) {
             else if (cmd === 'services') {
                 reply({ cmd, services: (await hub.services()) });
             }
+            else if (cmd === 'openPanel' && e) {
+                await openPanel(e);
+                reply({ cmd, ok: true });
+            }
             else if (cmd === 'state') {
                 const id = String(msg.id ?? '');
                 reply({ cmd, id, state: (hub.get(id) ?? null) });
@@ -10447,7 +10817,28 @@ function registerHaActions(env) {
             }
             async onKeyDown(ev) {
                 const e = entries.get(ev.action.id);
-                if (e)
+                if (!e)
+                    return;
+                // Panneau lumière : l'appui court agit au relâchement, l'appui long ouvre le panneau.
+                if (usesPanel(e)) {
+                    clearTimeout(e.holdTimer);
+                    e.held = false;
+                    e.holdTimer = setTimeout(() => {
+                        e.holdTimer = undefined;
+                        e.held = true;
+                        void openPanel(e);
+                    }, LONG_PRESS_MS);
+                    return;
+                }
+                await press(e);
+            }
+            async onKeyUp(ev) {
+                const e = entries.get(ev.action.id);
+                if (!e || !e.holdTimer)
+                    return;
+                clearTimeout(e.holdTimer);
+                e.holdTimer = undefined;
+                if (!e.held)
                     await press(e);
             }
             async onSendToPlugin(ev) {

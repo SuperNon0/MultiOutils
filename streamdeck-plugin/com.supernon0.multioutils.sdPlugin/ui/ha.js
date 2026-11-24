@@ -130,9 +130,12 @@
       renderMode();
     } else if (m.cmd === 'state') {
       if (m.id === settings.entity) {
+        const before = JSON.stringify(entityState && entityState.attributes && entityState.attributes.supported_color_modes);
         entityState = m.state;
         renderChosen();
         renderMode();
+        // pas de redessin à chaque sondage (le champ en cours de saisie garderait mal le focus)
+        if (before !== JSON.stringify(m.state && m.state.attributes && m.state.attributes.supported_color_modes) || $('panel-type').textContent === 'Lecture de la lampe…') renderPanel();
       }
     } else if (m.cmd === 'preview') {
       if (m.image) $('apercu').src = m.image;
@@ -674,6 +677,148 @@
     return w;
   }
 
+  /* ───────── panneau lumière (appui long) ───────── */
+
+  // Mêmes teintes de départ que le plugin (src/ha/light-panel.ts).
+  const BASE_COLORS = ['#ff3b30', '#ff9500', '#ffcc00', '#34c759', '#00c7be', '#007aff', '#5856d6', '#ff2d92'];
+  const MORE_COLORS = ['#ff6f61', '#ffb340', '#c6f432', '#7ee8a2', '#64d2ff', '#a0c4ff', '#bf5af2', '#ff9ec7'];
+  const BASE_WHITES = [2200, 2700, 3000, 3500, 4000, 4500, 5000, 6500];
+  const DEFAULT_LEVELS = [10, 25, 50, 75, 100];
+  let panelEdit = -1;
+  function lightCaps() {
+    const a = (entityState && entityState.attributes) || {};
+    const modes = Array.isArray(a.supported_color_modes) ? a.supported_color_modes : [];
+    const lo = isFinite(a.min_color_temp_kelvin) ? Math.round(a.min_color_temp_kelvin) : 2200;
+    const hi = isFinite(a.max_color_temp_kelvin) ? Math.round(a.max_color_temp_kelvin) : 6500;
+    return { known: !!entityState, color: modes.some((m) => ['hs', 'xy', 'rgb', 'rgbw', 'rgbww'].includes(m)), white: modes.includes('color_temp'), minK: Math.min(lo, hi), maxK: Math.max(lo, hi) };
+  }
+  function defaultSlots(c) {
+    const clamp = (k) => Math.max(c.minK, Math.min(c.maxK, k));
+    if (c.color && c.white) return BASE_COLORS.map((x) => ({ c: x })).concat(BASE_WHITES.map((k) => ({ k: clamp(k) })));
+    if (c.color) return BASE_COLORS.concat(MORE_COLORS).map((x) => ({ c: x }));
+    if (c.white) return Array.from({ length: 16 }, (_, i) => ({ k: Math.round((c.minK + ((c.maxK - c.minK) * i) / 15) / 50) * 50 }));
+    return [];
+  }
+  function panelSlots() {
+    const base = defaultSlots(lightCaps());
+    const list = Array.isArray(settings.panelSlots) && settings.panelSlots.length ? settings.panelSlots : null;
+    return Array.from({ length: 16 }, (_, i) => (list ? list[i] || null : base[i] || null));
+  }
+  function kelvinHex(k) {
+    const t = Math.max(1000, Math.min(40000, k)) / 100;
+    const r = t <= 66 ? 255 : 329.698727446 * Math.pow(t - 60, -0.1332047592);
+    const g = t <= 66 ? 99.4708025861 * Math.log(t) - 161.1195681661 : 288.1221695283 * Math.pow(t - 60, -0.0755148492);
+    const b = t >= 66 ? 255 : t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307;
+    const c = (x) => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0');
+    return '#' + c(r) + c(g) + c(b);
+  }
+  const slotHex = (s) => (s.c ? s.c : kelvinHex(s.k || 4000));
+  const darkHex = (hex) => { const n = parseInt(hex.slice(1), 16); return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255 < 0.6; };
+  function setSlot(i, slot) {
+    const list = panelSlots();
+    list[i] = slot;
+    settings.panelSlots = list;
+    save();
+    renderPanel();
+  }
+  function renderPanel() {
+    const card = $('panel-card');
+    const light = domainOf(settings.entity) === 'light';
+    card.hidden = !light;
+    if (!light) return;
+    $('panel').checked = settings.panel === true;
+    const c = lightCaps();
+    $('panel-type').textContent = !c.known ? 'Lecture de la lampe…'
+      : c.color && c.white ? 'Ampoule couleurs et blancs : page 1 en couleurs, page 2 en blancs. Chaque teinte se change d’un clic.'
+      : c.color ? 'Ampoule couleurs : deux pages de couleurs. Chaque teinte se change d’un clic.'
+      : c.white ? 'Ampoule à nuances de blanc (' + c.minK + ' à ' + c.maxK + ' K) : deux pages de blancs. Chaque nuance se change d’un clic.'
+      : 'Cette lampe ne règle que la luminosité : les teintes restent vides.';
+    const slots = panelSlots();
+    const levels = DEFAULT_LEVELS.map((d, i) => (Array.isArray(settings.panelLevels) && isFinite(settings.panelLevels[i]) ? settings.panelLevels[i] : d));
+    const grid = $('panel-grid');
+    grid.innerHTML = '';
+    for (let page = 0; page < 2; page++) {
+      const box = document.createElement('div');
+      box.className = 'page-sd';
+      box.innerHTML = '<b>Page ' + (page + 1) + '</b>';
+      const keys = document.createElement('div');
+      keys.className = 'touches';
+      const cells = [];
+      for (let row = 0; row < 3; row++) for (let col = 0; col < 5; col++) {
+        const el = document.createElement('div');
+        el.className = 'touche';
+        if (col === 0 && row === 0) { el.classList.add('fixe'); el.textContent = 'Retour'; }
+        else if (col === 0 && row === 1) { el.classList.add('fixe'); el.textContent = 'Page ' + (page + 1) + '/2'; }
+        else if (row < 2) {
+          const i = page * 8 + row * 4 + (col - 1);
+          const s = slots[i];
+          if (s) {
+            const hex = slotHex(s);
+            el.classList.add('teinte');
+            if (darkHex(hex)) el.classList.add('sombre');
+            el.style.background = hex;
+            el.textContent = s.k ? s.k + ' K' : '';
+          } else { el.classList.add('vide'); el.textContent = '+'; }
+          if (i === panelEdit) el.classList.add('choisie');
+          el.title = 'Changer cette teinte';
+          el.onclick = () => { panelEdit = panelEdit === i ? -1 : i; renderPanel(); };
+        } else {
+          el.classList.add('niveau');
+          const inp = document.createElement('input');
+          inp.type = 'number'; inp.min = 1; inp.max = 100; inp.value = levels[col];
+          inp.title = 'Luminosité de la touche ' + (col + 1) + ' (%)';
+          inp.oninput = () => {
+            const v = Math.round(Number(inp.value));
+            if (!isFinite(v) || v < 1 || v > 100) return;
+            const next = levels.slice(); next[col] = v;
+            settings.panelLevels = next; save();
+          };
+          inp.onchange = () => renderPanel();
+          el.appendChild(inp);
+          el.appendChild(document.createTextNode('%'));
+        }
+        cells.push(el);
+      }
+      cells.forEach((x) => keys.appendChild(x));
+      box.appendChild(keys);
+      if (panelEdit >= page * 8 && panelEdit < page * 8 + 8) box.appendChild(slotEditor(panelEdit, slots[panelEdit], c));
+      grid.appendChild(box);
+    }
+  }
+  function slotEditor(i, s, c) {
+    const w = document.createElement('div');
+    w.className = 'edite';
+    const kind = !s ? 'vide' : s.c ? 'couleur' : 'blanc';
+    const line = document.createElement('div');
+    line.className = 'rang';
+    const sel = document.createElement('select');
+    sel.innerHTML = '<option value="couleur">Couleur</option><option value="blanc">Blanc</option><option value="vide">Vide</option>';
+    sel.value = kind;
+    sel.onchange = () => setSlot(i, sel.value === 'couleur' ? { c: s && s.c ? s.c : '#ff9500' } : sel.value === 'blanc' ? { k: s && s.k ? s.k : 3000 } : null);
+    line.appendChild(document.createTextNode('Teinte ' + ((i % 8) + 1) + ' : '));
+    line.appendChild(sel);
+    if (kind === 'couleur') {
+      const col = document.createElement('input');
+      col.type = 'color'; col.value = s.c;
+      col.oninput = () => { const list = panelSlots(); list[i] = { c: col.value }; settings.panelSlots = list; save(); };
+      col.onchange = () => renderPanel();
+      line.appendChild(col);
+    }
+    w.appendChild(line);
+    if (kind === 'blanc') {
+      w.appendChild(slider('Blanc', s.k, Math.min(c.minK, 2000), Math.max(c.maxK, 6500), 50, 'K', (v) => {
+        if (!isFinite(v)) return;
+        const list = panelSlots(); list[i] = { k: v }; settings.panelSlots = list; save();
+        clearTimeout(slotEditor.t); slotEditor.t = setTimeout(renderPanel, 400);
+      }));
+    }
+    if (kind === 'couleur' && c.known && !c.color && c.white) w.appendChild(note('Cette ampoule n’a que des blancs : la couleur sera remplacée par le blanc le plus proche.'));
+    return w;
+  }
+  $('panel').onchange = () => { set('panel', $('panel').checked ? true : undefined, true); renderPanel(); };
+  $('panel-raz').onclick = () => { panelEdit = -1; delete settings.panelSlots; delete settings.panelLevels; save(true); renderPanel(); };
+  $('panel-open').onclick = () => { save(true); toPlugin({ cmd: 'openPanel' }); etat('Panneau ouvert sur le Stream Deck.', 'ok'); };
+
   /* ───────── apparence ───────── */
 
   /** Icônes de l'atelier MultiOutils, proposées dans la liste « Icône ». */
@@ -740,6 +885,8 @@
   bindField('titleMode', 'titleMode');
   bindField('titleText', 'titleText');
   bindField('valueMode', 'valueMode');
+  bindField('stateOnText', 'stateOnText');
+  bindField('stateOffText', 'stateOffText');
   $('color').oninput = () => set('color', $('color').value);
   $('colorOff').oninput = () => set('colorOff', $('colorOff').value);
   document.querySelectorAll('[data-raz]').forEach((b) => (b.onclick = () => {
@@ -763,6 +910,10 @@
     $('titleText').value = settings.titleText || '';
     $('titleText').hidden = (settings.titleMode || 'auto') !== 'custom';
     $('valueMode').value = settings.valueMode || 'auto';
+    $('stateOnText').value = settings.stateOnText || '';
+    $('stateOffText').value = settings.stateOffText || '';
+    // États texte seulement : pas pour une valeur chiffrée (température, nombre…) ni sans entité.
+    $('stateText-row').hidden = !settings.entity || ['sensor', 'number', 'input_number', 'weather', 'climate', 'input_text', 'text', 'input_select', 'select', 'camera', 'scene', 'script', 'button', 'input_button'].includes(domainOf(settings.entity));
     const d = domainOf(settings.entity);
     $('gauge').checked = settings.gauge != null ? !!settings.gauge : ['light', 'cover', 'media_player', 'fan'].includes(d);
     $('gauge').parentElement.hidden = !!settings.customIcon || !!settings.libraryIcon;
@@ -839,6 +990,7 @@
     renderChosen();
     renderResults();
     renderMode();
+    renderPanel();
     renderLook();
     renderRules();
     window.haEditorLayout?.refresh();

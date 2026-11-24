@@ -20,7 +20,7 @@
     const nav = shell.querySelector('nav'), content = shell.querySelector('main'), preview = shell.querySelector('aside');
     const sections = [
       ['entity', 'Entité', 'home', ['entity-card']],
-      ['action', 'Action', 'play', ['action-card']],
+      ['action', 'Action', 'play', ['action-card', 'panel-card']],
       ['look', 'Apparence', 'palette', ['look-card']],
       ['connection', 'Connexion', 'plug', ['direct']]
     ];
@@ -89,6 +89,7 @@
       'style': ['Style automatique', 'Définit le fond et la couleur des icônes automatiques. Une création de l’atelier garde sa propre mise en page ; les images Stream Deck gardent leur apparence.'],
       'titleMode': ['Nom affiché', 'Affiche le nom de l’entité, un nom personnalisé ou aucun nom. Le titre natif Stream Deck doit rester vide pour laisser le plugin le mettre à jour.'],
       'valueMode': ['Valeur', 'Affiche l’état ou la valeur de l’entité : température, luminosité, position, volume… Le mode automatique choisit selon son type.'],
+      'stateOnText': ['Texte de l’état', 'Choisis le mot affiché sur la touche quand l’entité est active ou inactive : par exemple « Ouvert » et « Fermé » pour un capteur de porte. Vide = texte automatique.'],
       'gauge': ['Jauge', 'Ajoute une barre à l’icône automatique pour la luminosité, la position ou le volume.'],
       'lightColor': ['Couleur de la lampe', 'Le symbole automatique suit la couleur réelle de la lumière. Les images personnalisées Stream Deck gardent leurs propres couleurs.'],
       'libraryState': ['Version affichée', 'Une icône de l’atelier peut avoir deux versions : allumée et éteinte (onglet « Éteint » de l’atelier). Par défaut, la touche suit l’état de l’entité ; tu peux aussi garder toujours la même version.'],

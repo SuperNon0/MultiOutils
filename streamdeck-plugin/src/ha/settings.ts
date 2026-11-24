@@ -64,6 +64,9 @@ export interface HaKeySettings {
   /** Icône de l'atelier : remplacer la couleur du symbole par celle de la lampe (sinon ses couleurs d'origine). */
   libraryLampColor?: boolean;
   valueMode?: 'auto' | 'show' | 'hide';
+  /** Texte affiché à la place de l'état quand l'entité est active / inactive (ex. « Ouvert » / « Fermé »). */
+  stateOnText?: string;
+  stateOffText?: string;
   decimals?: number | null;
   gauge?: boolean;
   lightColor?: boolean;
@@ -74,6 +77,12 @@ export interface HaKeySettings {
   colorOff?: string;
   style?: 'accent' | 'plein' | 'symbole' | 'teinte';
   rules?: HaRule[];
+  /** Lumière : un appui long ouvre le panneau lumière (profil Stream Deck). */
+  panel?: boolean;
+  /** Panneau lumière : 16 teintes ({ c: '#rrggbb' } ou { k: kelvins }), absentes = selon l'ampoule. */
+  panelSlots?: Array<{ c?: string; k?: number } | null>;
+  /** Panneau lumière : 5 luminosités en %. */
+  panelLevels?: number[];
 }
 
 export type PressPlan =

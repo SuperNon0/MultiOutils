@@ -174,3 +174,21 @@ details.plus #rules-card { display: grid; gap: 8px; margin-top: 4px; }
 .paire figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 .paire img { width: 56px; height: 56px; border-radius: 10px; background: #000; }
 .paire figcaption { font-size: 11px; opacity: .75; }
+
+/* Panneau lumière : même disposition que le Stream Deck (5 × 3) */
+.panneau-sd { display: grid; gap: 12px; max-width: 440px; }
+.panneau-info { color: var(--muted); font-size: 12px; }
+.panneau-sd .page-sd { display: grid; gap: 6px; }
+.panneau-sd .page-sd > b { font-size: 11px; font-weight: 600; color: var(--muted); letter-spacing: .04em; text-transform: uppercase; }
+.panneau-sd .touches { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.panneau-sd .touche { aspect-ratio: 1; border-radius: 10px; border: 1px solid var(--border); background: var(--pop); display: grid; place-items: center; position: relative; min-width: 0; padding: 4px; text-align: center; font-size: 11px; color: var(--muted); }
+.panneau-sd .touche.fixe { font-weight: 600; }
+.panneau-sd .touche.teinte { cursor: pointer; color: #15161a; font-weight: 700; }
+.panneau-sd .touche.teinte.sombre { color: #fff; }
+.panneau-sd .touche.vide { border-style: dashed; cursor: pointer; }
+.panneau-sd .touche.choisie { outline: 2px solid var(--accent); outline-offset: 2px; }
+.panneau-sd .niveau { padding: 3px; display: flex; align-items: center; justify-content: center; gap: 1px; }
+.panneau-sd .niveau input { text-align: center; padding: 3px 0; font-weight: 600; width: 100%; max-width: 44px; border: 0; background: transparent; -moz-appearance: textfield; }
+.panneau-sd .niveau input::-webkit-inner-spin-button { -webkit-appearance: none; }
+.panneau-sd .edite { display: grid; gap: 8px; background: var(--pop); border: 1px solid var(--border); border-radius: 8px; padding: 8px 9px; }
+.panneau-sd .edite .rang select { flex: 0 0 auto; width: auto; }
