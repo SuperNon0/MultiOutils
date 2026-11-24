@@ -150,7 +150,9 @@ export class LocalService {
           res.end(JSON.stringify({ error: 'commande inconnue' }));
           return;
         }
-        Promise.resolve(command()).then(
+        // .then() : une exception synchrone devient une erreur HTTP 500 au lieu
+        // de remonter jusqu'au processus principal.
+        Promise.resolve().then(() => command()).then(
           () => res.end(JSON.stringify({ ok: true })),
           (err) => {
             res.statusCode = 500;

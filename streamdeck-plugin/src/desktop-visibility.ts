@@ -10,10 +10,19 @@ abstract class DesktopVisibilitySwitch extends SingletonAction {
   private timer: ReturnType<typeof setInterval> | null = null;
   private reading: Promise<void> | null = null;
   private pressing = false;
+  /** Dernier problème signalé : le triangle d'alerte ne clignote qu'une fois par panne. */
+  private lastProblem: string | null = null;
+
+  private async alertOnce(problem: string): Promise<void> {
+    if (this.lastProblem === problem) return;
+    this.lastProblem = problem;
+    await Promise.all([...this.keys.values()].map((key) => key.showAlert()));
+  }
 
   override async onWillAppear(ev: WillAppearEvent): Promise<void> {
     if (!ev.action.isKey()) return;
     this.keys.set(ev.action.id, ev.action);
+    this.lastProblem = null; // une touche qui (ré)apparaît signale à nouveau un souci
     if (!this.timer) this.timer = setInterval(() => void this.refresh(), 1000);
     await this.refresh();
   }
@@ -32,17 +41,15 @@ abstract class DesktopVisibilitySwitch extends SingletonAction {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const state = await res.json() as { hidden?: unknown; peek?: unknown; enabled?: unknown };
       if (typeof state[this.field] !== 'boolean' || typeof state.enabled !== 'boolean') throw new Error('état inconnu');
-      await Promise.all([...this.keys.values()].map(async (key) => {
-        if (!state.enabled) {
-          await key.showAlert();
-          return;
-        }
-        await key.setState(state[this.field] ? 1 : 0);
-      }));
+      if (!state.enabled) {
+        await this.alertOnce('disabled');
+        return;
+      }
+      this.lastProblem = null;
+      await Promise.all([...this.keys.values()].map((key) => key.setState(state[this.field] ? 1 : 0)));
     } catch {
-      await Promise.all([...this.keys.values()].map(async (key) => {
-        await key.showAlert();
-      }));
+      // App fermée : un seul avertissement, pas un clignotement chaque seconde.
+      await this.alertOnce('offline');
     }
   }
 

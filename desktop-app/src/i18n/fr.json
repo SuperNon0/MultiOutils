@@ -146,6 +146,8 @@
   "editor.undo": "Annuler (Ctrl+Z)",
   "editor.redo": "Refaire (Ctrl+Y)",
   "editor.saved": "Capture enregistrée",
+  "editor.saveFailed": "Enregistrement impossible : la capture n'a pas été modifiée",
+  "ha.keyEditor.title": "Home Assistant — paramètres de la touche",
   "editor.confirmClose": "Des modifications ne sont pas enregistrées. Quitter l'éditeur quand même ?",
   "editor.zoomFit": "Ajuster à la fenêtre (Ctrl+0)",
   "editor.textPlaceholder": "Texte",

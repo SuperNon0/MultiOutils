@@ -125,6 +125,6 @@ jobs:
         with:
           name: MultiOutils-Setup
           path: |
-            desktop-app/dist/*Setup*.exe
+            desktop-app/release/*Setup*.exe
             sd-dist/MultiOutils-StreamDeck.streamDeckPlugin
           if-no-files-found: warn

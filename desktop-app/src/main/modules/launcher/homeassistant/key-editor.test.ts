@@ -27,7 +27,7 @@ const route = (method: string, path: string, body?: unknown) => {
 let dispose: () => void;
 beforeEach(() => {
   vi.useFakeTimers(); windows.length = 0; ipc.clear(); handlers.clear(); routes.clear();
-  dispose = setupHaKeyEditor({ registerLocalRoute: (method: string, pattern: RegExp, fn: unknown) => {
+  dispose = setupHaKeyEditor({ i18n: { t: (key: string) => key }, registerLocalRoute: (method: string, pattern: RegExp, fn: unknown) => {
     for (const path of ['open', 'messages', 'reply', 'close']) if (pattern.test(`/ha/editor/${path}`)) routes.set(`${method} /ha/editor/${path}`, fn);
   } } as never);
 });

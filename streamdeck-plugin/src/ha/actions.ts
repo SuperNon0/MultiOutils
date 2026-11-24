@@ -66,6 +66,8 @@ interface Entry {
   drawRevision?: number;
   editorToken?: string;
   editorPolling?: string;
+  /** L'icône de l'atelier était indisponible au dernier dessin (alerte déjà montrée). */
+  libraryFailed?: boolean;
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -155,13 +157,17 @@ export function registerHaActions(env: Env): void {
         const data = await res.json() as { image?: string };
         if (!data.image?.startsWith('data:image/svg+xml')) throw new Error('Icône invalide');
         if (revision !== e.drawRevision) return;
+        e.libraryFailed = false;
         await e.key.setTitle([title, value].filter(Boolean).join('\n'));
         e.lastSvg = data.image;
         await e.key.setImage(data.image);
         return;
       } catch {
         if (revision !== e.drawRevision) return;
-        await e.key.showAlert();
+        // Une seule alerte par panne (app fermée…), pas à chaque changement d'état HA ;
+        // la touche retombe sur le dessin normal ci-dessous.
+        if (!e.libraryFailed) await e.key.showAlert();
+        e.libraryFailed = true;
       }
     }
 
@@ -261,6 +267,7 @@ export function registerHaActions(env: Env): void {
     }
     e.s = s;
     e.lastSvg = undefined;
+    e.libraryFailed = false;
     e.confirmUntil = 0;
     e.templateAt = 0;
     void refreshImage(e, true);

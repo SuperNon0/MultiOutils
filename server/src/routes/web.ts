@@ -333,32 +333,47 @@ function sourceOf(source: string | null): { label: string; icone: string } {
   return { label: 'Logiciel PC', icone: 'tv' };
 }
 
+/** Nombre de clips affichés par « page » sur /clips. */
+const CLIPS_PAGE = 200;
+
 webRouter.get('/clips', gateway, (req, res) => {
   const filterFolder = req.query.folder ? String(req.query.folder) : '';
   const filterTag = req.query.tag ? String(req.query.tag) : '';
 
-  const all = getDb()
-    .prepare('SELECT * FROM clips ORDER BY created_at DESC LIMIT 200')
-    .all() as ServerClip[];
+  // Affichage par pages de 200 ; « Afficher plus » augmente la limite.
+  const limit = Math.min(Math.max(Number(req.query.n) || CLIPS_PAGE, CLIPS_PAGE), 5000);
+  const db = getDb();
 
-  // valeurs de filtres existantes (petite échelle, comme la galerie)
+  // Choix des filtres calculés sur TOUS les clips (colonnes légères seulement).
   const folderSet = new Set<string>();
   const tagSet = new Set<string>();
-  for (const clip of all) {
-    if (clip.folder) folderSet.add(clip.folder);
-    for (const tag of parseTags(clip.tags)) tagSet.add(tag);
+  for (const row of db.prepare('SELECT folder, tags FROM clips').iterate() as Iterable<
+    Pick<ServerClip, 'folder' | 'tags'>
+  >) {
+    if (row.folder) folderSet.add(row.folder);
+    for (const tag of parseTags(row.tags)) tagSet.add(tag);
   }
 
-  const clips = all.filter((clip) => {
-    if (filterFolder && clip.folder !== filterFolder) return false;
-    if (filterTag && !parseTags(clip.tags).includes(filterTag)) return false;
-    return true;
-  });
+  // Filtres appliqués AVANT la limite : les anciens clips restent accessibles.
+  const clips: ServerClip[] = [];
+  let more = false;
+  const stmt = filterFolder
+    ? db.prepare('SELECT * FROM clips WHERE folder = ? ORDER BY created_at DESC')
+    : db.prepare('SELECT * FROM clips ORDER BY created_at DESC');
+  for (const clip of (filterFolder ? stmt.iterate(filterFolder) : stmt.iterate()) as Iterable<ServerClip>) {
+    if (filterTag && !parseTags(clip.tags).includes(filterTag)) continue;
+    if (clips.length >= limit) {
+      more = true;
+      break;
+    }
+    clips.push(clip);
+  }
 
-  const href = (folder: string, tag: string): string => {
+  const href = (folder: string, tag: string, n?: number): string => {
     const p = new URLSearchParams();
     if (folder) p.set('folder', folder);
     if (tag) p.set('tag', tag);
+    if (n) p.set('n', String(n));
     const s = p.toString();
     return s ? `/clips?${s}` : '/clips';
   };
@@ -424,13 +439,14 @@ webRouter.get('/clips', gateway, (req, res) => {
     layout(
       'Clips',
       `<div class="page-h">
-        <h1 class="page-t">Clips<span class="n">${clips.length}</span></h1>
+        <h1 class="page-t">Clips<span class="n">${clips.length}${more ? '+' : ''}</span></h1>
         <a class="btn sm pri" href="/clips/deposer">${ic('plus', 's16')}Déposer</a>
       </div>
       <p class="intro-p">Textes et photos partagés depuis ton iPhone (menu Partager),
       la page Déposer ou le logiciel. Le logiciel PC les récupère automatiquement.</p>
       ${filtersBlock({ id: 'filtres-clips', action: '/clips', champs, resetHref: '/clips', actifs })}
-      ${clips.length === 0 ? empty : `<div class="grille-clips">${rows}</div>`}`,
+      ${clips.length === 0 ? empty : `<div class="grille-clips">${rows}</div>`}
+      ${more ? `<div class="ligne"><a class="btn sm" href="${e(href(filterFolder, filterTag, limit + CLIPS_PAGE))}">${ic('chevd', 's16')}Afficher plus de clips</a></div>` : ''}`,
       { nav: true, active: 'clips' }
     )
   );

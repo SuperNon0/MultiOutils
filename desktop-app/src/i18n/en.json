@@ -146,6 +146,8 @@
   "editor.undo": "Undo (Ctrl+Z)",
   "editor.redo": "Redo (Ctrl+Y)",
   "editor.saved": "Capture saved",
+  "editor.saveFailed": "Couldn't save: the capture was left unchanged",
+  "ha.keyEditor.title": "Home Assistant — key settings",
   "editor.confirmClose": "You have unsaved changes. Leave the editor anyway?",
   "editor.zoomFit": "Fit to window (Ctrl+0)",
   "editor.textPlaceholder": "Text",
