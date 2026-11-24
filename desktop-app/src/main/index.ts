@@ -14,7 +14,6 @@ import { createClipboardMainModule } from './modules/clipboard';
 import { createColorPickerMainModule } from './modules/color-picker';
 import { createIconsMainModule } from './modules/icons';
 import { createDesktopMainModule } from './modules/desktop';
-import { createFilesMainModule } from './modules/files';
 import { createLauncherMainModule } from './modules/launcher';
 import { createAiMainModule } from './modules/ai';
 import { createOcrMainModule } from './modules/ocr';
@@ -129,7 +128,6 @@ async function bootstrap(): Promise<void> {
   registry.register(createAutoclickerMainModule());
   registry.register(createLauncherMainModule());
   registry.register(createDesktopMainModule());
-  registry.register(createFilesMainModule());
   await registry.activateAll(ctx);
   handleArgv = (argv) => {
     if (argv.includes('--desktop-new-zone')) {
