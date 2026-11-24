@@ -8,11 +8,15 @@ import http from 'node:http';
 import { randomBytes } from 'node:crypto';
 import type { LauncherAction, LauncherOutcome } from '../../../../common/launcher';
 import type { Provider, ProviderItem, ProviderQuery } from '../core/engine';
+import { bestMatch } from '../core/matcher';
 import {
   authorizeUrl,
+  hasPlaylistScope,
   isClientId,
   parseCommand,
   parsePlayer,
+  parsePlaylistQuery,
+  parsePlaylists,
   parseSearch,
   pkcePair,
   SPOTIFY_PORT,
@@ -28,11 +32,13 @@ export interface SpotifyTokens {
   access?: string;
   /** Expiration du jeton d'accès (ms). */
   expires?: number;
+  /** Autorisations accordées (renvoyées par Spotify à chaque jeton). */
+  scope?: string;
 }
 
 export class SpotifyError extends Error {
   constructor(
-    readonly code: 'notConfigured' | 'notConnected' | 'noDevice' | 'premium' | 'api',
+    readonly code: 'notConfigured' | 'notConnected' | 'noDevice' | 'premium' | 'scope' | 'api',
     message?: string
   ) {
     super(message ?? code);
@@ -41,10 +47,17 @@ export class SpotifyError extends Error {
 
 const API = 'https://api.spotify.com/v1';
 const TOKEN_URL = 'https://accounts.spotify.com/api/token';
+/** Les playlists changent peu : on garde la liste 5 minutes. */
+const PLAYLISTS_TTL = 5 * 60_000;
+/** 10 pages de 50 au plus. */
+const PLAYLISTS_PAGES = 10;
 
 export class SpotifyClient {
   private tokens: SpotifyTokens | null;
   private pending: http.Server | null = null;
+  private playlistCache: { at: number; items: SpotifyItem[] } | null = null;
+  private playlistLoad: Promise<SpotifyItem[]> | null = null;
+  private userId = '';
 
   constructor(
     private clientId: () => string,
@@ -58,7 +71,14 @@ export class SpotifyClient {
     return !!this.tokens?.refresh;
   }
 
+  /** Connexion faite avant 0.17 : il faut se reconnecter pour lire les playlists. */
+  get canListPlaylists(): boolean {
+    return hasPlaylistScope(this.tokens?.scope);
+  }
+
   disconnect(): void {
+    this.playlistCache = null;
+    this.userId = '';
     this.tokens = null;
     this.store.save(null);
   }
@@ -74,6 +94,7 @@ export class SpotifyClient {
       access_token?: string;
       refresh_token?: string;
       expires_in?: number;
+      scope?: string;
       error?: string;
       error_description?: string;
     };
@@ -84,8 +105,13 @@ export class SpotifyClient {
     this.tokens = {
       refresh: body.refresh_token ?? this.tokens?.refresh ?? '',
       access: body.access_token,
-      expires: Date.now() + (body.expires_in ?? 3600) * 1000 - 60_000
+      expires: Date.now() + (body.expires_in ?? 3600) * 1000 - 60_000,
+      scope: body.scope ?? this.tokens?.scope
     };
+    if (params.grant_type === 'authorization_code') {
+      this.playlistCache = null;
+      this.userId = '';
+    }
     this.store.save(this.tokens);
   }
 
@@ -172,12 +198,46 @@ export class SpotifyClient {
     if (res.status === 404 && /NO_ACTIVE_DEVICE/.test(reason + (json?.error?.message ?? ''))) throw new SpotifyError('noDevice');
     if (res.status === 404 && /device/i.test(json?.error?.message ?? '')) throw new SpotifyError('noDevice');
     if (res.status === 403 && /PREMIUM/i.test(reason + (json?.error?.message ?? ''))) throw new SpotifyError('premium');
+    if (res.status === 403 && /scope/i.test(json?.error?.message ?? '')) throw new SpotifyError('scope');
     throw new SpotifyError('api', json?.error?.message ?? `HTTP ${res.status}`);
   }
 
   async me(): Promise<string> {
     const b = (await this.api('GET', '/me')) as { display_name?: string; id?: string } | null;
+    if (b?.id) this.userId = b.id;
     return b?.display_name || b?.id || '';
+  }
+
+  /** Identifiant Spotify du compte (pour « Titres likés »). */
+  async id(): Promise<string> {
+    if (!this.userId) await this.me();
+    return this.userId;
+  }
+
+  /** Tes playlists (créées et suivies), dans l'ordre de ta bibliothèque. Gardées 5 min. */
+  playlists(force = false): Promise<SpotifyItem[]> {
+    if (!this.canListPlaylists) return Promise.reject(new SpotifyError('scope'));
+    if (!force && this.playlistCache && Date.now() - this.playlistCache.at < PLAYLISTS_TTL) {
+      return Promise.resolve(this.playlistCache.items);
+    }
+    // une seule requête à la fois, même si l'on tape vite
+    this.playlistLoad ??= (async () => {
+      const items: SpotifyItem[] = [];
+      for (let page = 0; page < PLAYLISTS_PAGES; page++) {
+        const r = parsePlaylists(await this.api('GET', `/me/playlists?limit=50&offset=${page * 50}`));
+        items.push(...r.items);
+        if (!r.next) break;
+      }
+      this.playlistCache = { at: Date.now(), items };
+      return items;
+    })().finally(() => {
+      this.playlistLoad = null;
+    });
+    return this.playlistLoad;
+  }
+
+  shuffle(on: boolean): Promise<unknown> {
+    return this.api('PUT', `/me/player/shuffle?state=${on}`);
   }
 
   async player(): Promise<NowPlaying | null> {
@@ -226,7 +286,12 @@ type Data =
   | { type: 'item'; item: SpotifyItem }
   | { type: 'cmd'; cmd: SpotifyCommand }
   | { type: 'toggle'; playing: boolean }
+  | { type: 'goto'; text: string }
   | { type: 'setup' };
+
+/** « Titres likés » : contexte de lecture du compte ; s'ouvre via spotify:collection:tracks. */
+const isLiked = (item: SpotifyItem): boolean => /:collection$/.test(item.uri);
+const openUri = (item: SpotifyItem): string => (isLiked(item) ? 'spotify:collection:tracks' : item.uri);
 
 export function createSpotifyProvider(env: LauncherEnv, client: SpotifyClient): Provider {
   const errMsg = (e: unknown): string => {
@@ -240,12 +305,22 @@ export function createSpotifyProvider(env: LauncherEnv, client: SpotifyClient): 
       await client.play(item);
     } catch (e) {
       if (e instanceof SpotifyError && (e.code === 'noDevice' || e.code === 'premium')) {
-        await env.openExternal(item.uri);
+        await env.openExternal(openUri(item));
         return { kind: 'hide' };
       }
       return { kind: 'error', message: errMsg(e) };
     }
     return { kind: 'hide' };
+  };
+
+  /** Playlist en lecture aléatoire : active l'aléatoire puis lance (sans appareil : ouvre). */
+  const shufflePlay = async (item: SpotifyItem): Promise<LauncherOutcome> => {
+    try {
+      await client.shuffle(true);
+    } catch (e) {
+      if (!(e instanceof SpotifyError && (e.code === 'noDevice' || e.code === 'premium'))) return { kind: 'error', message: errMsg(e) };
+    }
+    return playItem(item);
   };
 
   const runCmd = async (cmd: SpotifyCommand): Promise<LauncherOutcome> => {
@@ -285,6 +360,67 @@ export function createSpotifyProvider(env: LauncherEnv, client: SpotifyClient): 
     data: { type: 'cmd', cmd } satisfies Data
   });
 
+  const playlistSub = (item: SpotifyItem, own: boolean): string =>
+    [
+      env.t(own ? 'launcher.spotify.kind.myPlaylist' : 'launcher.spotify.kind.playlist'),
+      item.detail,
+      item.tracks !== undefined ? env.t('launcher.spotify.tracks', { n: item.tracks }) : ''
+    ]
+      .filter(Boolean)
+      .join(' · ');
+
+  const itemResult = (item: SpotifyItem, score: number, subtitle?: string, hl?: number[]): ProviderItem => ({
+    title: item.name,
+    titleHl: hl,
+    subtitle:
+      subtitle ?? [env.t(`launcher.spotify.kind.${item.kind}`), item.detail].filter(Boolean).join(' · '),
+    icon: { kind: 'sprite', name: isLiked(item) ? 'heartfill' : KIND_ICON[item.kind] },
+    score,
+    recordKey: item.uri,
+    secondary:
+      item.kind === 'track'
+        ? env.t('launcher.spotify.queue')
+        : item.kind === 'playlist'
+          ? env.t('launcher.spotify.shufflePlay')
+          : undefined,
+    data: { type: 'item', item } satisfies Data
+  });
+
+  /** Tes playlists filtrées (fuzzy, comme le reste du lanceur). Sans filtre : ordre de ta bibliothèque. */
+  const matchPlaylists = (list: SpotifyItem[], filter: string): Array<{ item: SpotifyItem; score: number; hl?: number[] }> => {
+    if (!filter) return list.map((item, i) => ({ item, score: 900 - i }));
+    const out: Array<{ item: SpotifyItem; score: number; hl?: number[] }> = [];
+    for (const item of list) {
+      const m = bestMatch(filter, [{ text: item.name }, { text: item.detail, weight: 0.5 }]);
+      if (m) out.push({ item, score: m.score, hl: m.field === 0 ? m.indices : undefined });
+    }
+    return out.sort((a, b) => b.score - a.score);
+  };
+
+  /** « sp pl [filtre] » : Titres likés + toutes tes playlists. */
+  const playlistResults = async (filter: string): Promise<ProviderItem[]> => {
+    const [list, id] = await Promise.all([client.playlists(), client.id().catch(() => '')]);
+    const out: ProviderItem[] = [];
+    const likedName = env.t('launcher.spotify.liked');
+    if (id) {
+      const liked: SpotifyItem = { kind: 'playlist', uri: `spotify:user:${id}:collection`, name: likedName, detail: '' };
+      const m = filter ? bestMatch(filter, [{ text: likedName }]) : null;
+      if (!filter || m) out.push(itemResult(liked, filter ? (m?.score ?? 0) : 1000, env.t('launcher.spotify.likedSub'), m?.indices));
+    }
+    for (const r of matchPlaylists(list, filter)) out.push(itemResult(r.item, r.score, playlistSub(r.item, false), r.hl));
+    if (out.length === 0) {
+      out.push({
+        title: env.t('launcher.spotify.noPlaylist', { q: filter }),
+        subtitle: env.t('launcher.spotify.noPlaylistSub'),
+        icon: { kind: 'sprite', name: 'list' },
+        score: 1,
+        noRecord: true,
+        data: { type: 'goto', text: '' } satisfies Data
+      });
+    }
+    return out;
+  };
+
   return {
     id: 'spotify',
     global: false,
@@ -307,6 +443,15 @@ export function createSpotifyProvider(env: LauncherEnv, client: SpotifyClient): 
             });
           }
           out.push(
+            {
+              title: env.t('launcher.spotify.myPlaylists'),
+              subtitle: env.t('launcher.spotify.myPlaylistsSub', { kw: `${parsed.keyword} pl` }),
+              icon: { kind: 'sprite', name: 'list' },
+              score: 600,
+              noRecord: true,
+              autoComplete: `${parsed.keyword} pl `,
+              data: { type: 'goto', text: `${parsed.keyword} pl ` } satisfies Data
+            },
             cmdItem({ cmd: 'next' }, 'chev', 500),
             cmdItem({ cmd: 'prev' }, 'chevl', 490),
             cmdItem({ cmd: 'shuffle' }, 'dice', 480),
@@ -316,17 +461,20 @@ export function createSpotifyProvider(env: LauncherEnv, client: SpotifyClient): 
         }
         const cmd = parseCommand(text);
         if (cmd) return [cmdItem(cmd, cmd.cmd === 'pause' ? 'clock' : 'play', 2000)];
-        const items = await client.search(text, signal);
-        return items.map((item, i) => ({
-          title: item.name,
-          subtitle: [env.t(`launcher.spotify.kind.${item.kind}`), item.detail].filter(Boolean).join(' · '),
-          icon: { kind: 'sprite', name: KIND_ICON[item.kind] },
+        const pl = parsePlaylistQuery(text);
+        if (pl) return await playlistResults(pl.filter);
+        // recherche Spotify + tes propres playlists qui correspondent, en tête
+        const [items, mine] = await Promise.all([
+          client.search(text, signal),
+          client.playlists().catch(() => [] as SpotifyItem[])
+        ]);
+        const own = matchPlaylists(mine, text).slice(0, 3);
+        const ownUris = new Set(own.map((r) => r.item.uri));
+        return [
+          ...own.map((r, i) => itemResult(r.item, 950 - i, playlistSub(r.item, true), r.hl)),
           // l'ordre de Spotify est déjà le bon (pertinence)
-          score: 900 - i,
-          recordKey: item.uri,
-          secondary: item.kind === 'track' ? env.t('launcher.spotify.queue') : undefined,
-          data: { type: 'item', item } satisfies Data
-        }));
+          ...items.filter((item) => !ownUris.has(item.uri)).map((item, i) => itemResult(item, 900 - i))
+        ];
       } catch (e) {
         if (signal.aborted) return [];
         return [setupItem(e)];
@@ -340,7 +488,9 @@ export function createSpotifyProvider(env: LauncherEnv, client: SpotifyClient): 
       }
       if (d.type === 'cmd') return runCmd(d.cmd);
       if (d.type === 'toggle') return runCmd({ cmd: d.playing ? 'pause' : 'play' });
+      if (d.type === 'goto') return d.text ? { kind: 'query', text: d.text } : { kind: 'keep' };
       if (mode === 'secondary' && d.item.kind === 'track') return queueItem(d.item);
+      if (mode === 'secondary' && d.item.kind === 'playlist') return shufflePlay(d.item);
       return playItem(d.item);
     },
     actions(it): LauncherAction[] {
@@ -348,6 +498,7 @@ export function createSpotifyProvider(env: LauncherEnv, client: SpotifyClient): 
       if (d.type !== 'item') return [];
       const list: LauncherAction[] = [{ id: 'play', title: env.t('launcher.spotify.play'), icon: 'play', hint: 'Entrée' }];
       if (d.item.kind === 'track') list.push({ id: 'queue', title: env.t('launcher.spotify.queue'), icon: 'listplus', hint: 'Ctrl Entrée' });
+      if (d.item.kind === 'playlist') list.push({ id: 'shuffle', title: env.t('launcher.spotify.shufflePlay'), icon: 'dice', hint: 'Ctrl Entrée' });
       list.push({ id: 'open', title: env.t('launcher.spotify.open'), icon: 'external' });
       if (d.item.url) list.push({ id: 'copy', title: env.t('launcher.action.copyUrl'), icon: 'copy' });
       return list;
@@ -356,8 +507,9 @@ export function createSpotifyProvider(env: LauncherEnv, client: SpotifyClient): 
       const d = it.data as Data;
       if (d.type !== 'item') return { kind: 'hide' };
       if (actionId === 'queue') return queueItem(d.item);
+      if (actionId === 'shuffle') return shufflePlay(d.item);
       if (actionId === 'open') {
-        await env.openExternal(d.item.uri);
+        await env.openExternal(openUri(d.item));
         return { kind: 'hide' };
       }
       if (actionId === 'copy' && d.item.url) {

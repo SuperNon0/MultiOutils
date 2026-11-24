@@ -525,7 +525,7 @@ export function createLauncherMainModule(): MainToolModule {
       ipcMain.handle('launcher:spotifyStatus', async () => {
         if (!spotifyClient.connected) return { connected: false };
         const user = await spotifyClient.me().catch(() => '');
-        return { connected: true, user };
+        return { connected: true, user, playlists: spotifyClient.canListPlaylists };
       });
       ipcMain.handle('launcher:spotifyConnect', async (): Promise<{ ok: true; user: string } | { ok: false; error: string }> => {
         if (!safeStorage.isEncryptionAvailable()) return { ok: false, error: 'encryptionUnavailable' };

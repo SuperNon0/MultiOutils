@@ -155,7 +155,7 @@ function SpotifySection({
   onClientId(v: string): void;
 }): ReactNode {
   const { t } = useI18n();
-  const [status, setStatus] = useState<{ connected: boolean; user?: string } | null>(null);
+  const [status, setStatus] = useState<{ connected: boolean; user?: string; playlists?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -215,7 +215,15 @@ function SpotifySection({
             error ? (
               <span className="dan">{error}</span>
             ) : status?.connected ? (
-              <span className="ok">{t('launcher.spotify.connectedAs', { user: status.user || '?' })}</span>
+              <>
+                <span className="ok">{t('launcher.spotify.connectedAs', { user: status.user || '?' })}</span>
+                {status.playlists === false && (
+                  <>
+                    {' · '}
+                    <span className="dan">{t('launcher.spotify.reconnectPlaylists')}</span>
+                  </>
+                )}
+              </>
             ) : (
               t('launcher.spotify.notConnectedDesc')
             )
@@ -242,7 +250,7 @@ function SpotifySection({
       <div className="reg-sec">
         <div className="lbl-mono">{t('launcher.spotify.examples')}</div>
         <div className="lzr-exemples">
-          {(['', ' daft punk', ' pause', ' suivant', ' vol 40', ' shuffle'] as const).map((rest) => (
+          {(['', ' pl', ' daft punk', ' pause', ' suivant', ' vol 40', ' shuffle'] as const).map((rest) => (
             <div className="carte lzr-ex" key={rest}>
               <code className="mono">{`${keyword}${rest}`}</code>
               <span className="soft petit">{t(`launcher.spotify.ex.${rest.trim().split(' ')[0] || 'now'}`)}</span>
