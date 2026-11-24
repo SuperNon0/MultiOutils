@@ -221,6 +221,11 @@ export interface PreloadApi {
     chooseFolder(): Promise<string | null>;
     onChanged(cb: (settings: AppSettings) => void): Unsubscribe;
   };
+  /** Réglages → Notifications. */
+  notifications: {
+    /** Affiche une notification d'exemple (même si elles sont coupées). */
+    test(): Promise<void>;
+  };
   capture: {
     take(type: CaptureType, opts?: CaptureTakeOptions): Promise<void>;
     onDone(cb: (capture: Capture) => void): Unsubscribe;

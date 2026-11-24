@@ -11,17 +11,15 @@ import type {
   HaLinkStatus,
   HaNotification,
   HaSettingsPatch,
-  HaSoundList,
-  HaToastPosition,
   LauncherSettings as Settings
 } from '../../../../../common/launcher';
-import { HA_TOAST_POSITIONS } from '../../../../../common/launcher';
 import { Aide, ui } from '../../../encre/ui';
 import { Icon } from '../../../host/Icon';
 import { RegLigne, RegSec, RegSwitch } from '../../../host/reglages';
 import { useI18n } from '../../../i18n';
+import { useHost } from '../../../host/context';
+import type { NotifSettings } from '../../../../../common/notifications';
 import { Champ, ShortcutRecorder } from '../LauncherSettings';
-import { playHaSound } from './sounds';
 import './ha.css';
 
 /** Home Assistant : adresse, jeton (chiffré côté main), test de connexion. */
@@ -146,106 +144,6 @@ data:
       - action: LESSIVE_VUE
         title: "OK, j'y vais"`;
 
-/** Son par défaut, volume, dossier des sons personnalisés. */
-function SoundSettings({
-  soundName,
-  volume,
-  disabled,
-  onSave
-}: {
-  soundName: string;
-  volume: number;
-  disabled: boolean;
-  onSave(patch: { soundName?: string; volume?: number }): void;
-}): ReactNode {
-  const { t } = useI18n();
-  const [list, setList] = useState<HaSoundList | null>(null);
-  const [vol, setVol] = useState(volume);
-  const refresh = (): void => void window.api.ha.sounds().then(setList);
-  useEffect(refresh, []);
-  useEffect(() => setVol(volume), [volume]);
-  // le son enregistré peut être un fichier supprimé depuis : on le garde dans la liste
-  const files = list ? list.files : [];
-  const known = (list?.builtin ?? []).includes(soundName) || files.includes(soundName);
-  const preview = async (name: string): Promise<void> => {
-    const r = await window.api.ha.soundPreview(name);
-    if (r) playHaSound(r, r.volume);
-  };
-  return (
-    <>
-      <RegLigne titre={t('ha.notif.soundName')} sous={t('ha.notif.soundNameDesc')}>
-        <div className="ha-son">
-          <select
-            className="select reg-select"
-            value={soundName}
-            disabled={disabled}
-            aria-label={t('ha.notif.soundName')}
-            onFocus={refresh}
-            onChange={(e) => {
-              onSave({ soundName: e.target.value });
-              void preview(e.target.value);
-            }}
-          >
-            <optgroup label={t('ha.notif.soundBuiltin')}>
-              {(list?.builtin ?? ['carillon']).map((n) => (
-                <option key={n} value={n}>
-                  {t(`ha.sound.${n}`)}
-                </option>
-              ))}
-            </optgroup>
-            {(files.length > 0 || !known) && (
-              <optgroup label={t('ha.notif.soundFiles')}>
-                {!known && <option value={soundName}>{soundName}</option>}
-                {files.map((f) => (
-                  <option key={f} value={f}>
-                    {f}
-                  </option>
-                ))}
-              </optgroup>
-            )}
-          </select>
-          <button
-            type="button"
-            className="btn sm gh"
-            disabled={disabled}
-            aria-label={t('ha.notif.soundPlay')}
-            title={t('ha.notif.soundPlay')}
-            onClick={() => void preview(soundName)}
-          >
-            <Icon name="play" size={16} />
-          </button>
-        </div>
-      </RegLigne>
-      <RegLigne titre={t('ha.notif.volume')}>
-        <div className="ha-son">
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={5}
-            value={vol}
-            disabled={disabled}
-            aria-label={t('ha.notif.volume')}
-            onChange={(e) => setVol(Number(e.target.value))}
-            onPointerUp={() => {
-              onSave({ volume: vol });
-              void preview(soundName);
-            }}
-            onKeyUp={() => onSave({ volume: vol })}
-          />
-          <span className="ha-son-val">{vol} %</span>
-        </div>
-      </RegLigne>
-      <RegLigne titre={t('ha.notif.soundFolder')} sous={t('ha.notif.soundFolderDesc')}>
-        <button type="button" className="btn sm gh" onClick={() => void window.api.ha.openSoundsFolder().then(refresh)}>
-          <Icon name="folder" size={16} />
-          {t('ha.notif.soundFolderBtn')}
-        </button>
-      </RegLigne>
-    </>
-  );
-}
-
 /** Liaison PC ↔ Home Assistant : appareil, capteurs, boutons, notifications, mini fenêtre. */
 function HaLinkSections({
   s,
@@ -259,6 +157,13 @@ function HaLinkSections({
   const { t } = useI18n();
   const [st, setSt] = useState<HaLinkStatus | null>(null);
   const [historique, setHistorique] = useState<HaNotification[]>([]);
+  // Pop-ups : réglées dans Réglages → Notifications (communes à toute l'appli)
+  const [appNotif, setAppNotif] = useState<NotifSettings | null>(null);
+  const { openSettings } = useHost();
+  useEffect(() => {
+    void window.api.settings.get().then((v) => setAppNotif(v.notifications));
+    return window.api.settings.onChanged((v) => setAppNotif(v.notifications));
+  }, []);
   useEffect(() => {
     void window.api.ha.status().then(setSt);
     void window.api.ha.history().then(setHistorique);
@@ -281,7 +186,6 @@ function HaLinkSections({
     void navigator.clipboard.writeText(v).then(() => ui.toast(t('ha.copied')));
   };
   const link = s.link;
-  const notif = s.notifications;
   const dash = s.dashboard;
   return (
     <>
@@ -389,54 +293,18 @@ function HaLinkSections({
           titre={t('ha.notif.enabled')}
           aide={<Aide titre={t('ha.notif.enabled')} texte={t('ha.notif.help')} exemple={t('ha.notif.help.ex')} />}
           sous={t('ha.notif.enabledDesc')}
-          checked={notif.enabled}
-          onChange={(v) => onSave({ notifications: { enabled: v } })}
+          checked={appNotif?.kinds.homeassistant ?? true}
+          disabled={!appNotif}
+          onChange={(v) => {
+            if (appNotif) void window.api.settings.set({ notifications: { ...appNotif, kinds: { ...appNotif.kinds, homeassistant: v } } });
+          }}
         />
-        <RegLigne titre={t('ha.notif.position')}>
-          <select
-            className="select reg-select"
-            value={notif.position}
-            aria-label={t('ha.notif.position')}
-            onChange={(e) => onSave({ notifications: { position: e.target.value as HaToastPosition } })}
-          >
-            {HA_TOAST_POSITIONS.map((p) => (
-              <option key={p} value={p}>
-                {t(`ha.notif.pos.${p}`)}
-              </option>
-            ))}
-          </select>
+        <RegLigne titre={t('ha.notif.moreSettings')} sous={t('ha.notif.moreSettingsDesc')}>
+          <button type="button" className="btn sm gh" onClick={() => openSettings('notifications')}>
+            <Icon name="bell" size={16} />
+            {t('ha.notif.moreSettingsBtn')}
+          </button>
         </RegLigne>
-        <RegLigne titre={t('ha.notif.duration')} sous={t('ha.notif.durationDesc')}>
-          <select
-            className="select reg-select"
-            value={notif.duration}
-            aria-label={t('ha.notif.duration')}
-            onChange={(e) => onSave({ notifications: { duration: Number(e.target.value) } })}
-          >
-            {[4, 6, 8, 12, 20, 30, 60].map((n) => (
-              <option key={n} value={n}>
-                {n} s
-              </option>
-            ))}
-          </select>
-        </RegLigne>
-        <RegSwitch
-          titre={t('ha.notif.sound')}
-          checked={notif.sound}
-          onChange={(v) => onSave({ notifications: { sound: v } })}
-        />
-        <SoundSettings
-          soundName={notif.soundName}
-          volume={notif.volume}
-          disabled={!notif.sound}
-          onSave={(patch) => onSave({ notifications: patch })}
-        />
-        <RegSwitch
-          titre={t('ha.notif.dnd')}
-          sous={t('ha.notif.dndDesc')}
-          checked={notif.doNotDisturb}
-          onChange={(v) => onSave({ notifications: { doNotDisturb: v } })}
-        />
         <RegLigne titre={t('ha.notif.test')} sous={t('ha.notif.testDesc')}>
           <button type="button" className="btn sm" onClick={() => void window.api.ha.testToast()}>
             <Icon name="bell" size={16} />

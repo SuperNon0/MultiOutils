@@ -7,6 +7,7 @@ import {
   DEFAULT_SHORTCUTS,
   type AppSettings
 } from '../common/types';
+import { defaultNotifSettings, normalizeNotifSettings, notifSettingsFromHa } from '../common/notifications';
 
 /** Modèle par défaut de chaque fournisseur de traduction IA. */
 export const DEFAULT_AI_MODELS: AppSettings['aiModels'] = {
@@ -56,7 +57,8 @@ export function buildDefaults(defaultStorageDir: string): AppSettings {
     aiModels: { ...DEFAULT_AI_MODELS },
     aiTargetLang: 'Français',
     aiPrices: {},
-    aiGeminiFreeTier: false
+    aiGeminiFreeTier: false,
+    notifications: defaultNotifSettings()
   };
 }
 
@@ -87,7 +89,8 @@ export class SettingsStore {
       ...this.defaults,
       appearance: { ...this.defaults.appearance },
       shortcuts: { ...this.defaults.shortcuts },
-      aiModels: { ...this.defaults.aiModels }
+      aiModels: { ...this.defaults.aiModels },
+      notifications: defaultNotifSettings()
     };
     const rows = this.getStmt.all() as Array<{ key: string; value: string }>;
     // Migration : l'ancien réglage `theme` ('dark' | 'light') devient
@@ -100,6 +103,17 @@ export class SettingsStore {
         else if (value === 'light') merged.appearance.theme = 'clair';
       } catch {
         // ancienne valeur illisible → automatique
+      }
+    }
+    // Migration : les notifications reprennent les réglages des pop-ups
+    // Home Assistant (emplacement, son, ne pas déranger…).
+    if (!rows.some((r) => r.key === 'notifications')) {
+      const launcher = rows.find((r) => r.key === 'launcher.settings');
+      try {
+        const ha = launcher ? JSON.parse(launcher.value)?.homeAssistant?.notifications : null;
+        if (ha) merged.notifications = notifSettingsFromHa(ha);
+      } catch {
+        // réglages du lanceur illisibles → défaut
       }
     }
     for (const row of rows) {
@@ -116,6 +130,8 @@ export class SettingsStore {
           }
         } else if (row.key === 'appearance') {
           merged.appearance = normalizeAppearance(value);
+        } else if (row.key === 'notifications') {
+          merged.notifications = normalizeNotifSettings(value);
         } else if (row.key === 'theme') {
           // ancien réglage : déjà migré ci-dessus
         } else {
@@ -133,7 +149,8 @@ export class SettingsStore {
       ...this.cache,
       appearance: { ...this.cache.appearance },
       shortcuts: { ...this.cache.shortcuts },
-      aiModels: { ...this.cache.aiModels }
+      aiModels: { ...this.cache.aiModels },
+      notifications: { ...this.cache.notifications, kinds: { ...this.cache.notifications.kinds } }
     };
   }
 
@@ -145,7 +162,14 @@ export class SettingsStore {
         ? normalizeAppearance({ ...this.cache.appearance, ...patch.appearance })
         : this.cache.appearance,
       shortcuts: { ...this.cache.shortcuts, ...(patch.shortcuts ?? {}) },
-      aiModels: { ...this.cache.aiModels, ...(patch.aiModels ?? {}) }
+      aiModels: { ...this.cache.aiModels, ...(patch.aiModels ?? {}) },
+      notifications: patch.notifications
+        ? normalizeNotifSettings({
+            ...this.cache.notifications,
+            ...patch.notifications,
+            kinds: { ...this.cache.notifications.kinds, ...(patch.notifications.kinds ?? {}) }
+          })
+        : this.cache.notifications
     };
     const write = this.db.transaction(() => {
       for (const key of Object.keys(patch) as Array<keyof AppSettings>) {

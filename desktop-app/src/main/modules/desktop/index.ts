@@ -734,7 +734,7 @@ export function createDesktopMainModule(): MainToolModule {
       return;
     }
     const err = await shell.openPath(p);
-    if (err) ctx.notify(t('desktop.openFailed'), err);
+    if (err) ctx.notify(t('desktop.openFailed'), err, { error: true });
   };
 
   const zoneMenu = (z: Zone, host: Zone, win: BrowserWindow, sendEdit: () => void): MenuItemConstructorOptions[] => {
@@ -877,7 +877,7 @@ export function createDesktopMainModule(): MainToolModule {
             await shell.trashItem(p);
             setZones(renameItem(zones, path.basename(p), null));
           } catch (err) {
-            ctx.notify(t('desktop.trashFailed'), err instanceof Error ? err.message : String(err));
+            ctx.notify(t('desktop.trashFailed'), err instanceof Error ? err.message : String(err), { error: true });
           }
         }
       }
@@ -889,7 +889,7 @@ export function createDesktopMainModule(): MainToolModule {
         submenu: destinations.map((dest) => ({
           label: dest.title,
           click: () => { void dropInto(dest, [p], false).catch((err: unknown) => {
-            ctx.notify(t('desktop.dropFailed'), err instanceof Error ? err.message : String(err));
+            ctx.notify(t('desktop.dropFailed'), err instanceof Error ? err.message : String(err), { error: true });
           }); }
         }))
       });
@@ -1253,7 +1253,7 @@ export function createDesktopMainModule(): MainToolModule {
         setZones: (next) => setZones(next),
         desktop: () => desktop,
         onChange: () => scheduleRefresh(0),
-        notify: (title, body) => ctx.notify(title, body),
+        notify: (title, body) => ctx.notify(title, body, { error: true }),
         t
       });
       layouts = createLayoutStore({
@@ -1594,7 +1594,7 @@ export function createDesktopMainModule(): MainToolModule {
         try {
           await dropInto(z, paths, Boolean(copy), typeof before === 'string' ? before : undefined);
         } catch (err) {
-          ctx.notify(t('desktop.dropFailed'), err instanceof Error ? err.message : String(err));
+          ctx.notify(t('desktop.dropFailed'), err instanceof Error ? err.message : String(err), { error: true });
         }
       });
       // Dépôt dans une zone depuis la page Fichiers.
@@ -1605,7 +1605,7 @@ export function createDesktopMainModule(): MainToolModule {
           await dropInto(z, paths, Boolean(copy));
           return true;
         } catch (err) {
-          ctx.notify(t('desktop.dropFailed'), err instanceof Error ? err.message : String(err));
+          ctx.notify(t('desktop.dropFailed'), err instanceof Error ? err.message : String(err), { error: true });
           return false;
         }
       });

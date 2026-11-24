@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('electron', () => ({}));
-import { MainModuleRegistry, type MainHostContext, type MainToolModule } from './module-registry';
+import { MainModuleRegistry, moduleContext, type MainHostContext, type MainToolModule } from './module-registry';
 
 const ctx = {} as MainHostContext;
 
@@ -30,5 +30,14 @@ describe('MainModuleRegistry', () => {
     reg.deactivateAll();
     expect(second).toHaveBeenCalledTimes(1);
     spy.mockRestore();
+  });
+
+  it('files each tool notification under its own family', () => {
+    const notify = vi.fn();
+    const base = { notify } as unknown as MainHostContext;
+    moduleContext(base, 'screenshot').notify('Capture', 'ok');
+    moduleContext(base, 'desktop').notify('Bureau', undefined, { kind: 'homeassistant', error: true });
+    expect(notify).toHaveBeenNthCalledWith(1, 'Capture', 'ok', { kind: 'capture' });
+    expect(notify).toHaveBeenNthCalledWith(2, 'Bureau', undefined, { kind: 'homeassistant', error: true });
   });
 });

@@ -332,6 +332,10 @@ export interface HaNotification {
   url?: string;
   actions: HaNotificationAction[];
   receivedAt: number;
+  /** Origine affichée sous le titre (« MultiOutils », sinon « Home Assistant »). */
+  source?: string;
+  /** Erreur : liseré corail et badge « Erreur ». */
+  error?: boolean;
 }
 
 export interface HaNotificationAction {

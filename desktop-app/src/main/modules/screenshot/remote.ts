@@ -190,7 +190,7 @@ export class RemoteClient {
       this.ctx.broadcast('library:changed');
     }
     if (failed > 0) {
-      this.ctx.notify(t('notif.sendErrors', { n: failed }));
+      this.ctx.notify(t('notif.sendErrors', { n: failed }), undefined, { error: true });
     } else if (sent > 0) {
       this.ctx.notify(
         sent === 1 ? t('notif.sent') : t('notif.sentMany', { n: sent })

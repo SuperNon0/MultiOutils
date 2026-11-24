@@ -1,4 +1,4 @@
-import { app, nativeTheme, net, Notification, protocol } from 'electron';
+import { app, nativeTheme, net, protocol } from 'electron';
 import { EventEmitter } from 'node:events';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,6 +9,7 @@ import { applySettings, registerHostIpc } from './ipc';
 import { LocalService } from './local-service';
 import type { MainHostContext } from './module-registry';
 import { MainModuleRegistry } from './module-registry';
+import { createNotificationCenter } from './notifications/center';
 import { createAutoclickerMainModule } from './modules/autoclicker';
 import { createClipboardMainModule } from './modules/clipboard';
 import { createColorPickerMainModule } from './modules/color-picker';
@@ -80,6 +81,10 @@ async function bootstrap(): Promise<void> {
   applyAppearance(settings.get().appearance);
 
   const localService = new LocalService();
+  const notifications = createNotificationCenter({
+    settings: () => settings.get().notifications,
+    t: (key, vars) => i18n.t(key, vars)
+  });
 
   const ctx: MainHostContext = {
     db,
@@ -87,9 +92,10 @@ async function bootstrap(): Promise<void> {
     i18n,
     shortcuts,
     events,
-    notify(title, body) {
-      new Notification({ title, body, silent: true }).show();
+    notify(title, body, opts) {
+      notifications.notify(title, body, opts);
     },
+    notifications,
     showMainWindow,
     broadcast,
     registerLocalCommand: (id, run) => localService.register(id, run),
@@ -156,7 +162,8 @@ async function bootstrap(): Promise<void> {
   if (conflicts.length > 0) {
     ctx.notify(
       i18n.t('settings.shortcuts.conflict'),
-      conflicts.map((c) => c.accelerator).join(' · ')
+      conflicts.map((c) => c.accelerator).join(' · '),
+      { error: true, onClick: () => showMainWindow({ view: 'settings', section: 'shortcuts' }) }
     );
   }
 
@@ -177,6 +184,7 @@ async function bootstrap(): Promise<void> {
     registry.deactivateAll();
     localService.stop();
     tray.destroy();
+    notifications.dispose();
   });
 
   // premier lancement : fenêtre visible pour l'assistant (docs/02 §2.3)

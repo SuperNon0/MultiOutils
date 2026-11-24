@@ -1,5 +1,5 @@
 /**
- * Fenêtre #/ha-toasts : pile de pop-ups envoyées par Home Assistant.
+ * Fenêtre #/ha-toasts : pile de pop-ups de MultiOutils et de Home Assistant.
  * Chaque carte a sa barre de temps (en pause au survol), son image, ses
  * boutons d'action ; un clic sur la carte ouvre le lien (ou le tableau de
  * bord). La hauteur de la pile est renvoyée au main pour ajuster la fenêtre.
@@ -45,7 +45,7 @@ function Toast({ n, hovered }: { n: HaNotification; hovered: boolean }): ReactNo
 
   return (
     <div
-      className={`hat${n.important ? ' imp' : ''}${n.color ? ' col' : ''}${n.size && n.size !== 'normal' ? ` sz-${n.size}` : ''}`}
+      className={`hat${n.important || n.error ? ' imp' : ''}${n.color ? ' col' : ''}${n.size && n.size !== 'normal' ? ` sz-${n.size}` : ''}`}
       style={style}
       role="alert"
       onClick={() => window.api.ha.toastOpen(n.id)}
@@ -55,8 +55,12 @@ function Toast({ n, hovered }: { n: HaNotification; hovered: boolean }): ReactNo
         <div className="hat-tx">
           <div className="hat-titre">{n.title}</div>
           <div className="hat-meta">
-            Home Assistant · {time}
-            {n.important && <span className="hat-badge">{t('ha.toast.important')}</span>}
+            {n.source ?? 'Home Assistant'} · {time}
+            {n.error ? (
+              <span className="hat-badge">{t('notif.error')}</span>
+            ) : (
+              n.important && <span className="hat-badge">{t('ha.toast.important')}</span>
+            )}
           </div>
         </div>
         <button

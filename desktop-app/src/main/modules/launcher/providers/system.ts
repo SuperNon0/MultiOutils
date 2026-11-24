@@ -389,7 +389,7 @@ export function createToolsProvider(env: LauncherEnv): Provider {
       setTimeout(() => {
         if (t.command) {
           void env.runLocalCommand(t.command).then((ok) => {
-            if (!ok) env.notify(env.t('launcher.error.tool'));
+            if (!ok) env.notify(env.t('launcher.error.tool'), undefined, { error: true });
           });
         } else if (t.openTool) env.showMainWindow({ view: 'tool', toolId: t.openTool });
       }, t.delayMs ?? 0);

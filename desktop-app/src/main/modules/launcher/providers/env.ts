@@ -10,7 +10,7 @@ export interface LauncherEnv {
   settings(): LauncherSettings;
   lang(): 'fr' | 'en';
   t(key: string, vars?: Record<string, string | number>): string;
-  notify(title: string, body?: string): void;
+  notify(title: string, body?: string, opts?: { error?: boolean }): void;
   showMainWindow(nav?: NavigateMsg): void;
   hasLocalCommand(id: string): boolean;
   runLocalCommand(id: string): Promise<boolean>;

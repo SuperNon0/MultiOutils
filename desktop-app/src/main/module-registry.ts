@@ -1,7 +1,9 @@
 import type Database from 'better-sqlite3';
 import type { MenuItemConstructorOptions } from 'electron';
 import type { EventEmitter } from 'node:events';
+import { notifKindForModule } from '../common/notifications';
 import type { NavigateMsg } from '../common/types';
+import type { NotificationHub, NotifyOptions } from './notifications/center';
 import type { I18n } from './i18n';
 import type { SettingsStore } from './settings';
 import type { ShortcutManager } from './shortcuts';
@@ -18,7 +20,13 @@ export interface MainHostContext {
   shortcuts: ShortcutManager;
   /** Événements de l'hôte : 'settings-changed', 'tray-refresh', 'tray-tooltip'. */
   events: EventEmitter;
-  notify(title: string, body?: string): void;
+  /**
+   * Pop-up MultiOutils (Réglages → Notifications). Sans `kind`, la famille est
+   * celle du module qui notifie.
+   */
+  notify(title: string, body?: string, opts?: NotifyOptions): void;
+  /** Centre des notifications (pop-ups complètes : Home Assistant). */
+  notifications: NotificationHub;
   showMainWindow(nav?: NavigateMsg): void;
   /** Envoie un message IPC à toutes les fenêtres du renderer. */
   broadcast(channel: string, payload?: unknown): void;
@@ -48,6 +56,15 @@ export interface MainToolModule {
   trayMenuItems?(ctx: MainHostContext): MenuItemConstructorOptions[];
 }
 
+/** Contexte d'un module : ses notifications sont rangées dans sa famille. */
+export function moduleContext(ctx: MainHostContext, moduleId: string): MainHostContext {
+  const kind = notifKindForModule(moduleId);
+  return {
+    ...ctx,
+    notify: (title, body, opts) => ctx.notify(title, body, { kind, ...opts })
+  };
+}
+
 export class MainModuleRegistry {
   private modules: MainToolModule[] = [];
   /** Outils dont l'activation a échoué : exclus du menu de la barre des tâches. */
@@ -62,7 +79,7 @@ export class MainModuleRegistry {
       // Un outil qui échoue au démarrage ne doit pas empêcher l'appli (tray,
       // mises à jour, autres outils) de se lancer.
       try {
-        await module.activate(ctx);
+        await module.activate(moduleContext(ctx, module.id));
       } catch (err) {
         this.failed.add(module.id);
         console.error(`[modules] échec de l'activation de « ${module.id} »`, err);
@@ -78,7 +95,7 @@ export class MainModuleRegistry {
       if (this.failed.has(module.id)) continue;
       let contributed: MenuItemConstructorOptions[] = [];
       try {
-        contributed = module.trayMenuItems?.(ctx) ?? [];
+        contributed = module.trayMenuItems?.(moduleContext(ctx, module.id)) ?? [];
       } catch (err) {
         console.error(`[modules] menu de « ${module.id} » indisponible`, err);
       }

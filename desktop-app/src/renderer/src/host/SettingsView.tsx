@@ -28,6 +28,7 @@ import { Icon } from './Icon';
 import { HistoriqueVersions } from './Nouveautes';
 import { RegLigne, RegSec, RegSwitch } from './reglages';
 import { TraductionSection } from './TraductionReglages';
+import { NotificationsSection } from './NotificationsReglages';
 import { HaSettingsPage } from '../modules/launcher/ha/HaSettingsPage';
 import type { ToolModule } from './types';
 
@@ -73,6 +74,14 @@ export function settingsSections(modules: ToolModule[]): SectionDef[] {
       sub: 'appearance.sub',
       icon: 'palette',
       keywords: ['appearance.accent', 'appearance.theme', 'appearance.keywords']
+    },
+    {
+      id: 'notifications',
+      group: 'reglages.group.app',
+      title: 'notif.set.title',
+      sub: 'reglages.sub.notifications',
+      icon: 'bell',
+      keywords: ['ha.notif.dnd', 'ha.notif.position', 'ha.notif.sound', 'notif.set.kinds', 'notif.set.keywords']
     },
     {
       id: 'shortcuts',
@@ -296,6 +305,7 @@ export function SettingsView({ settings, version, section, modules, update }: Pr
             {current.id === 'general' && <GeneralSection settings={settings} update={update} />}
             {current.id === 'appearance' && <AppearanceSection settings={settings} update={update} />}
             {activeModule?.settingsPanel?.()}
+            {current.id === 'notifications' && <NotificationsSection settings={settings} update={update} />}
             {current.id === 'shortcuts' && <ShortcutsSection onSaved={flash} />}
             {current.id === 'storage' && <StorageSection settings={settings} update={update} />}
             {current.id === 'backups' && <BackupSection />}

@@ -1,4 +1,4 @@
-import { clipboard, dialog, nativeImage, Notification, screen } from 'electron';
+import { clipboard, dialog, nativeImage, screen } from 'electron';
 import type { NativeImage } from 'electron';
 import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
@@ -56,7 +56,7 @@ export class CaptureEngine {
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      this.ctx.notify(this.ctx.i18n.t('notif.captureError', { msg }));
+      this.ctx.notify(this.ctx.i18n.t('notif.captureError', { msg }), undefined, { error: true });
     }
   }
 
@@ -223,15 +223,12 @@ export class CaptureEngine {
     if (settings.clipboardAuto) clipboard.writeImage(image);
 
     const { t } = this.ctx.i18n;
-    const notification = new Notification({
-      title: t('notif.captureSaved.title'),
-      body: t('notif.captureSaved.body', { name: capture.filename }),
-      silent: true
+    const open = (action?: 'edit'): void =>
+      this.ctx.showMainWindow({ view: 'tool', toolId: 'screenshot', captureId: capture.id, ...(action ? { action } : {}) });
+    this.ctx.notify(t('notif.captureSaved.title'), t('notif.captureSaved.body', { name: capture.filename }), {
+      onClick: () => open(),
+      actions: settings.openEditorAfterCapture ? [] : [{ title: t('notif.captureSaved.edit'), run: () => open('edit') }]
     });
-    notification.on('click', () =>
-      this.ctx.showMainWindow({ view: 'tool', toolId: 'screenshot', captureId: capture.id })
-    );
-    notification.show();
 
     this.ctx.broadcast('capture:done', capture);
     this.onCaptureSaved?.(capture);
