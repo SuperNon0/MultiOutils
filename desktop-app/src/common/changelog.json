@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.18.0",
+    "date": "2026-11-24",
+    "titre": "Tes playlists Spotify dans le lanceur",
+    "nouveautes": [
+      "Lanceur → Spotify : tape « sp pl » pour voir toutes tes playlists (créées et suivies) et tes Titres likés, puis Entrée pour lancer. « sp pl chill » filtre par nom.",
+      "Ctrl + Entrée sur une playlist la lance en lecture aléatoire. Le menu d’actions propose aussi Ouvrir dans Spotify et Copier le lien.",
+      "Une recherche « sp … » montre d’abord tes propres playlists qui correspondent, avant les résultats de tout Spotify.",
+      "« sp » seul propose maintenant « Mes playlists » juste sous le titre en cours."
+    ],
+    "corrections": [
+      "Si Spotify était déjà connecté, déconnecte-le puis reconnecte-le une fois (Réglages → Lanceur → Spotify) pour autoriser l’accès à tes playlists. Le lanceur et les réglages te le rappellent."
+    ]
+  },
+  {
     "version": "0.17.0",
     "date": "2026-11-24",
     "titre": "Panneau lumière sur le Stream Deck",

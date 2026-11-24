@@ -81,7 +81,18 @@ describe('home assistant', () => {
   });
 });
 
-import { authorizeUrl, isClientId, parseCommand, parsePlayer, parseSearch, pkcePair, SPOTIFY_REDIRECT } from './spotify';
+import {
+  authorizeUrl,
+  hasPlaylistScope,
+  isClientId,
+  parseCommand,
+  parsePlayer,
+  parsePlaylistQuery,
+  parsePlaylists,
+  parseSearch,
+  pkcePair,
+  SPOTIFY_REDIRECT
+} from './spotify';
 
 describe('spotify', () => {
   it('PKCE et adresse de connexion', () => {
@@ -107,6 +118,42 @@ describe('spotify', () => {
       expect.objectContaining({ kind: 'artist', name: 'Daft Punk' }),
       expect.objectContaining({ kind: 'playlist', detail: 'Noë' })
     ]);
+  });
+
+  it("demande l'accès aux playlists", () => {
+    const u = new URL(authorizeUrl('a'.repeat(32), 'c', 's'));
+    expect(u.searchParams.get('scope')).toContain('playlist-read-private');
+    expect(hasPlaylistScope('user-read-private playlist-read-private')).toBe(true);
+    expect(hasPlaylistScope('user-read-private user-modify-playback-state')).toBe(false);
+    expect(hasPlaylistScope(undefined)).toBe(true);
+  });
+
+  it('liste des playlists', () => {
+    const r = parsePlaylists({
+      items: [
+        { name: 'Chill', uri: 'spotify:playlist:1', owner: { display_name: 'Noë' }, tracks: { total: 42 } },
+        null,
+        { name: 'Sport', uri: 'spotify:playlist:2', owner: { display_name: 'Spotify' }, items: { total: 7 } },
+        { uri: 'spotify:playlist:3' }
+      ],
+      next: 'https://api.spotify.com/v1/me/playlists?offset=50'
+    });
+    expect(r.next).toBe(true);
+    expect(r.items.map((i) => [i.kind, i.name, i.detail, i.tracks])).toEqual([
+      ['playlist', 'Chill', 'Noë', 42],
+      ['playlist', 'Sport', 'Spotify', 7]
+    ]);
+    expect(parsePlaylists({ items: [], next: null }).next).toBe(false);
+  });
+
+  it('« sp pl » et ses variantes', () => {
+    expect(parsePlaylistQuery('pl')).toEqual({ filter: '' });
+    expect(parsePlaylistQuery('PL chill')).toEqual({ filter: 'chill' });
+    expect(parsePlaylistQuery('playlist  rap fr ')).toEqual({ filter: 'rap fr' });
+    expect(parsePlaylistQuery('mes playlists')).toEqual({ filter: '' });
+    expect(parsePlaylistQuery('liste sport')).toEqual({ filter: 'sport' });
+    expect(parsePlaylistQuery('plage')).toBeNull();
+    expect(parsePlaylistQuery('daft punk')).toBeNull();
   });
 
   it('lit le lecteur et les commandes', () => {

@@ -11,8 +11,15 @@ export const SPOTIFY_SCOPES = [
   'user-read-playback-state',
   'user-modify-playback-state',
   'user-read-currently-playing',
-  'user-read-private'
+  'user-read-private',
+  // 0.17 : liste de tes playlists (« sp pl »)
+  'playlist-read-private',
+  'playlist-read-collaborative'
 ];
+
+/** Le jeton a-t-il été accordé avec l'accès aux playlists ? (connexions d'avant 0.17 : non) */
+export const hasPlaylistScope = (scope: string | undefined): boolean =>
+  scope === undefined || scope.split(' ').includes('playlist-read-private');
 
 const b64url = (buf: Buffer): string => buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
@@ -47,6 +54,8 @@ export interface SpotifyItem {
   /** Artistes, propriétaire de la playlist… */
   detail: string;
   url?: string;
+  /** Playlists : nombre de titres. */
+  tracks?: number;
 }
 
 interface Named {
@@ -56,6 +65,8 @@ interface Named {
   artists?: Array<{ name?: string }>;
   owner?: { display_name?: string };
   album?: { name?: string };
+  tracks?: { total?: number };
+  items?: { total?: number };
 }
 
 const artists = (x: Named): string => (x.artists ?? []).map((a) => a.name).filter(Boolean).join(', ');
@@ -127,4 +138,33 @@ export function parseCommand(text: string): SpotifyCommand | null {
   };
   const c = words[t];
   return c ? ({ cmd: c } as SpotifyCommand) : null;
+}
+
+/** Réponse de GET /v1/me/playlists (une page) → playlists, dans l'ordre de ta bibliothèque. */
+export function parsePlaylists(body: unknown): { items: SpotifyItem[]; next: boolean } {
+  const b = (body ?? {}) as { items?: Array<Named | null>; next?: string | null };
+  const items: SpotifyItem[] = [];
+  for (const x of b.items ?? []) {
+    if (!x || !x.uri || !x.name) continue;
+    items.push({
+      kind: 'playlist',
+      uri: x.uri,
+      name: x.name,
+      detail: x.owner?.display_name ?? '',
+      url: x.external_urls?.spotify,
+      // l'API renvoie « tracks » (ancien nom) ou « items » (nouveau nom)
+      tracks: x.tracks?.total ?? x.items?.total
+    });
+  }
+  return { items, next: !!b.next };
+}
+
+/**
+ * « sp pl », « sp playlist chill », « sp mes playlists »… → filtre (peut être vide).
+ * null si le texte n'est pas une demande de playlists.
+ */
+export function parsePlaylistQuery(text: string): { filter: string } | null {
+  const m = /^(?:pl|pls|playlists?|mes\s+playlists?|listes?)(?:\s+(.*))?$/i.exec(text.trim());
+  if (!m) return null;
+  return { filter: (m[1] ?? '').trim() };
 }
