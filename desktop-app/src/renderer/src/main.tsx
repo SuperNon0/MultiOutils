@@ -6,6 +6,7 @@ import type { Language } from '../../common/types';
 import './encre/polices.css';
 import './encre/encre.css';
 import './app.css';
+import './encre/verre.css';
 import { useAppearance } from './encre/appearance';
 import { installSprites } from './encre/sprite';
 import { EncreLayer } from './encre/ui';

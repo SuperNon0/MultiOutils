@@ -368,6 +368,24 @@ export function AppearanceSection({
   return (
     <>
       <div className="reg-sec">
+        <div className="lbl-mono">Style</div>
+        <div className="style-choix" role="radiogroup" aria-label="Style">
+          {(['encre', 'verre'] as const).map((st) => (
+            <button
+              key={st}
+              type="button"
+              role="radio"
+              className={`style-carte st-${st}${(document.documentElement.dataset.style ?? 'encre') === st ? ' on' : ''}`}
+              aria-checked={(document.documentElement.dataset.style ?? 'encre') === st}
+            >
+              <span className="style-ap"><i /><b /><b /><b /></span>
+              <span className="style-nom">{st === 'encre' ? 'Encre' : 'Verre'}</span>
+              <span className="style-sous">{st === 'encre' ? 'Mat et net, le style actuel' : 'Verre dépoli, reflets et pastilles'}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="reg-sec">
         <div className="lbl-mono">{t('appearance.accent')}</div>
         <div className="pastilles" role="radiogroup" aria-label={t('appearance.accent')}>
           {APPEARANCE_ACCENTS.map((accent) => (
