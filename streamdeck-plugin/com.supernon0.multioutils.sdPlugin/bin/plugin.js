@@ -10003,6 +10003,19 @@ function registerHaActions(env) {
     };
     streamDeck.settings.onDidReceiveGlobalSettings((ev) => applyGlobals(ev.settings));
     void streamDeck.settings.getGlobalSettings().then(applyGlobals).catch(() => undefined);
+    /** Dessin d'une icône de l'atelier MultiOutils, version allumée ou éteinte. */
+    const libraryImage = async (id, on, color) => {
+        const q = new URLSearchParams({ id, on: on ? '1' : '0' });
+        if (color)
+            q.set('color', color);
+        const res = await fetch(`http://127.0.0.1:41320/icons/render?${q}`, { signal: AbortSignal.timeout(2500) });
+        if (!res.ok)
+            throw new Error('Icône indisponible');
+        const data = await res.json();
+        if (!data.image?.startsWith('data:image/svg+xml'))
+            throw new Error('Icône invalide');
+        return data.image;
+    };
     /* ───────── dessin ───────── */
     const draw = async (e) => {
         const revision = e.drawRevision = (e.drawRevision ?? 0) + 1;
@@ -10061,21 +10074,17 @@ function registerHaActions(env) {
         }
         if (s.libraryIcon && !confirming) {
             try {
-                const q = new URLSearchParams({ id: s.libraryIcon, on: on ? '1' : '0' });
-                q.set('color', lightColor(st) ?? color);
-                q.set('recolor', s.lightColor === false ? '0' : '1');
-                const res = await fetch(`http://127.0.0.1:41320/icons/render?${q}`, { signal: AbortSignal.timeout(2500) });
-                if (!res.ok)
-                    throw new Error('Icône indisponible');
-                const data = await res.json();
-                if (!data.image?.startsWith('data:image/svg+xml'))
-                    throw new Error('Icône invalide');
+                // Les deux états dessinés dans l'atelier (onglet « Éteint ») : on suit l'entité,
+                // sauf si la touche est réglée sur une version fixe.
+                const libOn = s.libraryState === 'on' ? true : s.libraryState === 'off' ? false : on;
+                const lamp = s.libraryLampColor ? lightColor(st) : null;
+                const img = await libraryImage(s.libraryIcon, libOn, lamp);
                 if (revision !== e.drawRevision)
                     return;
                 e.libraryFailed = false;
                 await e.key.setTitle([title, value].filter(Boolean).join('\n'));
-                e.lastSvg = data.image;
-                await e.key.setImage(data.image);
+                e.lastSvg = img;
+                await e.key.setImage(img);
                 return;
             }
             catch {
@@ -10320,6 +10329,12 @@ function registerHaActions(env) {
                 e.editorToken = data.token;
                 pollEditor(e, kind, data.token);
                 reply({ cmd, ok: true });
+            }
+            else if (cmd === 'iconPair') {
+                // Aperçu des deux versions (allumée / éteinte) d'une icône de l'atelier.
+                const id = String(msg.id ?? '');
+                const [onImg, offImg] = await Promise.all([libraryImage(id, true, null), libraryImage(id, false, null)]);
+                reply({ cmd, id, on: onImg, off: offImg });
             }
             else if (cmd === 'iconLibrary') {
                 const res = await fetch('http://127.0.0.1:41320/icons/library', { signal: AbortSignal.timeout(2500) });

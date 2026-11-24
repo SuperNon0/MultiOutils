@@ -217,7 +217,8 @@ export function createIconsMainModule(): MainToolModule {
         return true;
       });
 
-      // Pour le plugin Stream Deck (étape suivante) : la bibliothèque en lecture.
+      // Pour le plugin Stream Deck : une icône dessinée, version allumée (on=1) ou éteinte (on=0).
+      // `color` (allumée seulement) remplace la couleur du symbole, ex. la couleur réelle d'une lampe.
       ctx.registerLocalRoute('GET', /^\/icons\/render$/, async (url) => {
         const source = state.designs.find((d) => d.id === url.searchParams.get('id'));
         if (!source) throw new Error('Icône introuvable dans l’atelier');
@@ -233,7 +234,7 @@ export function createIconsMainModule(): MainToolModule {
       });
 
       ctx.registerLocalRoute('GET', /^\/icons\/library$/, () => ({
-        designs: state.designs.map((d) => ({ id: d.id, name: d.name, folder: d.folder })),
+        designs: state.designs.map((d) => ({ id: d.id, name: d.name, folder: d.folder, twoStates: !!d.off })),
         folders: state.folders
       }));
     },
