@@ -139,6 +139,9 @@ const api: PreloadApi = {
     chooseFolder: () => ipcRenderer.invoke('settings:chooseFolder'),
     onChanged: (cb) => subscribe<AppSettings>('settings:changed', cb)
   },
+  notifications: {
+    test: () => ipcRenderer.invoke('notif:test')
+  },
   capture: {
     take: (type: CaptureType, opts?: CaptureTakeOptions) =>
       ipcRenderer.invoke('capture:take', type, opts),

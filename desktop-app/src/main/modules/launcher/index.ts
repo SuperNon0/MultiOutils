@@ -153,7 +153,7 @@ export function createLauncherMainModule(): MainToolModule {
     settings: () => settings,
     lang: () => (ctx.i18n.language === 'en' ? 'en' : 'fr'),
     t: (key, vars) => ctx.i18n.t(key, vars),
-    notify: (title, body) => ctx.notify(title, body),
+    notify: (title, body, opts) => ctx.notify(title, body, opts),
     showMainWindow: (nav) => {
       launcher.hide();
       ctx.showMainWindow(nav);

@@ -1,24 +1,20 @@
 /**
  * Home Assistant côté PC : relie la liaison (link.ts), les pop-ups
- * (toasts.ts), la mini fenêtre du tableau de bord (dashboard.ts) et les
+ * (centre des notifications, main/notifications), la mini fenêtre du tableau de bord (dashboard.ts) et les
  * commandes reçues de HA (boutons Veille, Verrouiller, Éteindre, Redémarrer). Appelé par le module
  * Lanceur, qui garde l'adresse et le jeton de HA.
  */
 import { app, ipcMain, powerMonitor, shell } from 'electron';
 import { execFile } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
-import { readdir, readFile, stat } from 'node:fs/promises';
 import os from 'node:os';
-import { extname, join } from 'node:path';
-import { HA_BUILTIN_SOUNDS, type HaNotification, type HaSettings, type HaLinkStatus, type HaSoundList } from '../../../../common/launcher';
+import { extname } from 'node:path';
+import type { HaNotification, HaSettings, HaLinkStatus } from '../../../../common/launcher';
 import type { MainHostContext } from '../../../module-registry';
+import { SOUND_TYPES, type PopupHandlers } from '../../../notifications/center';
 import {
   classifySoundRef,
   haDeviceName,
-  HA_SOUND_EXTS,
-  matchSoundFile,
   parseHaMessage,
-  pushToast,
   resolveHaImage,
   resolveHaLink,
   type HaCommand,
@@ -29,7 +25,6 @@ import { DashboardWindow } from './dashboard';
 import { HaLink, type HaLinkCoreStatus } from './link';
 import { PcSensors } from './sensors';
 import { createStreamDeckBridge } from './streamdeck-bridge';
-import { ToastWindow } from './toasts';
 
 const REG_KEY = 'launcher.ha.registration';
 const DEVICE_ID_KEY = 'launcher.ha.deviceId';
@@ -37,14 +32,6 @@ const HISTORY_KEY = 'launcher.ha.history';
 const HISTORY_MAX = 50;
 const IMAGE_MAX_BYTES = 6 * 1024 * 1024;
 const SOUND_MAX_BYTES = 4 * 1024 * 1024;
-const SOUND_TYPES: Record<string, string> = {
-  '.mp3': 'audio/mpeg',
-  '.wav': 'audio/wav',
-  '.ogg': 'audio/ogg',
-  '.m4a': 'audio/mp4',
-  '.flac': 'audio/flac',
-  '.webm': 'audio/webm'
-};
 export const HA_DASHBOARD_SHORTCUT_ID = 'homeassistant.dashboard';
 
 export interface HaIntegrationDeps {
@@ -80,7 +67,7 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
     if (!app.isPackaged) console.warn(...args);
   };
 
-  let toasts: HaNotification[] = [];
+  const hub = ctx.notifications;
   let history = deps.kvGet<HaNotification[]>(HISTORY_KEY, []).filter((n) => n && typeof n.id === 'string').slice(0, HISTORY_MAX);
   let coreStatus: HaLinkCoreStatus | null = null;
 
@@ -94,10 +81,6 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
   };
 
   const sensors = new PcSensors();
-  const toastWin = new ToastWindow(
-    () => s().notifications.position,
-    () => s().notifications.volume
-  );
   const dashboard = new DashboardWindow({
     base,
     token: deps.token,
@@ -117,12 +100,6 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
   const broadcastStatus = (): void => ctx.broadcast('ha:status', status());
 
   /* ───────── pop-ups ───────── */
-
-  const setToasts = (next: HaNotification[]): void => {
-    toasts = next;
-    toastWin.set(toasts);
-  };
-  const dismiss = (id: string): void => setToasts(toasts.filter((t) => t.id !== id));
 
   const remember = (n: HaNotification): void => {
     // l'image et le son (lourds) ne sont pas gardés dans l'historique
@@ -155,39 +132,6 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
 
   /* ───────── sons ───────── */
 
-  /** Dossier des sons personnalisés (on y dépose ses .mp3 / .wav…). */
-  const soundsDir = (): string => {
-    const dir = join(app.getPath('userData'), 'ha-sons');
-    try {
-      mkdirSync(dir, { recursive: true });
-    } catch {
-      // dossier non créé : la liste sera vide
-    }
-    return dir;
-  };
-
-  const soundFiles = async (): Promise<string[]> => {
-    try {
-      const all = await readdir(soundsDir());
-      return all.filter((f) => HA_SOUND_EXTS.includes(extname(f).toLowerCase())).sort((a, b) => a.localeCompare(b));
-    } catch {
-      return [];
-    }
-  };
-
-  const readSoundFile = async (name: string): Promise<string | undefined> => {
-    const file = matchSoundFile(name, await soundFiles());
-    if (!file) return undefined;
-    const full = join(soundsDir(), file);
-    try {
-      if ((await stat(full)).size > SOUND_MAX_BYTES) return undefined;
-      const buf = await readFile(full);
-      return `data:${SOUND_TYPES[extname(file).toLowerCase()] ?? 'audio/mpeg'};base64,${buf.toString('base64')}`;
-    } catch {
-      return undefined;
-    }
-  };
-
   const fetchSound = async (url: string, auth: boolean): Promise<string | undefined> => {
     const token = deps.token();
     try {
@@ -209,31 +153,60 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
     }
   };
 
-  /** Son à jouer : intégré (nom) ou personnalisé (data URL). Sinon le carillon. */
+  /** Son à jouer : intégré (nom), adresse HA ou fichier du PC. Sinon le son des réglages. */
   const resolveSound = async (ref: string | undefined): Promise<{ soundName?: string; soundSrc?: string }> => {
-    const tries = [ref, s().notifications.soundName].filter((x): x is string => !!x);
-    for (const r of tries) {
-      const c = classifySoundRef(r, base());
-      if (!c) continue;
-      if (c.kind === 'builtin') return { soundName: c.name };
-      const src = c.kind === 'url' ? await fetchSound(c.url, c.auth) : await readSoundFile(c.name);
+    const c = ref ? classifySoundRef(ref, base()) : null;
+    if (c?.kind === 'builtin') return { soundName: c.name };
+    if (c) {
+      const src = c.kind === 'url' ? await fetchSound(c.url, c.auth) : await hub.readSoundFile(c.name);
       if (src) return { soundSrc: src };
     }
-    return { soundName: 'carillon' };
+    return hub.defaultSound();
   };
 
-  const showNotification = async (n: HaNotification, imageSrc?: string, soundRef?: string): Promise<void> => {
-    const cfg = s().notifications;
+  /** Clic sur une pop-up HA, ou sur un de ses boutons. */
+  const popupHandlers: PopupHandlers = {
+    onOpen(n) {
+      const target = n.url ? resolveHaLink(n.url, base()) : null;
+      if (target?.kind === 'external') void shell.openExternal(target.url);
+      else dashboard.show(target?.path);
+    },
+    onAction(n, action) {
+      const a = n.actions.find((x) => x.action === action);
+      if (!a) return;
+      if (a.action === 'MULTIOUTILS_CANCEL_SHUTDOWN') {
+        if (isWin) run('shutdown.exe', ['/a']);
+        return;
+      }
+      if (a.uri) {
+        const target = resolveHaLink(a.uri, base());
+        if (target?.kind === 'external') void shell.openExternal(target.url);
+        else if (target) dashboard.show(target.path);
+        return;
+      }
+      if (n.id.startsWith('ha-local-')) return;
+      void link.fireAction(a.action, n.tag ? { tag: n.tag } : {}).catch((err) => {
+        ctx.notify('Home Assistant', ctx.i18n.t('ha.actionFailed', { msg: err instanceof Error ? err.message : String(err) }), {
+          kind: 'homeassistant',
+          error: true
+        });
+      });
+    }
+  };
+
+  /** `force` : toujours affichée (extinction dans 30 s, test des réglages). */
+  const showNotification = async (n: HaNotification, imageSrc?: string, soundRef?: string, force = false): Promise<void> => {
     remember(n);
     ctx.broadcast('ha:history', history);
-    if (!cfg.enabled) return;
-    if (cfg.doNotDisturb && !n.important) return;
+    if (!hub.allowed({ kind: 'homeassistant', important: n.important, force })) return;
+    n = { ...n, source: 'Home Assistant' };
     if (imageSrc) {
       const image = await fetchImage(imageSrc);
       if (image) n = { ...n, image };
     }
     if (n.sound) n = { ...n, ...(await resolveSound(soundRef)) };
-    setToasts(pushToast(toasts, n));
+    if (!n.size && hub.settings().size !== 'normal') n = { ...n, size: hub.settings().size };
+    hub.show(n, popupHandlers);
   };
 
   const run = (file: string, args: string[]): void => {
@@ -280,16 +253,17 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
         color: 'corail',
         actions: [{ action: 'MULTIOUTILS_CANCEL_SHUTDOWN', title: ctx.i18n.t('common.cancel'), danger: true }],
         receivedAt: Date.now()
-      });
+      }, undefined, undefined, true);
     }
   };
 
   const onPush = (raw: unknown): void => {
-    const cfg = s().notifications;
+    const cfg = hub.settings();
     const parsed = parseHaMessage(raw, { duration: cfg.duration, sound: cfg.sound }, `ha-${Date.now().toString(36)}-${++toastSeq}`);
     if (!parsed) return;
     if (parsed.kind === 'clear') {
-      setToasts(parsed.tag ? toasts.filter((t) => t.tag !== parsed.tag) : []);
+      const tag = parsed.tag;
+      hub.clear((t) => t.source === 'Home Assistant' && (!tag || t.tag === tag));
       return;
     }
     if (parsed.kind === 'command') {
@@ -359,56 +333,6 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
   ipcMain.handle('ha:testToast', () => api.showTest());
   ipcMain.handle('ha:openDashboard', (_e, path?: unknown) => dashboard.show(typeof path === 'string' && path.startsWith('/') ? path : undefined));
 
-  ipcMain.handle('ha:toasts', (e) => toastWin.current(e.sender.id));
-  ipcMain.on('ha:toastResize', (e, h: unknown) => {
-    if (typeof h === 'number' && Number.isFinite(h)) toastWin.resize(e.sender.id, h);
-  });
-  ipcMain.handle('ha:sounds', async (): Promise<HaSoundList> => ({
-    builtin: [...HA_BUILTIN_SOUNDS],
-    files: await soundFiles(),
-    folder: soundsDir()
-  }));
-  ipcMain.handle('ha:openSoundsFolder', () => shell.openPath(soundsDir()));
-  /** Écoute d'un son depuis les réglages. */
-  ipcMain.handle('ha:soundPreview', async (_e, name: unknown) => {
-    if (typeof name !== 'string') return null;
-    const r = await resolveSound(name);
-    return { ...r, volume: s().notifications.volume };
-  });
-  ipcMain.on('ha:toastDismiss', (e, id: unknown) => {
-    if (toastWin.isSender(e.sender.id) && typeof id === 'string') dismiss(id);
-  });
-  ipcMain.on('ha:toastOpen', (e, id: unknown) => {
-    if (!toastWin.isSender(e.sender.id)) return;
-    const n = toasts.find((t) => t.id === id);
-    if (!n) return;
-    dismiss(n.id);
-    const target = n.url ? resolveHaLink(n.url, base()) : null;
-    if (target?.kind === 'external') void shell.openExternal(target.url);
-    else dashboard.show(target?.path);
-  });
-  ipcMain.on('ha:toastAction', (e, id: unknown, action: unknown) => {
-    if (!toastWin.isSender(e.sender.id)) return;
-    const n = toasts.find((t) => t.id === id);
-    const a = n?.actions.find((x) => x.action === action);
-    if (!n || !a) return;
-    dismiss(n.id);
-    if (a.action === 'MULTIOUTILS_CANCEL_SHUTDOWN') {
-      if (isWin) run('shutdown.exe', ['/a']);
-      return;
-    }
-    if (a.uri) {
-      const target = resolveHaLink(a.uri, base());
-      if (target?.kind === 'external') void shell.openExternal(target.url);
-      else if (target) dashboard.show(target.path);
-      return;
-    }
-    if (n.id.startsWith('ha-local-')) return;
-    void link.fireAction(a.action, n.tag ? { tag: n.tag } : {}).catch((err) => {
-      ctx.notify('Home Assistant', ctx.i18n.t('ha.actionFailed', { msg: err instanceof Error ? err.message : String(err) }));
-    });
-  });
-
   const dashOnly = (fn: () => unknown) => (e: Electron.IpcMainEvent | Electron.IpcMainInvokeEvent) =>
     dashboard.isSender(e.sender.id) ? fn() : undefined;
   ipcMain.on('ha:dash:reload', dashOnly(() => dashboard.reload()));
@@ -457,12 +381,6 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
       ) {
         void link.ensureButtons();
       }
-      if (
-        before &&
-        (before.notifications.position !== cur.notifications.position || before.notifications.volume !== cur.notifications.volume)
-      ) {
-        toastWin.set(toasts);
-      }
       broadcastStatus();
     },
     tokenChanged() {
@@ -479,16 +397,16 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
         id: `ha-local-${++toastSeq}`,
         title: t('ha.test.title'),
         message: t('ha.test.message'),
-        duration: s().notifications.duration,
+        duration: hub.settings().duration,
         important: false,
-        sound: s().notifications.sound,
+        sound: hub.settings().sound,
         icon: 'home',
         actions: [
           { action: 'test_ok', title: t('ha.test.ok') },
           { action: 'test_dash', title: t('ha.test.dashboard'), uri: '/' }
         ],
         receivedAt: Date.now()
-      });
+      }, undefined, undefined, true);
     },
     dispose() {
       powerMonitor.off('resume', onResume);
@@ -496,7 +414,6 @@ export function createHaIntegration(deps: HaIntegrationDeps): HaIntegration {
       powerMonitor.off('lock-screen', onLockChange);
       link.stop(false);
       streamDeck.dispose();
-      toastWin.destroy();
       dashboard.destroy();
     }
   };

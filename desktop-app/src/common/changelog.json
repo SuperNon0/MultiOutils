@@ -10,6 +10,17 @@
     ]
   },
   {
+    "version": "0.15.0",
+    "date": "2026-11-24",
+    "titre": "Toutes les notifications au même endroit",
+    "nouveautes": [
+      "Toutes les notifications de MultiOutils (capture enregistrée, couleur copiée, presse-papiers, auto-clic, Bureau, lanceur, erreurs…) s’affichent maintenant dans les mêmes pop-ups que Home Assistant, à la place des notifications Windows.",
+      "Nouvelle page Réglages → Notifications : emplacement, taille, durée, son et volume, ne pas déranger, et un interrupteur par outil. Les erreurs peuvent rester visibles même quand un outil est coupé.",
+      "La pop-up « Capture enregistrée » ouvre la capture d’un clic et propose un bouton Annoter. Les erreurs ont un liseré corail et un badge « Erreur ».",
+      "Home Assistant : la page garde l’interrupteur des notifications et renvoie vers Réglages → Notifications pour le reste. Tes réglages d’emplacement, de son et de ne pas déranger sont repris automatiquement."
+    ]
+  },
+  {
     "version": "0.14.1",
     "date": "2026-11-24",
     "titre": "Icônes de l’atelier allumées ou éteintes sur les touches Home Assistant",

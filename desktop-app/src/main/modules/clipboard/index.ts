@@ -792,10 +792,10 @@ export function createClipboardMainModule(): MainToolModule {
               return { ok: false, error: 'notConfigured' };
             }
             if (message === 'tooLarge') {
-              ctx.notify(ctx.i18n.t('clips.tooLarge'));
+              ctx.notify(ctx.i18n.t('clips.tooLarge'), undefined, { error: true });
               return { ok: false, error: 'tooLarge' };
             }
-            ctx.notify(ctx.i18n.t('clips.sendError'));
+            ctx.notify(ctx.i18n.t('clips.sendError'), undefined, { error: true });
             return { ok: false, error: message };
           }
         }

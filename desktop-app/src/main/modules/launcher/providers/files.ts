@@ -253,7 +253,7 @@ export function createFilesProvider(env: LauncherEnv, searcher: FileSearcher): P
       return { kind: 'hide' };
     }
     void env.openPath(d.path).then((err) => {
-      if (err) env.notify(env.t('launcher.error.open'), err);
+      if (err) env.notify(env.t('launcher.error.open'), err, { error: true });
     });
     return { kind: 'hide' };
   };

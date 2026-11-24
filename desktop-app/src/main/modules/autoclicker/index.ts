@@ -160,7 +160,9 @@ export function createAutoclickerMainModule(): MainToolModule {
       ctx.notify(
         clickerError() === 'platform'
           ? ctx.i18n.t('autoclick.notif.windowsOnly')
-          : ctx.i18n.t('autoclick.notif.unavailable')
+          : ctx.i18n.t('autoclick.notif.unavailable'),
+        undefined,
+        { error: true }
       );
       broadcastState();
       return;
