@@ -887,8 +887,9 @@
   bindField('valueMode', 'valueMode');
   bindField('stateOnText', 'stateOnText');
   bindField('stateOffText', 'stateOffText');
-  $('color').oninput = () => set('color', $('color').value);
-  $('colorOff').oninput = () => set('colorOff', $('colorOff').value);
+  $('color').oninput = $('color').onchange = () => set('color', $('color').value, true);
+  $('colorOff').oninput = $('colorOff').onchange = () => set('colorOff', $('colorOff').value, true);
+  $('bgColor').oninput = $('bgColor').onchange = () => set('bgColor', $('bgColor').value, true);
   document.querySelectorAll('[data-raz]').forEach((b) => (b.onclick = () => {
     set(b.dataset.raz, undefined, true);
     renderLook();
@@ -906,6 +907,7 @@
     $('style').value = settings.style || 'accent';
     $('color').value = /^#[0-9a-f]{6}$/i.test(settings.color || '') ? settings.color : '#e8c547';
     $('colorOff').value = /^#[0-9a-f]{6}$/i.test(settings.colorOff || '') ? settings.colorOff : '#555b66';
+    $('bgColor').value = /^#[0-9a-f]{6}$/i.test(settings.bgColor || '') ? settings.bgColor : '#16181c';
     $('titleMode').value = settings.titleMode || 'auto';
     $('titleText').value = settings.titleText || '';
     $('titleText').hidden = (settings.titleMode || 'auto') !== 'custom';
@@ -924,43 +926,6 @@
     $('confirm').checked = !!settings.confirm;
   }
 
-  /* ───────── règles ───────── */
-
-  function renderRules() {
-    const box = $('regles');
-    box.innerHTML = '';
-    (settings.rules || []).forEach((r, i) => {
-      const row = document.createElement('div');
-      row.className = 'regle';
-      row.innerHTML =
-        '<select><option value="above">Au-dessus de</option><option value="below">En dessous de</option><option value="is">Est</option><option value="not">N’est pas</option></select>' +
-        '<input placeholder="25 ou on" /><input type="color" title="Couleur" /><label class="coche" title="Clignoter"><input type="checkbox" /> ✺</label><button type="button" class="x" title="Supprimer">×</button>';
-      const [sel, val, col] = row.querySelectorAll('select, input:not([type=checkbox])');
-      const blink = row.querySelector('input[type=checkbox]');
-      sel.value = r.when || 'above';
-      val.value = r.value || '';
-      col.value = /^#[0-9a-f]{6}$/i.test(r.color || '') ? r.color : '#ef7d6b';
-      blink.checked = !!r.blink;
-      const upd = () => {
-        settings.rules[i] = { when: sel.value, value: val.value, color: col.value, blink: blink.checked || undefined, icon: r.icon };
-        save();
-      };
-      sel.onchange = val.oninput = col.oninput = blink.onchange = upd;
-      row.querySelector('.x').onclick = () => {
-        settings.rules.splice(i, 1);
-        if (!settings.rules.length) delete settings.rules;
-        save(true);
-        renderRules();
-      };
-      box.appendChild(row);
-    });
-  }
-  $('regle-plus').onclick = () => {
-    settings.rules = (settings.rules || []).concat([{ when: 'above', value: '', color: '#ef7d6b' }]);
-    save(true);
-    renderRules();
-  };
-
   /* ───────── boutons ───────── */
 
   $('full-editor').onclick = () => toPlugin({ cmd: 'editor' });
@@ -973,7 +938,7 @@
 
   /** Réglages retirés de l'interface (simplification) : on les efface pour que la touche
    *  ressemble à ce que montre le panneau. */
-  const RETIRES = ['icon', 'iconOff', 'textColor', 'decimals', 'modelId'];
+  const RETIRES = ['icon', 'iconOff', 'textColor', 'decimals', 'modelId', 'rules'];
   function cleanRemoved() {
     if (!RETIRES.some((k) => settings[k] !== undefined)) return;
     for (const k of RETIRES) delete settings[k];
@@ -992,7 +957,6 @@
     renderMode();
     renderPanel();
     renderLook();
-    renderRules();
     window.haEditorLayout?.refresh();
   }
   renderAll();

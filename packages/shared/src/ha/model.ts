@@ -569,35 +569,6 @@ function normalizeFields(fields: Record<string, unknown>, advanced = false): HaS
 
 const num = (v: unknown): number | undefined => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
 
-/* ───────── règles d'affichage ───────── */
-
-export interface HaRule {
-  /** above / below : valeur numérique ; is / not : texte de l'état. */
-  when: 'above' | 'below' | 'is' | 'not';
-  value: string;
-  /** Couleur à appliquer (#rrggbb), vide = inchangée. */
-  color?: string;
-  blink?: boolean;
-  /** Icône à appliquer (mdi:…), vide = inchangée. */
-  icon?: string;
-}
-
-/** Première règle qui s'applique à l'état, ou null. */
-export function matchRule(rules: HaRule[] | undefined, s: HaRawState | undefined): HaRule | null {
-  if (!rules?.length || !s) return null;
-  for (const r of rules) {
-    if (!r || typeof r.value !== 'string') continue;
-    if (r.when === 'is' && s.state === r.value.trim()) return r;
-    if (r.when === 'not' && s.state !== r.value.trim()) return r;
-    const n = Number(s.state);
-    const v = Number(r.value.replace(',', '.'));
-    if (!Number.isFinite(n) || !Number.isFinite(v)) continue;
-    if (r.when === 'above' && n > v) return r;
-    if (r.when === 'below' && n < v) return r;
-  }
-  return null;
-}
-
 /* ───────── données de service saisies à la main ───────── */
 
 /**

@@ -13,6 +13,10 @@ export interface KeyLook {
   dark: boolean;
   /** Couleur active (#rrggbb). */
   color: string;
+  /** Couleur à l'arrêt choisie par l'utilisateur (#rrggbb) ; absente = couleur active atténuée. */
+  offColor?: string;
+  /** Couleur de fond choisie (#rrggbb) ; absente = fond du thème. */
+  bgColor?: string;
   /** Allumé / actif. */
   on: boolean;
   /** Tracé SVG 24×24 de l'icône (Material Design), ou glyphe de secours. */
@@ -57,31 +61,36 @@ function fit(text: string, max: number): string {
 }
 
 export function renderKey(k: KeyLook): string {
-  const fg0 = k.dark ? '#f0ede6' : '#1b1d22';
-  const muted = k.dark ? '#8a94aa' : '#666b77';
-  let bg = k.background;
+  // Fond choisi : textes et symbole atténué suivent sa clarté plutôt que le thème.
+  const dark = k.bgColor ? luminance(k.bgColor) < 0.55 : k.dark;
+  const fg0 = dark ? '#f0ede6' : '#1b1d22';
+  const muted = dark ? '#8a94aa' : '#666b77';
+  let bg = k.bgColor ?? k.background;
+  const active = k.on && !k.unavailable;
+  // Couleur du moment : active, ou celle choisie pour l'arrêt.
+  const off = !active && !k.unavailable ? k.offColor : undefined;
+  const tint = off ?? k.color;
   let glyph = k.color;
   let text = fg0;
   let bgExtra = '';
-  const active = k.on && !k.unavailable;
 
   switch (k.style) {
     case 'plein':
-      bg = active ? k.color : alpha(k.color, k.dark ? 0.28 : 0.22);
-      glyph = active ? (luminance(k.color) > 0.62 ? '#15161a' : '#ffffff') : k.dark ? '#ffffff' : '#1b1d22';
+      bg = active ? k.color : off ?? k.bgColor ?? alpha(k.color, dark ? 0.28 : 0.22);
+      glyph = active || off ? (luminance(active ? k.color : (off as string)) > 0.62 ? '#15161a' : '#ffffff') : dark ? '#ffffff' : '#1b1d22';
       text = glyph;
       break;
     case 'teinte':
       bgExtra = `<rect width="144" height="144" rx="22" fill="url(#t)"/>`;
-      glyph = active ? k.color : alpha(k.color, 0.7);
+      glyph = active || off ? tint : alpha(k.color, 0.7);
       break;
     case 'symbole':
-      bg = k.dark ? '#0c0d10' : '#ffffff';
-      glyph = active ? k.color : alpha(k.color, 0.5);
+      bg = k.bgColor ?? (k.dark ? '#0c0d10' : '#ffffff');
+      glyph = active || off ? tint : alpha(k.color, 0.5);
       break;
     default:
       // « comme l'app » : fond de l'app, symbole coloré, atténué à l'arrêt
-      glyph = active ? k.color : muted;
+      glyph = active ? k.color : off ?? muted;
   }
   if (k.unavailable) glyph = muted;
 
@@ -103,7 +112,7 @@ export function renderKey(k: KeyLook): string {
 
   const parts: string[] = [];
   parts.push(
-    `<defs><linearGradient id="t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${alpha(k.color, active ? 0.5 : 0.22)}"/><stop offset="1" stop-color="${alpha(k.color, active ? 0.16 : 0.06)}"/></linearGradient>` +
+    `<defs><linearGradient id="t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${alpha(tint, active || off ? 0.5 : 0.22)}"/><stop offset="1" stop-color="${alpha(tint, active || off ? 0.16 : 0.06)}"/></linearGradient>` +
       `<linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset=".45" stop-color="rgba(0,0,0,0)"/><stop offset="1" stop-color="rgba(0,0,0,.78)"/></linearGradient>` +
       `<clipPath id="c"><rect width="144" height="144" rx="22"/></clipPath></defs>`
   );
@@ -135,8 +144,8 @@ export function renderKey(k: KeyLook): string {
     const fill = k.style === 'plein' && active ? glyph : k.color;
     parts.push(`<rect x="20" y="131" width="104" height="6" rx="3" fill="${track}"/><rect x="20" y="131" width="${w}" height="6" rx="3" fill="${fill}"/>`);
   }
-  if (k.offline) parts.push(`<circle cx="18" cy="18" r="8" fill="#efb36b" stroke="${k.background}" stroke-width="3"/>`);
-  else if (k.unavailable) parts.push(`<circle cx="18" cy="18" r="8" fill="#ef7d6b" stroke="${k.background}" stroke-width="3"/>`);
+  if (k.offline) parts.push(`<circle cx="18" cy="18" r="8" fill="#efb36b" stroke="${bg}" stroke-width="3"/>`);
+  else if (k.unavailable) parts.push(`<circle cx="18" cy="18" r="8" fill="#ef7d6b" stroke="${bg}" stroke-width="3"/>`);
   if (k.confirm) {
     parts.push(`<rect width="144" height="144" rx="22" fill="rgba(191,63,44,.92)"/>`);
     parts.push(`<text x="72" y="66" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="${k.textColor && /^#[0-9a-f]{6}$/i.test(k.textColor) ? k.textColor : '#ffffff'}">${esc(fit(k.confirm, 12))}</text>`);

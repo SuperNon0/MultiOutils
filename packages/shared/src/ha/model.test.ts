@@ -8,7 +8,6 @@ import {
   isOnState,
   kelvinToHex,
   lightColor,
-  matchRule,
   mdiExportName,
   normalizeServices,
   parseServiceData,
@@ -97,15 +96,6 @@ describe('états et actions', () => {
     expect(kelvinToHex(6500)).toMatch(/^#f/);
   });
 
-  it('applique les règles dans l’ordre', () => {
-    const rules = [
-      { when: 'above' as const, value: '25', color: '#ff0000' },
-      { when: 'is' as const, value: 'open', blink: true }
-    ];
-    expect(matchRule(rules, st('sensor.t', '26'))?.color).toBe('#ff0000');
-    expect(matchRule(rules, st('sensor.t', '24'))).toBeNull();
-    expect(matchRule(rules, st('binary_sensor.p', 'open'))?.blink).toBe(true);
-  });
 });
 
 describe('icônes', () => {

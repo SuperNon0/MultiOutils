@@ -8922,28 +8922,6 @@ function normalizeFields(fields, advanced = false) {
     return out;
 }
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined);
-/** Première règle qui s'applique à l'état, ou null. */
-function matchRule(rules, s) {
-    if (!rules?.length || !s)
-        return null;
-    for (const r of rules) {
-        if (!r || typeof r.value !== 'string')
-            continue;
-        if (r.when === 'is' && s.state === r.value.trim())
-            return r;
-        if (r.when === 'not' && s.state !== r.value.trim())
-            return r;
-        const n = Number(s.state);
-        const v = Number(r.value.replace(',', '.'));
-        if (!Number.isFinite(n) || !Number.isFinite(v))
-            continue;
-        if (r.when === 'above' && n > v)
-            return r;
-        if (r.when === 'below' && n < v)
-            return r;
-    }
-    return null;
-}
 /* ───────── données de service saisies à la main ───────── */
 /**
  * Lit les données d'un service écrites en JSON ou en YAML simple
@@ -9695,30 +9673,35 @@ function fit$1(text, max) {
     return t.length > max ? t.slice(0, max - 1).trimEnd() + '…' : t;
 }
 function renderKey(k) {
-    const fg0 = k.dark ? '#f0ede6' : '#1b1d22';
-    const muted = k.dark ? '#8a94aa' : '#666b77';
-    let bg = k.background;
+    // Fond choisi : textes et symbole atténué suivent sa clarté plutôt que le thème.
+    const dark = k.bgColor ? luminance(k.bgColor) < 0.55 : k.dark;
+    const fg0 = dark ? '#f0ede6' : '#1b1d22';
+    const muted = dark ? '#8a94aa' : '#666b77';
+    let bg = k.bgColor ?? k.background;
+    const active = k.on && !k.unavailable;
+    // Couleur du moment : active, ou celle choisie pour l'arrêt.
+    const off = !active && !k.unavailable ? k.offColor : undefined;
+    const tint = off ?? k.color;
     let glyph = k.color;
     let text = fg0;
     let bgExtra = '';
-    const active = k.on && !k.unavailable;
     switch (k.style) {
         case 'plein':
-            bg = active ? k.color : alpha(k.color, k.dark ? 0.28 : 0.22);
-            glyph = active ? (luminance(k.color) > 0.62 ? '#15161a' : '#ffffff') : k.dark ? '#ffffff' : '#1b1d22';
+            bg = active ? k.color : off ?? k.bgColor ?? alpha(k.color, dark ? 0.28 : 0.22);
+            glyph = active || off ? (luminance(active ? k.color : off) > 0.62 ? '#15161a' : '#ffffff') : dark ? '#ffffff' : '#1b1d22';
             text = glyph;
             break;
         case 'teinte':
             bgExtra = `<rect width="144" height="144" rx="22" fill="url(#t)"/>`;
-            glyph = active ? k.color : alpha(k.color, 0.7);
+            glyph = active || off ? tint : alpha(k.color, 0.7);
             break;
         case 'symbole':
-            bg = k.dark ? '#0c0d10' : '#ffffff';
-            glyph = active ? k.color : alpha(k.color, 0.5);
+            bg = k.bgColor ?? (k.dark ? '#0c0d10' : '#ffffff');
+            glyph = active || off ? tint : alpha(k.color, 0.5);
             break;
         default:
             // « comme l'app » : fond de l'app, symbole coloré, atténué à l'arrêt
-            glyph = active ? k.color : muted;
+            glyph = active ? k.color : off ?? muted;
     }
     if (k.unavailable)
         glyph = muted;
@@ -9738,7 +9721,7 @@ function renderKey(k) {
             icon = `<g transform="translate(${ix} ${iconTop}) scale(${scale})" fill="none" stroke="${glyph}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${k.fallback}</g>`;
     }
     const parts = [];
-    parts.push(`<defs><linearGradient id="t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${alpha(k.color, active ? 0.5 : 0.22)}"/><stop offset="1" stop-color="${alpha(k.color, active ? 0.16 : 0.06)}"/></linearGradient>` +
+    parts.push(`<defs><linearGradient id="t" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${alpha(tint, active || off ? 0.5 : 0.22)}"/><stop offset="1" stop-color="${alpha(tint, active || off ? 0.16 : 0.06)}"/></linearGradient>` +
         `<linearGradient id="s" x1="0" y1="0" x2="0" y2="1"><stop offset=".45" stop-color="rgba(0,0,0,0)"/><stop offset="1" stop-color="rgba(0,0,0,.78)"/></linearGradient>` +
         `<clipPath id="c"><rect width="144" height="144" rx="22"/></clipPath></defs>`);
     parts.push(`<rect width="144" height="144" rx="22" fill="${bg}"/>`);
@@ -9772,9 +9755,9 @@ function renderKey(k) {
         parts.push(`<rect x="20" y="131" width="104" height="6" rx="3" fill="${track}"/><rect x="20" y="131" width="${w}" height="6" rx="3" fill="${fill}"/>`);
     }
     if (k.offline)
-        parts.push(`<circle cx="18" cy="18" r="8" fill="#efb36b" stroke="${k.background}" stroke-width="3"/>`);
+        parts.push(`<circle cx="18" cy="18" r="8" fill="#efb36b" stroke="${bg}" stroke-width="3"/>`);
     else if (k.unavailable)
-        parts.push(`<circle cx="18" cy="18" r="8" fill="#ef7d6b" stroke="${k.background}" stroke-width="3"/>`);
+        parts.push(`<circle cx="18" cy="18" r="8" fill="#ef7d6b" stroke="${bg}" stroke-width="3"/>`);
     if (k.confirm) {
         parts.push(`<rect width="144" height="144" rx="22" fill="rgba(191,63,44,.92)"/>`);
         parts.push(`<text x="72" y="66" text-anchor="middle" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700" fill="${k.textColor && /^#[0-9a-f]{6}$/i.test(k.textColor) ? k.textColor : '#ffffff'}">${esc$1(fit$1(k.confirm, 12))}</text>`);
@@ -10225,7 +10208,6 @@ const CONFIRM_MS = 3000;
 function registerHaActions(env) {
     const hub = new HaHub((...a) => streamDeck.logger.debug(a.map(String).join(' ')));
     const entries = new Map();
-    let blink = false;
     let globals = {};
     const applyGlobals = (g) => {
         globals = g ?? {};
@@ -10258,10 +10240,9 @@ function registerHaActions(env) {
         const offline = hub.status.state !== 'connected';
         const mode = s.mode ?? 'auto';
         const on = mode === 'template' || mode === 'event' || mode === 'service' ? true : isOnState(st) || ['scene', 'button', 'input_button'].includes(domain);
-        const rule = matchRule(s.rules, st);
         await e.key.setState(on ? 1 : 0);
         // icône
-        let iconName = rule?.icon || (on ? s.icon : s.iconOff || s.icon) || '';
+        let iconName = (on ? s.icon : s.iconOff || s.icon) || '';
         if (!iconName) {
             if (mode === 'template')
                 iconName = 'mdi:code-braces';
@@ -10275,12 +10256,10 @@ function registerHaActions(env) {
         const iconPath = iconName.startsWith('mdi:') ? hub.icon(iconName) : null;
         // couleur
         let color = HEX.test(s.color ?? '') ? s.color : t.accent;
-        if (!on && HEX.test(s.colorOff ?? ''))
-            color = s.colorOff;
         if (s.lightColor !== false)
             color = lightColor(st) ?? color;
-        if (rule?.color && HEX.test(rule.color))
-            color = rule.color;
+        // Couleur « éteint » choisie : appliquée telle quelle (sinon le symbole est simplement atténué).
+        const offColor = HEX.test(s.colorOff ?? '') ? s.colorOff : undefined;
         // textes
         const title = s.titleMode === 'none' ? '' : s.titleMode === 'custom' ? (s.titleText ?? '') : (st?.attributes?.friendly_name ?? (id ? id.split('.')[1] : 'Home Assistant'));
         let value = '';
@@ -10336,6 +10315,8 @@ function registerHaActions(env) {
             background: t.background,
             dark: t.theme === 'dark',
             color,
+            offColor,
+            bgColor: HEX.test(s.bgColor ?? '') ? s.bgColor : undefined,
             on,
             iconPath: iconPath ?? null,
             fallback: mode === 'template' ? FALLBACK.template : mode === 'event' ? FALLBACK.event : fallbackFor(domain),
@@ -10346,7 +10327,6 @@ function registerHaActions(env) {
             unavailable: !!id && mode !== 'event' && mode !== 'template' && isUnavailable(st) && !offline,
             offline,
             image,
-            dimmed: !!rule?.blink && blink,
             confirm: e.confirmUntil && e.confirmUntil > Date.now() ? 'Confirmer ?' : undefined
         });
         if (revision !== e.drawRevision)
@@ -10569,12 +10549,9 @@ function registerHaActions(env) {
         void refreshTemplate(e, true);
         void draw(e);
     };
-    // Rafraîchissements périodiques : clignotement, caméras, modèles.
+    // Rafraîchissements périodiques : confirmation, caméras, modèles.
     setInterval(() => {
-        blink = !blink;
         for (const e of entries.values()) {
-            if (e.s.rules?.some((r) => r?.blink))
-                void draw(e);
             if (e.confirmUntil && e.confirmUntil < Date.now()) {
                 e.confirmUntil = 0;
                 void draw(e);
