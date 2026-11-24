@@ -11,7 +11,6 @@ export const NOTIF_KINDS = [
   'colorpicker',
   'autoclick',
   'desktop',
-  'files',
   'launcher',
   'homeassistant',
   'app'
@@ -128,8 +127,6 @@ export function notifKindForModule(moduleId: string): NotifKind {
       return 'autoclick';
     case 'desktop':
       return 'desktop';
-    case 'files':
-      return 'files';
     case 'launcher':
       return 'launcher';
     default:

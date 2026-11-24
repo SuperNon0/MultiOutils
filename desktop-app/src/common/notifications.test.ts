@@ -37,7 +37,7 @@ describe('notifications', () => {
     const dnd = { ...s, doNotDisturb: true };
     expect(notifAllowed(dnd, { kind: 'clipboard' })).toBe(false);
     expect(notifAllowed(dnd, { kind: 'homeassistant', important: true })).toBe(true);
-    expect(notifAllowed(dnd, { kind: 'files', error: true })).toBe(true);
+    expect(notifAllowed(dnd, { kind: 'desktop', error: true })).toBe(true);
     const off = { ...s, enabled: false };
     expect(notifAllowed(off, { kind: 'app', error: true })).toBe(false);
     expect(notifAllowed(off, { kind: 'homeassistant', force: true })).toBe(true);

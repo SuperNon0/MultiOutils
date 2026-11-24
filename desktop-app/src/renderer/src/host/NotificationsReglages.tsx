@@ -20,7 +20,6 @@ const KIND_ICONS: Record<NotifKind, string> = {
   colorpicker: 'eyedropper',
   autoclick: 'mouse',
   desktop: 'grid',
-  files: 'folderopen',
   launcher: 'search',
   homeassistant: 'home',
   app: 'bell'
