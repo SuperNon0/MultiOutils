@@ -34,11 +34,19 @@ export class WindowPickerFlow {
     // Une seule passe à pleine résolution : les images servent la vignette
     // (réduite) ET la capture finale, sans re-capture périmée au clic.
     const box = physicalSize(screen.getPrimaryDisplay());
-    const sources = await desktopCapturer.getSources({
-      types: ['window'],
-      thumbnailSize: box,
-      fetchWindowIcons: true
-    });
+    let sources: Electron.DesktopCapturerSource[];
+    try {
+      sources = await desktopCapturer.getSources({
+        types: ['window'],
+        thumbnailSize: box,
+        fetchWindowIcons: true
+      });
+    } catch (err) {
+      // Liste des fenêtres indisponible : on réaffiche l'app avant de signaler l'erreur.
+      this.restoreWindows?.();
+      this.restoreWindows = null;
+      throw err;
+    }
     const ownTitles = new Set(
       BrowserWindow.getAllWindows().map((w) => w.getTitle())
     );

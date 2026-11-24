@@ -277,8 +277,10 @@ export function createClipboardMainModule(): MainToolModule {
       if (text && text.trim().length > 0) {
         const signature = textSignature(text);
         if (signature === lastSignature) return;
-        lastSignature = signature;
+        // Signature retenue APRÈS l'enregistrement : si la base échoue, le
+        // même contenu sera retenté au passage suivant.
         insertText(text, 'local', null);
+        lastSignature = signature;
         ctx.broadcast('clips:changed');
         return;
       }
@@ -292,8 +294,8 @@ export function createClipboardMainModule(): MainToolModule {
           .update(image.toBitmap())
           .digest('hex')}`;
         if (signature === lastSignature) return;
-        lastSignature = signature;
         if (insertImage(image, 'local', null)) ctx.broadcast('clips:changed');
+        lastSignature = signature;
       }
     } catch {
       // lecture presse-papiers occasionnellement verrouillée par une autre app

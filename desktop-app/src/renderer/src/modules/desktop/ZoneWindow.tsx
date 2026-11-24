@@ -17,6 +17,7 @@ import {
   type DesktopEntry,
   type Rect,
   type ZoneIconSize,
+  type Zone,
   type ZoneTab,
   type ZoneWindowMsg
 } from '../../../../common/desktop';
@@ -584,7 +585,7 @@ export function ZoneWindow(): ReactNode {
           if (!(e.target as HTMLElement).closest('button,input,select')) window.api.desktop.zone.roll();
         }}
       >
-        {zone.kind === 'folder' ? <Icon name="folderopen" size={16} /> : zone.widget ? <Icon name={WIDGET_ICONS[zone.widget]} size={16} /> : <span className="zw-dot" />}
+        <ZoneBadge zone={zone} />
         {heading}
         {host.locked && <Icon name="lock" size={14} />}
         <button className="zw-ib" title={t('desktop.zone.menu')} onClick={(e) => menuAt(e)}>
@@ -628,4 +629,15 @@ export function ZoneWindow(): ReactNode {
       )}
     </div>
   );
+}
+
+/** Pastille en haut à gauche : point, icône choisie, ou rien ; à la couleur de la zone. */
+function ZoneBadge({ zone }: { zone: Zone }): ReactNode {
+  const badge = zone.badge ?? 'auto';
+  if (badge === 'none') return null;
+  if (badge === 'dot') return <span className="zw-dot" />;
+  if (badge !== 'auto') return <span className="zw-badge"><Icon name={badge as never} size={16} /></span>;
+  if (zone.kind === 'folder') return <span className="zw-badge"><Icon name="folderopen" size={16} /></span>;
+  if (zone.widget) return <span className="zw-badge"><Icon name={WIDGET_ICONS[zone.widget]} size={16} /></span>;
+  return <span className="zw-dot" />;
 }

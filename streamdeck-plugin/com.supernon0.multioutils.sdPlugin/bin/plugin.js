@@ -10064,9 +10064,6 @@ function registerHaActions(env) {
                 const q = new URLSearchParams({ id: s.libraryIcon, on: on ? '1' : '0' });
                 q.set('color', lightColor(st) ?? color);
                 q.set('recolor', s.lightColor === false ? '0' : '1');
-                const liveValue = gaugePercent(st);
-                if (liveValue !== null)
-                    q.set('value', String(liveValue));
                 const res = await fetch(`http://127.0.0.1:41320/icons/render?${q}`, { signal: AbortSignal.timeout(2500) });
                 if (!res.ok)
                     throw new Error('Icône indisponible');
@@ -10075,6 +10072,7 @@ function registerHaActions(env) {
                     throw new Error('Icône invalide');
                 if (revision !== e.drawRevision)
                     return;
+                e.libraryFailed = false;
                 await e.key.setTitle([title, value].filter(Boolean).join('\n'));
                 e.lastSvg = data.image;
                 await e.key.setImage(data.image);
@@ -10083,7 +10081,11 @@ function registerHaActions(env) {
             catch {
                 if (revision !== e.drawRevision)
                     return;
-                await e.key.showAlert();
+                // Une seule alerte par panne (app fermée…), pas à chaque changement d'état HA ;
+                // la touche retombe sur le dessin normal ci-dessous.
+                if (!e.libraryFailed)
+                    await e.key.showAlert();
+                e.libraryFailed = true;
             }
         }
         const svg = renderKey({
@@ -10186,6 +10188,7 @@ function registerHaActions(env) {
         }
         e.s = s;
         e.lastSvg = undefined;
+        e.libraryFailed = false;
         e.confirmUntil = 0;
         e.templateAt = 0;
         void refreshImage(e, true);
@@ -10508,10 +10511,19 @@ class DesktopVisibilitySwitch extends SingletonAction {
     timer = null;
     reading = null;
     pressing = false;
+    /** Dernier problème signalé : le triangle d'alerte ne clignote qu'une fois par panne. */
+    lastProblem = null;
+    async alertOnce(problem) {
+        if (this.lastProblem === problem)
+            return;
+        this.lastProblem = problem;
+        await Promise.all([...this.keys.values()].map((key) => key.showAlert()));
+    }
     async onWillAppear(ev) {
         if (!ev.action.isKey())
             return;
         this.keys.set(ev.action.id, ev.action);
+        this.lastProblem = null; // une touche qui (ré)apparaît signale à nouveau un souci
         if (!this.timer)
             this.timer = setInterval(() => void this.refresh(), 1000);
         await this.refresh();
@@ -10531,18 +10543,16 @@ class DesktopVisibilitySwitch extends SingletonAction {
             const state = await res.json();
             if (typeof state[this.field] !== 'boolean' || typeof state.enabled !== 'boolean')
                 throw new Error('état inconnu');
-            await Promise.all([...this.keys.values()].map(async (key) => {
-                if (!state.enabled) {
-                    await key.showAlert();
-                    return;
-                }
-                await key.setState(state[this.field] ? 1 : 0);
-            }));
+            if (!state.enabled) {
+                await this.alertOnce('disabled');
+                return;
+            }
+            this.lastProblem = null;
+            await Promise.all([...this.keys.values()].map((key) => key.setState(state[this.field] ? 1 : 0)));
         }
         catch {
-            await Promise.all([...this.keys.values()].map(async (key) => {
-                await key.showAlert();
-            }));
+            // App fermée : un seul avertissement, pas un clignotement chaque seconde.
+            await this.alertOnce('offline');
         }
     }
     async refresh() {

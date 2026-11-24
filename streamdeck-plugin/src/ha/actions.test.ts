@@ -54,12 +54,12 @@ describe('touches Home Assistant personnalisées', () => {
     await a.onKeyDown(event(k));
     expect(k.setTitle).toHaveBeenLastCalledWith('Confirmer ?'); expect(k.showAlert).toHaveBeenCalled(); expect(hub.call).not.toHaveBeenCalled();
   });
-  it('alimente l’icône de l’atelier avec la couleur et la luminosité réelles', async () => {
+  it('alimente l’icône de l’atelier avec la couleur réelle de la lampe', async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ image: 'data:image/svg+xml,custom' }) })); vi.stubGlobal('fetch', fetchMock);
     const a = actions.get('com.supernon0.multioutils.ha.light'), k = key();
     await a.onWillAppear(event(k, { entity: 'light.test', libraryIcon: 'ic_test', gauge: false })); await vi.advanceTimersByTimeAsync(0);
     const url = new URL(fetchMock.mock.calls[0][0] as string);
-    expect(url.searchParams.get('color')).toBe('#ff0000'); expect(Number(url.searchParams.get('value'))).toBeCloseTo(50.2, 0);
+    expect(url.searchParams.get('color')).toBe('#ff0000'); expect(url.searchParams.has('value')).toBe(false);
     expect(k.setImage).toHaveBeenLastCalledWith('data:image/svg+xml,custom');
     expect(k.setTitle).toHaveBeenLastCalledWith('Salon');
   });

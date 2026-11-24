@@ -171,6 +171,11 @@ body[data-fenetre='zone-peek'] #root {
 .zw.unlocked .zw-h {
   cursor: grab;
 }
+.zw-badge {
+  display: inline-flex;
+  flex: none;
+  color: var(--zc);
+}
 .zw-dot {
   width: 8px;
   height: 8px;

@@ -3,6 +3,7 @@ import {
   defaultZoneStyle,
   effectiveStyle,
   onActivePage,
+  ZONE_BADGE_ICONS,
   type DesktopState,
   type PageAutoRule,
   type Zone,
@@ -170,6 +171,18 @@ function ZoneDetail({ zone, state }: { zone: Zone; state: DesktopState }): React
     <div className="carte bz-det">
       <div className="lbl-mono">{zone.title}</div>
       <ZoneGeometry zone={zone} state={state} />
+      <RegLigne titre={t('desktop.menu.badge')} aide={<Aide titre={t('desktop.menu.badge')} texte={t('desktop.badge.help')} />} htmlFor="bz-badge">
+        <div className="ligne">
+          <select id="bz-badge" className="select sm" style={{ width: 150 }} value={zone.badge} onChange={(e) => up({ badge: e.target.value })}>
+            {['auto', 'dot', 'none', ...ZONE_BADGE_ICONS].map((b) => (
+              <option key={b} value={b}>{t(b === 'auto' || b === 'dot' || b === 'none' ? `desktop.badge.${b}` : `desktop.badge.icon.${b}`)}</option>
+            ))}
+          </select>
+          {zone.kind !== 'widget' && (
+            <EncreColorPicker value={zone.color} label={t('desktop.badge.color')} onChange={(color) => up({ color })} onPick={() => void window.api.desktop.pickColor(zone.id, 'color')} onReset={() => up({ color: null })} />
+          )}
+        </div>
+      </RegLigne>
       {zone.kind === 'widget' ? (
         <>
           <WidgetDetail zone={zone} full={effectiveStyle(zone, state.settings)} />

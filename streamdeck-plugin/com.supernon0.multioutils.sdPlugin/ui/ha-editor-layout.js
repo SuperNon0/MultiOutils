@@ -20,9 +20,8 @@
     const nav = shell.querySelector('nav'), content = shell.querySelector('main'), preview = shell.querySelector('aside');
     const sections = [
       ['entity', 'Entité', 'home', ['entity-card']],
-      ['action', 'Action', 'play', ['modele-carte', 'action-card']],
+      ['action', 'Action', 'play', ['action-card']],
       ['look', 'Apparence', 'palette', ['look-card']],
-      ['rules', 'Règles', 'list', ['rules-card']],
       ['connection', 'Connexion', 'plug', ['direct']]
     ];
     const buttons = new Map(), panels = new Map();
@@ -84,20 +83,16 @@
     }
     const help = {
       'ent-titre': ['Entité', 'Choisis l’appareil à piloter ici. La recherche porte sur son nom, sa pièce, son étage et son identifiant. Aucun autre sélecteur ne s’ouvre.'],
-      'modele': ['Modèle de touche', 'Prépare une action et un nom. Tu peux ensuite modifier chaque réglage. L’entité, la confirmation et les icônes personnalisées sont conservées.'],
       'mode': ['Action à l’appui', 'Choisis ce que la touche fait : basculer, allumer, éteindre, appliquer un préréglage ou appeler un service. Les champs proposés dépendent de l’entité.'],
       'confirm': ['Confirmation', 'Le premier appui affiche « Confirmer ? ». Un second appui dans les trois secondes exécute l’action. Sans second appui, rien n’est envoyé.'],
-      'customIcon': ['Deux images Stream Deck', 'Choisis tes images des états 1 (éteint) et 2 (allumé) dans Stream Deck. Le plugin suit l’état réel. Laisse son champ Titre vide pour afficher le nom et la confirmation automatiques.'],
-      'libraryIcon': ['Icône de l’atelier', 'Choisis une création de l’atelier MultiOutils. Sa version éteinte et ses indicateurs suivent l’entité. Un export PNG/SVG reste fixe ; la bibliothèque permet le rendu vivant.'],
+      'iconSource': ['Icône', 'Automatique : le symbole de l’entité dans Home Assistant, dessiné par MultiOutils. Mes images Stream Deck : choisis tes images des états 1 (éteint) et 2 (allumé) dans Stream Deck. Une icône de l’atelier garde son propre dessin et sa version éteinte.'],
       'style': ['Style automatique', 'Définit le fond et la couleur des icônes automatiques. Une création de l’atelier garde sa propre mise en page ; les images Stream Deck gardent leur apparence.'],
-      'icon': ['Symboles Material Design', 'Utilise par exemple mdi:lamp. Vide : le symbole vient de Home Assistant. Ces champs concernent les icônes automatiques.'],
-      'textColor': ['Couleur du texte', 'Choisis la couleur du nom, de la valeur et de la confirmation dessinés sur les icônes automatiques. Automatique adapte la couleur au fond. Pour une image Stream Deck ou de l’atelier, utilise la couleur du titre dans Stream Deck.'],
       'titleMode': ['Nom affiché', 'Affiche le nom de l’entité, un nom personnalisé ou aucun nom. Le titre natif Stream Deck doit rester vide pour laisser le plugin le mettre à jour.'],
       'valueMode': ['Valeur', 'Affiche l’état ou la valeur de l’entité : température, luminosité, position, volume… Le mode automatique choisit selon son type.'],
-      'gauge': ['Jauge', 'Ajoute une barre à l’icône automatique pour la luminosité, la position ou le volume. Pour choisir sa forme et sa position, crée un indicateur dans l’atelier.'],
+      'gauge': ['Jauge', 'Ajoute une barre à l’icône automatique pour la luminosité, la position ou le volume.'],
       'lightColor': ['Couleur de la lampe', 'Le symbole automatique ou de l’atelier suit la couleur réelle de la lumière. Les images personnalisées Stream Deck gardent leurs propres couleurs.'],
       'art': ['Pochette', 'Utilise la pochette de l’album pendant la lecture sur une icône automatique.'],
-      'regles': ['Règles d’affichage', 'La première règle qui correspond peut changer la couleur, le symbole ou faire clignoter une icône automatique. Les images personnalisées gardent leurs propres dessins.'],
+      'regles': ['Règles d’affichage', 'La première règle qui correspond peut changer la couleur ou faire clignoter une icône automatique.'],
       'direct': ['Connexion', 'La connexion principale est celle de MultiOutils. Les champs ci-dessous définissent seulement la connexion directe de secours du plugin ; ils sont partagés entre toutes ses touches.']
     };
     function installHelp() {
@@ -137,7 +132,7 @@
         const s = getSettings();
         previewCard.querySelector('.preview-name').textContent = $('ch-nom').textContent || 'Choisir une entité';
         art.querySelector('img').hidden = s.customIcon === true;
-        art.querySelector('p').textContent = s.customIcon ? 'Images Stream Deck' : s.libraryIcon ? 'Atelier · état en direct' : 'État en direct';
+        art.querySelector('p').textContent = s.customIcon ? 'Images Stream Deck' : s.libraryIcon ? 'Icône de l’atelier · état en direct' : 'État en direct';
         installHelp();
       },
       dispose() { observer.disconnect(); closeHelp(); }

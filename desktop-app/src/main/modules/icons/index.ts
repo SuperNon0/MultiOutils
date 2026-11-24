@@ -229,10 +229,7 @@ export function createIconsMainModule(): MainToolModule {
           ? { viewBox: '0 0 144 144', body: '', paint: 'fill' as const, image: d.image }
           : d.symbol ? await getArt(d.symbol) : null;
         const badgeArt = d.badge?.symbol ? await getArt(d.badge.symbol) : null;
-        const rawValue = url.searchParams.get('value');
-        const value = rawValue === null ? null : Number(rawValue);
-        return { image: svgDataUrl(renderIconSvg({ design: d, art, badgeArt,
-          indicatorState: { on, color, value: value !== null && Number.isFinite(value) ? value : null } })) };
+        return { image: svgDataUrl(renderIconSvg({ design: d, art, badgeArt })) };
       });
 
       ctx.registerLocalRoute('GET', /^\/icons\/library$/, () => ({

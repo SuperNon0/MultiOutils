@@ -359,7 +359,6 @@ export function createScreenshotMainModule(): MainToolModule {
         ) => {
           const capture = repo.get(payload.id);
           if (!capture) return false;
-          repo.setAnnotations(payload.id, payload.annotations);
           if (payload.dataUrl) {
             // Préserve l'image ORIGINALE avant le premier écrasement : la
             // ré-édition repart toujours des pixels d'origine (docs/06).
@@ -375,7 +374,16 @@ export function createScreenshotMainModule(): MainToolModule {
                 ext === '.jpg' || ext === '.jpeg'
                   ? image.toJPEG(ctx.settings.get().jpgQuality)
                   : image.toPNG();
-              fs.writeFileSync(capture.path, buffer);
+              // Écriture dans un fichier voisin puis remplacement : un disque
+              // plein ou une coupure ne laisse jamais une image tronquée.
+              const tmp = `${capture.path}.${process.pid}.tmp`;
+              try {
+                fs.writeFileSync(tmp, buffer);
+                fs.renameSync(tmp, capture.path);
+              } catch (err) {
+                fs.rmSync(tmp, { force: true });
+                throw err;
+              }
               const { width, height } = image.getSize();
               repo.updateImageMeta(payload.id, {
                 width,
@@ -393,6 +401,8 @@ export function createScreenshotMainModule(): MainToolModule {
               }
             }
           }
+          // Annotations enregistrées seulement une fois l'image écrite.
+          repo.setAnnotations(payload.id, payload.annotations);
           ctx.broadcast('library:changed');
           return true;
         }

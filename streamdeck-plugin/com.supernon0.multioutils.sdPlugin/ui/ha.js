@@ -82,6 +82,7 @@
     ws = new WebSocket('ws://127.0.0.1:' + port);
     ws.onopen = () => {
       ws.send(JSON.stringify({ event: registerEvent, uuid }));
+      if (cleanPending) { cleanPending = false; save(true); }
       toPlugin({ cmd: 'status' });
       toPlugin({ cmd: 'catalog' });
       toPlugin({ cmd: 'services' });
@@ -110,12 +111,8 @@
       return;
     }
     if (m.cmd === 'iconLibrary') {
-      const select = $('libraryIcon');
-      select.innerHTML = '<option value="">Automatique / Material Design</option>';
-      for (const d of m.designs || []) {
-        const option = document.createElement('option'); option.value = d.id; option.textContent = d.name; select.appendChild(option);
-      }
-      select.value = settings.libraryIcon || '';
+      libraryDesigns = m.designs || [];
+      fillIconSource();
     } else if (m.cmd === 'status') renderStatus(m);
     else if (m.cmd === 'catalog') {
       catalog = m.catalog;
@@ -149,13 +146,6 @@
         setTimeout(() => toPlugin({ cmd: 'preview' }), 300);
         etat('Entité choisie.', 'ok');
       } else etat('');
-    } else if (m.cmd === 'copy') etat('Réglages copiés. Colle-les sur une autre touche.', 'ok');
-    else if (m.cmd === 'paste') {
-      if (m.ok && m.settings) {
-        settings = m.settings;
-        renderAll();
-        etat('Réglages collés.', 'ok');
-      } else etat('Rien à coller : copie d’abord les réglages d’une touche.', 'err');
     }
   }
 
@@ -192,7 +182,6 @@
     $('d-url').value = d.url || '';
     $('d-remote').value = d.remoteUrl || '';
     $('d-token').placeholder = d.hasToken ? '•••••••• (enregistré)' : 'eyJhbGciOi…';
-    $('coller').disabled = !m.hasClip;
   }
   $('conn-b').onclick = () => ($('direct').hidden = !$('direct').hidden);
   $('d-save').onclick = () => {
@@ -347,7 +336,11 @@
     if (['light', 'cover', 'climate', 'fan', 'media_player', 'input_number', 'number'].includes(d)) m.push(['adjust', 'Augmenter ou baisser d’un pas']);
     if (d === 'media_player') m.push(['media', 'Commande du lecteur']);
     if (d === 'camera') m.push(['camera', 'Image de la caméra']);
-    m.push(['display', 'Afficher seulement'], ['service', 'Appeler un service'], ['event', 'Envoyer un événement'], ['template', 'Afficher un modèle (texte calculé)']);
+    m.push(['display', 'Afficher seulement']);
+    // Les actions avancées restent réservées à la touche « HA : Avancé »
+    // (ou à une touche qui les utilise déjà, pour ne rien casser).
+    const advanced = [['service', 'Appeler un service'], ['event', 'Envoyer un événement'], ['template', 'Afficher un modèle (texte calculé)']];
+    for (const a of advanced) if (!kindId || settings.mode === a[0]) m.push(a);
     return m;
   }
   function presetLabel(d) {
@@ -677,45 +670,50 @@
 
   /* ───────── apparence ───────── */
 
-  const ICONES = ['mdi:lightbulb', 'mdi:lamp', 'mdi:ceiling-light', 'mdi:led-strip-variant', 'mdi:power-plug', 'mdi:television', 'mdi:speaker', 'mdi:music', 'mdi:play', 'mdi:pause', 'mdi:window-shutter', 'mdi:blinds', 'mdi:garage', 'mdi:door', 'mdi:lock', 'mdi:lock-open-variant', 'mdi:thermometer', 'mdi:thermostat', 'mdi:fan', 'mdi:air-conditioner', 'mdi:radiator', 'mdi:water', 'mdi:fire', 'mdi:flash', 'mdi:home', 'mdi:sofa', 'mdi:bed', 'mdi:silverware-fork-knife', 'mdi:shower', 'mdi:cctv', 'mdi:bell', 'mdi:alarm-light', 'mdi:robot-vacuum', 'mdi:movie-open', 'mdi:gamepad-variant', 'mdi:weather-night', 'mdi:white-balance-sunny', 'mdi:palette', 'mdi:script-text-play', 'mdi:monitor', 'mdi:power', 'mdi:sleep', 'mdi:restart'];
-  $('icones').innerHTML = ICONES.map((i) => '<option value="' + i + '">').join('');
+  /** Icônes de l'atelier MultiOutils, proposées dans la liste « Icône ». */
+  let libraryDesigns = [];
+  function fillIconSource() {
+    const select = $('iconSource');
+    select.replaceChildren();
+    const add = (value, label, parent) => { const o = document.createElement('option'); o.value = value; o.textContent = label; (parent || select).appendChild(o); };
+    add('', 'Automatique (icône de Home Assistant)');
+    add('__sd', 'Mes images Stream Deck (éteint / allumé)');
+    if (libraryDesigns.length) {
+      const group = document.createElement('optgroup'); group.label = 'Atelier MultiOutils';
+      for (const d of libraryDesigns) add(d.id, d.name, group);
+      select.appendChild(group);
+    }
+    // icône de l'atelier supprimée depuis : on la garde visible pour ne pas la perdre en silence
+    if (settings.libraryIcon && !libraryDesigns.some((d) => d.id === settings.libraryIcon)) add(settings.libraryIcon, 'Icône de l’atelier introuvable');
+    select.value = settings.customIcon ? '__sd' : settings.libraryIcon || '';
+  }
+  $('iconSource').onfocus = () => toPlugin({ cmd: 'iconLibrary' });
+  $('iconSource').onchange = () => {
+    const v = $('iconSource').value;
+    if (v === '__sd') { settings.customIcon = true; delete settings.libraryIcon; }
+    else if (v) { settings.libraryIcon = v; delete settings.customIcon; }
+    else { delete settings.customIcon; delete settings.libraryIcon; }
+    save(true);
+    renderLook();
+  };
 
-  function bindField(id, key, kind) {
+  function bindField(id, key) {
     const el = $(id);
-    const read = () => {
-      if (kind === 'check') return el.checked;
-      if (kind === 'number') return el.value === '' ? undefined : Number(el.value);
-      return key === 'titleText' ? el.value : el.value.trim();
-    };
     el.oninput = el.onchange = () => {
-      const v = read();
+      const v = key === 'titleText' ? el.value : el.value.trim();
       set(key, v === '' ? undefined : v);
-      if (key === 'customIcon' && v) { delete settings.libraryIcon; $('libraryIcon').value = ''; }
-      if (key === 'libraryIcon' && v) { settings.customIcon = false; $('customIcon').checked = false; }
       if (key === 'titleMode') $('titleText').hidden = v !== 'custom';
-      if (key === 'customIcon' || key === 'libraryIcon') renderTextColorMode();
     };
   }
   bindField('style', 'style');
-  bindField('icon', 'icon');
-  bindField('iconOff', 'iconOff');
-  bindField('customIcon', 'customIcon', 'check');
-  bindField('libraryIcon', 'libraryIcon');
   bindField('titleMode', 'titleMode');
   bindField('titleText', 'titleText');
   bindField('valueMode', 'valueMode');
-  bindField('decimals', 'decimals', 'number');
   $('color').oninput = () => set('color', $('color').value);
   $('colorOff').oninput = () => set('colorOff', $('colorOff').value);
-  $('textColor').oninput = () => set('textColor', $('textColor').value);
-  function renderTextColorMode() {
-    const native = !!settings.customIcon || !!settings.libraryIcon;
-    $('text-color-field').hidden = native;
-    $('native-text-help').hidden = !native;
-  }
   document.querySelectorAll('[data-raz]').forEach((b) => (b.onclick = () => {
     set(b.dataset.raz, undefined, true);
-    if (b.dataset.raz === 'textColor') $('textColor').value = '#ffffff';
+    renderLook();
   }));
   // cases dont la valeur par défaut dépend du type d'entité : on garde « vrai/faux » explicites
   $('gauge').onchange = () => set('gauge', $('gauge').checked);
@@ -723,26 +721,23 @@
   $('art').onchange = () => set('art', $('art').checked ? undefined : false);
 
   function renderLook() {
+    fillIconSource();
+    // Images Stream Deck et icônes de l'atelier gardent leur propre dessin : pas de style ni de couleurs.
+    $('auto-look').hidden = !!settings.customIcon || !!settings.libraryIcon;
     $('style').value = settings.style || 'accent';
-    $('color').value = /^#[0-9a-f]{6}$/i.test(settings.color || '') ? settings.color : '#a99bff';
+    $('color').value = /^#[0-9a-f]{6}$/i.test(settings.color || '') ? settings.color : '#e8c547';
     $('colorOff').value = /^#[0-9a-f]{6}$/i.test(settings.colorOff || '') ? settings.colorOff : '#555b66';
-    $('textColor').value = /^#[0-9a-f]{6}$/i.test(settings.textColor || '') ? settings.textColor : '#ffffff';
-    renderTextColorMode();
-    $('icon').value = settings.icon || '';
-    $('iconOff').value = settings.iconOff || '';
-    $('customIcon').checked = settings.customIcon === true;
-    $('libraryIcon').value = settings.libraryIcon || '';
     $('titleMode').value = settings.titleMode || 'auto';
     $('titleText').value = settings.titleText || '';
     $('titleText').hidden = (settings.titleMode || 'auto') !== 'custom';
     $('valueMode').value = settings.valueMode || 'auto';
-    $('decimals').value = settings.decimals == null ? '' : settings.decimals;
     const d = domainOf(settings.entity);
     $('gauge').checked = settings.gauge != null ? !!settings.gauge : ['light', 'cover', 'media_player', 'fan'].includes(d);
+    $('gauge').parentElement.hidden = !!settings.customIcon || !!settings.libraryIcon;
     $('lightColor').checked = settings.lightColor !== false;
-    $('lightColor').parentElement.hidden = d !== 'light';
+    $('lightColor').parentElement.hidden = d !== 'light' || !!settings.customIcon;
     $('art').checked = settings.art !== false;
-    $('art').parentElement.hidden = d !== 'media_player';
+    $('art').parentElement.hidden = d !== 'media_player' || !!settings.customIcon || !!settings.libraryIcon;
     $('confirm').checked = !!settings.confirm;
   }
 
@@ -783,45 +778,8 @@
     renderRules();
   };
 
-  /* ───────── modèles de touches ───────── */
-
-  const MODELES = [
-    { id: 'lampe', k: 'light', t: 'Lumière : basculer, luminosité en jauge', s: { mode: 'toggle', gauge: true, style: 'accent' } },
-    { id: 'lampe-cycle', k: 'light', t: 'Lumière : 100 % › 50 % › 10 % › éteinte', s: { mode: 'cycle', cycle: '100, 50, 10, 0', gauge: true } },
-    { id: 'lampe-soir', k: 'light', t: 'Lumière : ambiance chaude 30 %', s: { mode: 'preset', preset: { brightness: 30, kelvin: 2700 } } },
-    { id: 'volet', k: 'cover', t: 'Volet : ouvrir / fermer avec position', s: { mode: 'toggle', gauge: true } },
-    { id: 'volet-3', k: 'cover', t: 'Volet : 3 positions (ouvert, mi-hauteur, fermé)', s: { mode: 'cycle', cycle: '100, 50, 0', gauge: true } },
-    { id: 'temp', k: 'sensor', t: 'Capteur : température avec alerte au-dessus de 25 °', s: { mode: 'display', valueMode: 'show', decimals: 1, rules: [{ when: 'above', value: '25', color: '#ef7d6b' }] } },
-    { id: 'thermo-plus', k: 'climate', t: 'Thermostat : +0,5 °', s: { mode: 'adjust', step: 0.5, valueMode: 'show' } },
-    { id: 'thermo-moins', k: 'climate', t: 'Thermostat : −0,5 °', s: { mode: 'adjust', step: -0.5, valueMode: 'show' } },
-    { id: 'prise', k: 'switch', t: 'Prise : basculer, fond plein', s: { mode: 'toggle', style: 'plein' } },
-    { id: 'scene', k: 'scene', t: 'Scène ou script : lancer', s: { mode: 'auto', style: 'plein' } },
-    { id: 'lecteur', k: 'media', t: 'Lecteur : lecture / pause avec pochette', s: { mode: 'media', media: 'play_pause', art: true, gauge: true } },
-    { id: 'camera', k: 'camera', t: 'Caméra : image toutes les 5 s, ouvrir en grand', s: { mode: 'camera', refresh: 5, titleMode: 'none' } },
-    { id: 'porte', k: 'sensor', t: 'Porte : clignote si ouverte', s: { mode: 'display', rules: [{ when: 'is', value: 'on', color: '#ef7d6b', blink: true }] } },
-    { id: 'alarme', k: '', t: 'Action sensible : confirmation obligatoire', s: { confirm: true, style: 'plein', color: '#ef7d6b' } }
-  ];
-  function fillModeles() {
-    const list = MODELES.filter((m) => !kindId || m.k === kindId || !m.k);
-    $('modele').innerHTML = '<option value="">Choisir un modèle prêt à l’emploi…</option>' + list.map((m) => '<option value="' + m.id + '">' + esc(kindId ? m.t.replace(/^[^:]+ : /, '') : m.t) + '</option>').join('');
-    $('modele').value = settings.modelId || '';
-    $('modele-carte').hidden = list.length === 0;
-  }
-  $('modele').onchange = () => {
-    const m = MODELES.find((x) => x.id === $('modele').value);
-    if (!m) return;
-    const keep = {};
-    for (const key of ['entity', 'confirm', 'customIcon', 'libraryIcon', 'icon', 'iconOff', 'color', 'colorOff', 'textColor', 'lightColor', 'rules']) if (settings[key] !== undefined) keep[key] = settings[key];
-    settings = Object.assign(keep, JSON.parse(JSON.stringify(m.s)), { modelId: m.id, titleMode: 'custom', titleText: m.t.replace(/^[^:]+ : /, '') });
-    if (!settings.entity) delete settings.entity;
-    save(true);
-    renderAll();
-    etat('Modèle appliqué : ' + m.t + '.', 'ok');
-  };
-
   /* ───────── boutons ───────── */
 
-  $('library-refresh').onclick = () => toPlugin({ cmd: 'iconLibrary' });
   $('full-editor').onclick = () => toPlugin({ cmd: 'editor' });
 
   $('tester').onclick = () => {
@@ -829,11 +787,21 @@
     etat('Envoi…');
     toPlugin({ cmd: 'test' });
   };
-  $('copier').onclick = () => toPlugin({ cmd: 'copy' });
-  $('coller').onclick = () => toPlugin({ cmd: 'paste' });
+
+  /** Réglages retirés de l'interface (simplification) : on les efface pour que la touche
+   *  ressemble à ce que montre le panneau. */
+  const RETIRES = ['icon', 'iconOff', 'textColor', 'decimals', 'modelId'];
+  function cleanRemoved() {
+    if (!RETIRES.some((k) => settings[k] !== undefined)) return;
+    for (const k of RETIRES) delete settings[k];
+    // Panneau pas encore relié au Stream Deck : enregistré à l'ouverture de la connexion.
+    if (ws && ws.readyState === 1) save(true);
+    else cleanPending = true;
+  }
+  let cleanPending = false;
 
   function renderAll() {
-    fillModeles();
+    cleanRemoved();
     $('ent-titre').textContent = kind() ? kind().t : 'Entité';
     $('q').placeholder = kind() ? 'Chercher : ' + kind().t.toLowerCase() + ', pièce…' : 'Chercher : salon, lampe, température…';
     renderChosen();

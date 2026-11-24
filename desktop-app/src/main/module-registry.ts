@@ -50,6 +50,8 @@ export interface MainToolModule {
 
 export class MainModuleRegistry {
   private modules: MainToolModule[] = [];
+  /** Outils dont l'activation a échoué : exclus du menu de la barre des tâches. */
+  private failed = new Set<string>();
 
   register(module: MainToolModule): void {
     this.modules.push(module);
@@ -62,6 +64,7 @@ export class MainModuleRegistry {
       try {
         await module.activate(ctx);
       } catch (err) {
+        this.failed.add(module.id);
         console.error(`[modules] échec de l'activation de « ${module.id} »`, err);
       }
     }
@@ -70,7 +73,15 @@ export class MainModuleRegistry {
   trayItems(ctx: MainHostContext): MenuItemConstructorOptions[] {
     const items: MenuItemConstructorOptions[] = [];
     for (const module of this.modules) {
-      const contributed = module.trayMenuItems?.(ctx) ?? [];
+      // Un outil non démarré ou dont le menu plante ne doit pas casser l'icône
+      // de la barre des tâches (créée avant la fenêtre principale).
+      if (this.failed.has(module.id)) continue;
+      let contributed: MenuItemConstructorOptions[] = [];
+      try {
+        contributed = module.trayMenuItems?.(ctx) ?? [];
+      } catch (err) {
+        console.error(`[modules] menu de « ${module.id} » indisponible`, err);
+      }
       if (contributed.length > 0) {
         if (items.length > 0) items.push({ type: 'separator' });
         items.push(...contributed);
@@ -80,6 +91,13 @@ export class MainModuleRegistry {
   }
 
   deactivateAll(): void {
-    for (const module of this.modules) module.deactivate?.();
+    // Chaque arrêt isolé : un outil à moitié démarré peut lever une erreur.
+    for (const module of this.modules) {
+      try {
+        module.deactivate?.();
+      } catch (err) {
+        console.error(`[modules] arrêt de « ${module.id} » incomplet`, err);
+      }
+    }
   }
 }

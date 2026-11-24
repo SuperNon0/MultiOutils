@@ -6,7 +6,7 @@ import { Feuille } from '../../host/Feuille';
 import { Icon } from '../../host/Icon';
 import { useI18n } from '../../i18n';
 import { designUrl, refsOf, requestArts, useArtVersion } from './art';
-import { IconEditor, ThemeGroups, exportDesigns } from './IconEditor';
+import { IconEditor, ThemeGroups, copyDesign, exportMenu } from './IconEditor';
 import './icons.css';
 
 type View = 'all' | 'fav' | string;
@@ -160,6 +160,54 @@ export function IconsPanel(): ReactNode {
     }
   };
 
+  /** Clic droit sur une icône : les actions courantes sans ouvrir l'éditeur. */
+  const tileMenu = (e: React.MouseEvent, d: IconDesign): void => {
+    e.preventDefault();
+    const at = { x: e.clientX, y: e.clientY };
+    // Clic droit sur une icône de la sélection : les actions portent sur toute la sélection.
+    const group = selected.has(d.id) && selected.size > 1 ? sel : [d];
+    const many = group.length > 1;
+    ui.menu(at, [
+      ...(many ? [] : [
+        { texte: t('icons.open'), icone: 'edit', action: () => open(d.id) },
+        {
+          texte: t('icons.rename'),
+          icone: 'rename',
+          action: async () => {
+            const name = await ui.demander(t('icons.rename'), { valeur: d.name });
+            if (name?.trim()) saveAll([{ ...d, name: name.trim() }]);
+          }
+        },
+        { texte: t('icons.duplicate'), icone: 'layers', action: () => void duplicate(d) },
+        { texte: t('icons.copy'), icone: 'copy', action: () => void copyDesign(d, false, () => ui.toast(t('icons.copied'))) }
+      ]),
+      {
+        texte: d.favorite ? t('icons.unfavorite') : t('icons.addFavorite'),
+        icone: 'star',
+        action: () => saveAll(group.map((x) => ({ ...x, favorite: !d.favorite })))
+      },
+      {
+        texte: t('icons.moveTo'),
+        icone: 'folder',
+        action: () =>
+          ui.menu(at, [
+            { texte: t('icons.noFolder'), action: () => saveAll(group.map((x) => ({ ...x, folder: null }))) },
+            ...state.folders.map((f) => ({ texte: f.name, icone: 'folder', action: () => saveAll(group.map((x) => ({ ...x, folder: f.id }))) }))
+          ])
+      },
+      ...(state.styles.length
+        ? [{
+            texte: t('icons.applyStyle'),
+            icone: 'palette',
+            action: () => ui.menu(at, state.styles.map((st) => ({ texte: st.name, action: () => saveAll(group.map((x) => applyStyle(x, st.look))) })))
+          }]
+        : []),
+      { texte: t('icons.export'), icone: 'download', action: () => exportMenu(at, group) },
+      null,
+      { texte: t('icons.delete'), icone: 'trash', danger: true, action: () => void remove(group.map((x) => x.id)) }
+    ]);
+  };
+
   const count = (pred: (d: IconDesign) => boolean): number => state.designs.filter(pred).length;
   const deckKeys = list.slice(0, 15);
 
@@ -210,11 +258,7 @@ export function IconsPanel(): ReactNode {
               <button type="button" className="btn xs" onClick={() => setBatchTheme(true)}><Icon name="palette" size={14} /> {t('icons.applyTheme')}</button>
               <button type="button" className="btn xs" onClick={(e) => batchMenu(e, 'style')}>{t('icons.applyStyle')}</button>
               <button type="button" className="btn xs" onClick={(e) => batchMenu(e, 'folder')}><Icon name="folder" size={14} /> {t('icons.move')}</button>
-              <button type="button" className="btn xs" onClick={(e) => ui.menu(e.currentTarget, [
-                { texte: 'PNG', action: () => void exportDesigns(sel, 'png', ui.toast) },
-                { texte: 'PNG @2x', action: () => void exportDesigns(sel, 'png2x', ui.toast) },
-                { texte: 'SVG', action: () => void exportDesigns(sel, 'svg', ui.toast) }
-              ])}><Icon name="download" size={14} /> {t('icons.export')}</button>
+              <button type="button" className="btn xs" onClick={(e) => exportMenu(e.currentTarget, sel)}><Icon name="download" size={14} /> {t('icons.export')}</button>
               <button type="button" className="btn xs dn" onClick={() => void remove([...selected])}><Icon name="trash" size={14} /></button>
               <button type="button" className="btn xs gh" onClick={() => setSelected(new Set())}>{t('icons.cancel')}</button>
             </div>
@@ -248,7 +292,7 @@ export function IconsPanel(): ReactNode {
                 const d = shown(raw);
                 const isSel = selected.has(d.id);
                 return (
-                  <div key={d.id} className={`ic-tile${openId === d.id ? ' open' : ''}${isSel ? ' sel' : ''}`}>
+                  <div key={d.id} className={`ic-tile${openId === d.id ? ' open' : ''}${isSel ? ' sel' : ''}`} onContextMenu={(e) => tileMenu(e, raw)}>
                     <button
                       type="button"
                       className="ic-tile-b"

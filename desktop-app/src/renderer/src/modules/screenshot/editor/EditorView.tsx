@@ -233,7 +233,13 @@ export function EditorView({
     if (!dataUrl) return;
     const annotations =
       doc.objects.length > 0 || doc.crop ? JSON.stringify(doc) : null;
-    await window.api.editor.save({ id: capture.id, annotations, dataUrl });
+    try {
+      await window.api.editor.save({ id: capture.id, annotations, dataUrl });
+    } catch {
+      // Disque plein, fichier verrouillé… : on garde les modifications à l'écran.
+      host.notify(t('editor.saveFailed'));
+      return;
+    }
     savedJson.current = JSON.stringify(doc);
     host.notify(t('editor.saved'));
   };

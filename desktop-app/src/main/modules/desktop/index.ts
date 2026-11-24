@@ -58,6 +58,7 @@ import {
   ZONE_PRESETS,
   snapRect,
   sortEntries,
+  ZONE_BADGE_ICONS,
   ZONE_COLORS,
   ZONE_TITLE_HEIGHT,
   type CloudItem,
@@ -84,7 +85,7 @@ import type { MainHostContext, MainToolModule } from '../../module-registry';
 import { desktopDirs, listDesktop, listDir, transfer, watchDirs } from './files';
 import { createLayoutStore, type LayoutStore } from './layouts';
 import { createRulesEngine, type RulesEngine } from './rules';
-import { desktopHandle, ensureWin32, foregroundExe, foregroundKind, isKeyDown, setNativeIconsVisible, vkOfAccelerator, watchDesktopClicks, win32Error } from './win32';
+import { appAboveDesktop, desktopHandle, ensureWin32, foregroundExe, foregroundKind, isKeyDown, setNativeIconsVisible, vkOfAccelerator, watchDesktopClicks, win32Error } from './win32';
 import { absoluteBounds, displayFor, DrawOverlays, PageIndicator, PeekOverlays, ZoneWindow } from './windows';
 import { IconStore, type IconSize } from './icons';
 
@@ -612,7 +613,11 @@ export function createDesktopMainModule(): MainToolModule {
     if (kind === 'self') return; // clic dans une zone : on ne bouge rien
     // Simple clic sur le bureau : il reste au fond, rien à faire. Win+D : il
     // passe devant les fenêtres (et donc devant les zones).
-    const front = desktopFront ? kind === 'desktop' : kind === 'desktop' && [...windows.values()].some((w) => w.coveredByDesktop());
+    // Au démarrage du PC, le bureau garde souvent le focus pendant que les
+    // applications (Discord…) s'ouvrent sans le prendre : on ne reste « devant
+    // le bureau » que si aucune application n'est affichée par-dessus lui.
+    const front = kind === 'desktop' && !appAboveDesktop() &&
+      (desktopFront || [...windows.values()].some((w) => w.coveredByDesktop()));
     if (front === desktopFront) return;
     desktopFront = front;
     for (const w of windows.values()) w.overDesktop(front);
@@ -621,6 +626,14 @@ export function createDesktopMainModule(): MainToolModule {
     if (!native) return;
     shellHandle = desktopHandle();
     fgTimer = setInterval(followShowDesktop, 400);
+    // Démarrage de Windows : l'Explorateur peut ne pas être prêt quand les zones
+    // s'ouvrent. On les reglisse sous les applications quelques fois.
+    for (const delay of [3_000, 10_000, 30_000, 60_000]) {
+      setTimeout(() => {
+        if (stopping || desktopFront || peek) return;
+        for (const w of windows.values()) w.toBottom();
+      }, delay).unref?.();
+    }
     shellTimer = setInterval(() => {
       const h = desktopHandle();
       if (h === shellHandle) return;
@@ -765,6 +778,15 @@ export function createDesktopMainModule(): MainToolModule {
             click: () => patchZone(z.id, { color: c })
           }))
         ]
+      },
+      {
+        label: t('desktop.menu.badge'),
+        submenu: ['auto', 'dot', 'none', ...ZONE_BADGE_ICONS].map((b) => ({
+          label: t(b === 'auto' || b === 'dot' || b === 'none' ? `desktop.badge.${b}` : `desktop.badge.icon.${b}`),
+          type: 'radio' as const,
+          checked: z.badge === b,
+          click: () => patchZone(z.id, { badge: b })
+        }))
       },
       { type: 'separator' },
       { label: t('desktop.menu.rename'), click: sendEdit },

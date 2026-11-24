@@ -40,15 +40,20 @@
 .ic-close { position: absolute; top: 8px; right: 8px; }
 .ic-editor { display: grid; gap: 14px; min-width: 0; }
 .ic-editor > *, .ic-sec > * { min-width: 0; }
-.ic-ed-head { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: start; padding-top: 26px; }
+.ic-ed-head { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 12px; align-items: start; padding-right: 30px; }
 .ic-ed-preview { display: grid; gap: 8px; justify-items: center; flex: none; }
 .ic-ed-preview img { width: 112px; height: 112px; border-radius: 22px; background: repeating-conic-gradient(var(--pop) 0 25%, var(--card) 0 50%) 0 0 / 16px 16px; }
 .ic-ed-meta { display: grid; gap: 8px; min-width: 0; align-content: start; }
 .ic-ed-meta .ligne { flex-wrap: wrap; gap: 5px; }
 .ic-ed-meta .select { flex: 1; min-width: 0; height: 34px; }
-.ic-name { grid-column: 1 / -1; min-width: 0; font-weight: 600; }
+.ic-name { min-width: 0; font-weight: 600; height: 34px; }
+.ic-ed-actions .btn.ico { width: 30px; padding: 0; justify-content: center; }
+.ic-tabs { width: 100%; flex-wrap: wrap; }
+.ic-tabs button { flex: 1 1 auto; height: 30px; font-size: 12.5px; padding: 0 8px; }
+.ic-sec .lbl { margin: 0; font-size: 12px; }
 .ic-sec > .ligne { min-width: 0; }
-.ic-sec { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--line); }
+.ic-sec { display: grid; gap: 10px; }
+.ic-sec h3 + p, .ic-sec h3:not(:first-child) { margin-top: 6px; }
 .ic-sec h3 { margin: 0; }
 .ic-seg button { height: 28px; font-size: 12px; padding: 0 6px; }
 .ic-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }

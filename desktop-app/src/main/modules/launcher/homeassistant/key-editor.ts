@@ -39,7 +39,7 @@ export function setupHaKeyEditor(ctx: MainHostContext): () => void {
     if (existing) { existing.win.show(); existing.win.focus(); return { token: existing.token }; }
     const area = screen.getPrimaryDisplay().workArea;
     const win = new BrowserWindow({ width: Math.min(1160, area.width), height: Math.min(880, area.height),
-      minWidth: 540, minHeight: 480, title: 'Home Assistant — paramètres de la touche', show: false,
+      minWidth: 540, minHeight: 480, title: ctx.i18n.t('ha.keyEditor.title'), show: false,
       backgroundColor: '#0e0f11', webPreferences: { preload: preloadPath(), contextIsolation: true, nodeIntegration: false } });
     const token = randomUUID();
     const s: Session = { token, context, action, settings: object(body?.settings) ?? {}, win, senderId: win.webContents.id, queue: [] };

@@ -32,14 +32,22 @@ export class RegionFlow {
     // On fige TOUS les écrans avant d'ouvrir le moindre overlay, pour que
     // l'overlay lui-même n'apparaisse jamais dans la capture. Les captures se
     // font EN PARALLÈLE (une par écran) pour réduire la latence de lancement.
-    await Promise.all(
-      screen.getAllDisplays().map(async (display) => {
-        this.shots.set(String(display.id), {
-          image: await captureDisplay(display),
-          display
-        });
-      })
-    );
+    try {
+      await Promise.all(
+        screen.getAllDisplays().map(async (display) => {
+          this.shots.set(String(display.id), {
+            image: await captureDisplay(display),
+            display
+          });
+        })
+      );
+    } catch (err) {
+      // Capture impossible : on réaffiche l'app au lieu de la laisser masquée.
+      this.shots.clear();
+      this.restoreWindows?.();
+      this.restoreWindows = null;
+      throw err;
+    }
 
     const cursor = screen.getCursorScreenPoint();
     const cursorDisplayId = screen.getDisplayNearestPoint(cursor).id;

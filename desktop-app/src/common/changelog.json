@@ -1,5 +1,26 @@
 [
   {
+    "version": "0.14.0",
+    "date": "2026-11-24",
+    "titre": "Atelier d’icônes et Home Assistant plus simples, zones sous les applications",
+    "corrections": [
+      "Bureau : au démarrage du PC, les zones ne passent plus au-dessus des applications qui s’ouvrent (Discord…). Elles restent sur le fond d’écran.",
+      "Atelier d’icônes : les barres et pastilles d’indicateur sont retirées. La copie d’une icône copie la version affichée (allumée ou éteinte).",
+      "Enregistrer une capture annotée ne peut plus laisser une image abîmée si le disque est plein : l'ancienne image reste intacte et un message te prévient.",
+      "Une capture, une capture de fenêtre ou la pipette qui échoue ne laisse plus MultiOutils caché : les fenêtres réapparaissent.",
+      "Le presse-papiers retente d'enregistrer un texte ou une image si le premier essai a échoué, au lieu de l'oublier.",
+      "Un outil qui ne démarre pas n'empêche plus l'icône de la barre des tâches d'afficher son menu.",
+      "Stream Deck : les touches « Masquer les zones » et « Aperçu du bureau » ne clignotent plus chaque seconde quand MultiOutils est fermé, et une touche Home Assistant n'affiche plus l'alerte à chaque changement si l'icône de l'atelier est indisponible.",
+      "Le plugin Stream Deck 0.11.0.0 est disponible dans Réglages → Mises à jour."
+    ],
+    "nouveautes": [
+      "Atelier d’icônes : l’éditeur est rangé en onglets (Symbole, Couleurs, Forme, Texte et pastille, Éteint) et un seul bouton Exporter regroupe PNG, PNG @2x et SVG.",
+      "Atelier d’icônes : clic droit sur une icône pour la modifier, la renommer, la dupliquer, la copier, la mettre en favori, la déplacer, lui appliquer un style, l’exporter ou la supprimer (aussi sur plusieurs icônes sélectionnées).",
+      "Stream Deck Home Assistant : le panneau ne garde que l’essentiel (entité, action, icône, style, couleurs, nom). Les réglages rares sont rangés dans « Plus d’options », et les actions avancées sont réservées à la touche « HA : Avancé ».",
+      "Bureau : la pastille en haut à gauche d’une zone se change (point, icône, aucune) avec sa couleur, depuis le clic droit ou la page Bureau."
+    ]
+  },
+  {
     "version": "0.13.1",
     "date": "2026-11-17",
     "titre": "Suivi de l’autoclic et personnalisation des zones",

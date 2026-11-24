@@ -27,6 +27,8 @@ interface User32 {
   GetAncestor(hwnd: Hwnd, flags: number): Hwnd;
   GetWindow(hwnd: Hwnd, cmd: number): Hwnd;
   GetClassNameW(hwnd: Hwnd, buf: Buffer, max: number): number;
+  GetWindowLongPtrW(hwnd: Hwnd, index: number): Hwnd;
+  IsIconic(hwnd: Hwnd): boolean;
   GetAsyncKeyState(vk: number): number;
   GetDoubleClickTime(): number;
   SetWindowsHookExW(id: number, cb: unknown, mod: Hwnd, thread: number): Hwnd;
@@ -62,6 +64,8 @@ let procApi: {
   QueryFullProcessImageNameW(h: Hwnd, flags: number, buf: Buffer, size: number[]): boolean;
   CloseHandle(h: Hwnd): boolean;
 } | null = null;
+
+let dwmCloaked: ((h: Hwnd, attr: number, value: number[], size: number) => number) | null = null;
 
 let initPromise: Promise<void> | null = null;
 let initError: string | null = null;
@@ -121,6 +125,8 @@ async function init(): Promise<void> {
       GetAncestor: lib.func('intptr __stdcall GetAncestor(intptr hwnd, uint32 flags)') as User32['GetAncestor'],
       GetWindow: lib.func('intptr __stdcall GetWindow(intptr hwnd, uint32 cmd)') as User32['GetWindow'],
       GetClassNameW: lib.func('int __stdcall GetClassNameW(intptr hwnd, void *buf, int max)') as User32['GetClassNameW'],
+      GetWindowLongPtrW: lib.func('intptr __stdcall GetWindowLongPtrW(intptr hwnd, int index)') as User32['GetWindowLongPtrW'],
+      IsIconic: lib.func('bool __stdcall IsIconic(intptr hwnd)') as User32['IsIconic'],
       GetAsyncKeyState: lib.func('int16 __stdcall GetAsyncKeyState(int vk)') as User32['GetAsyncKeyState'],
       GetDoubleClickTime: lib.func('uint32 __stdcall GetDoubleClickTime()') as User32['GetDoubleClickTime'],
       SetWindowsHookExW: lib.func(
@@ -131,6 +137,14 @@ async function init(): Promise<void> {
       ) as User32['CallNextHookEx'],
       UnhookWindowsHookEx: lib.func('bool __stdcall UnhookWindowsHookEx(intptr hook)') as User32['UnhookWindowsHookEx']
     };
+    try {
+      const dwm = koffi.load('dwmapi.dll');
+      dwmCloaked = dwm.func(
+        'int32 __stdcall DwmGetWindowAttribute(intptr hwnd, uint32 attr, _Out_ uint32 *value, uint32 size)'
+      ) as (h: Hwnd, attr: number, value: number[], size: number) => number;
+    } catch {
+      dwmCloaked = null; // sans DWM : on ignore seulement les fenêtres « masquées » d'UWP
+    }
     koffiRef = koffi;
   } catch (err) {
     initError = err instanceof Error ? err.message : String(err);
@@ -261,6 +275,45 @@ export function desktopAbove(hwnd: Hwnd): boolean {
   let h = big(user32.GetWindow(hwnd, GW_HWNDPREV));
   for (let i = 0; h && i < 2000; i++) {
     if (h === root) return true;
+    h = big(user32.GetWindow(h, GW_HWNDPREV));
+  }
+  return false;
+}
+
+const GWL_EXSTYLE = -20;
+const WS_EX_TOPMOST = 0x00000008;
+const WS_EX_TOOLWINDOW = 0x00000080;
+const DWMWA_CLOAKED = 14;
+
+/** Fenêtre réellement visible à l'écran (ni réduite, ni « masquée » par DWM). */
+function shownOnScreen(h: Hwnd): boolean {
+  if (!user32 || !user32.IsWindowVisible(h) || user32.IsIconic(h)) return false;
+  if (dwmCloaked) {
+    const v = [0];
+    if (dwmCloaked(h, DWMWA_CLOAKED, v, 4) === 0 && v[0] !== 0) return false;
+  }
+  return true;
+}
+
+/**
+ * Une application (autre que MultiOutils) est-elle posée AU-DESSUS du bureau ?
+ * Sert à quitter le mode « bureau affiché » (Win+D) même quand la nouvelle
+ * fenêtre ne prend pas le focus : par exemple Discord qui s'ouvre au démarrage
+ * du PC pendant que le bureau a encore la main.
+ */
+export function appAboveDesktop(): boolean {
+  if (!user32 || !procApi) return false;
+  const root = desktopRoot();
+  if (!root) return false;
+  let h = big(user32.GetWindow(root, GW_HWNDPREV));
+  for (let i = 0; h && i < 2000; i++) {
+    const ex = Number(big(user32.GetWindowLongPtrW(h, GWL_EXSTYLE)) & 0xffffffffn);
+    if (!(ex & (WS_EX_TOPMOST | WS_EX_TOOLWINDOW)) && shownOnScreen(h)) {
+      const pid = [0];
+      procApi.GetWindowThreadProcessId(h, pid);
+      const cls = classOf(h);
+      if (pid[0] !== process.pid && cls !== 'Progman' && cls !== 'WorkerW' && cls !== 'Shell_TrayWnd') return true;
+    }
     h = big(user32.GetWindow(h, GW_HWNDPREV));
   }
   return false;

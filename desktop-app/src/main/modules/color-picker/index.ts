@@ -72,14 +72,20 @@ export function createColorPickerMainModule(): MainToolModule {
     if (overlays.length > 0) return;
     restoreWindows = await hideAppWindows();
     // Captures en parallèle (une par écran) → lancement plus rapide.
-    await Promise.all(
-      screen.getAllDisplays().map(async (display) => {
-        shots.set(String(display.id), {
-          image: await captureDisplay(display),
-          display
-        });
-      })
-    );
+    try {
+      await Promise.all(
+        screen.getAllDisplays().map(async (display) => {
+          shots.set(String(display.id), {
+            image: await captureDisplay(display),
+            display
+          });
+        })
+      );
+    } catch (err) {
+      // Capture impossible : on réaffiche l'app au lieu de la laisser masquée.
+      finish();
+      throw err;
+    }
     const cursorDisplayId = screen.getDisplayNearestPoint(
       screen.getCursorScreenPoint()
     ).id;

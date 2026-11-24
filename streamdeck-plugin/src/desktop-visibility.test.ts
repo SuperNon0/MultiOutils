@@ -80,6 +80,21 @@ describe('desktop visibility switch', () => {
     expect(k.setTitle).not.toHaveBeenCalled();
   });
 
+  it('warns once while the app stays closed instead of flashing every second', async () => {
+    const action = new DesktopToggleHide();
+    const k = key();
+    fetchMock.mockRejectedValue(new Error('offline'));
+    await action.onWillAppear(event(k));
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(k.showAlert).toHaveBeenCalledTimes(1);
+    fetchMock.mockResolvedValue(response(false));
+    await vi.advanceTimersByTimeAsync(1000);
+    fetchMock.mockRejectedValue(new Error('offline'));
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(k.showAlert).toHaveBeenCalledTimes(2);
+    action.onWillDisappear(event(k));
+  });
+
   it('waits for an active poll before sending a key press', async () => {
     const action = new DesktopToggleHide();
     const k = key();
