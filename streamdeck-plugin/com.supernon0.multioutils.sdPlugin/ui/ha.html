@@ -9,7 +9,6 @@
     <link rel="stylesheet" href="ha.css" />
   </head>
   <body>
-    <button type="button" class="btn pri grand" id="full-editor">Ouvrir tous les paramètres dans MultiOutils</button>
     <div class="conn" id="conn"><i></i><span id="conn-t">Connexion…</span><button type="button" class="lien" id="conn-b">Connexion directe</button></div>
 
     <section class="carte" id="direct" hidden>
@@ -19,13 +18,6 @@
       <label>Adresse distante (facultatif)<input id="d-remote" class="mono" placeholder="https://xxxx.ui.nabu.casa" /></label>
       <label>Jeton d'accès longue durée<input id="d-token" type="password" class="mono" placeholder="eyJhbGciOi…" autocomplete="off" /></label>
       <div class="rang"><button type="button" class="btn pri" id="d-save">Enregistrer</button><button type="button" class="btn" id="d-clear">Effacer le jeton</button><span class="etat" id="d-etat"></span></div>
-    </section>
-
-    <section class="carte" id="modele-carte">
-      <h3>Modèle de touche</h3>
-      <div class="rang">
-        <select id="modele"><option value="">Choisir un modèle prêt à l'emploi…</option></select>
-      </div>
     </section>
 
     <section class="carte" id="entity-card">
@@ -53,56 +45,51 @@
     <section class="carte" id="look-card">
       <h3>Apparence</h3>
       <div class="apercu"><img id="apercu" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" /><p class="aide">Aperçu de la touche, avec l'état actuel.</p></div>
-      <label class="coche"><input type="checkbox" id="customIcon" /> Utiliser mes deux images dans Stream Deck (éteint / allumé)</label>
-      <p class="aide">Les états 1 et 2 de Stream Deck permettent de choisir vos deux images. Le nom et la confirmation restent affichés par-dessus. Pour un indicateur vivant, choisissez plutôt une icône de l’atelier ci-dessous.</p>
-      <label>Icône de l’atelier MultiOutils<select id="libraryIcon"><option value="">Automatique / Material Design</option></select></label>
-      <button type="button" class="btn" id="library-refresh">Actualiser les icônes de l’atelier</button>
-      <p class="aide">Les barres et pastilles créées dans l’atelier suivent l’état, la luminosité et la couleur de l’entité. MultiOutils doit rester ouvert.</p>
-      <label>Style
-        <select id="style">
-          <option value="accent">Classique (fond sombre, symbole coloré)</option>
-          <option value="plein">Fond plein coloré</option>
-          <option value="symbole">Fond noir, symbole coloré</option>
-          <option value="teinte">Teinté</option>
+      <label>Icône
+        <select id="iconSource">
+          <option value="">Automatique (icône de Home Assistant)</option>
+          <option value="__sd">Mes images Stream Deck (éteint / allumé)</option>
         </select>
       </label>
-      <div class="deux">
-        <label>Couleur allumé<span class="coul"><input type="color" id="color" /><button type="button" class="lien" data-raz="color">Doré (défaut)</button></span></label>
-        <label>Couleur éteint<span class="coul"><input type="color" id="colorOff" /><button type="button" class="lien" data-raz="colorOff">Atténuée</button></span></label>
+      <p class="aide" id="iconSource-help">Tes icônes de l'atelier MultiOutils apparaissent aussi dans cette liste.</p>
+      <div id="auto-look">
+        <label>Style
+          <select id="style">
+            <option value="accent">Classique (fond sombre, symbole coloré)</option>
+            <option value="plein">Fond plein coloré</option>
+            <option value="symbole">Fond noir, symbole coloré</option>
+            <option value="teinte">Teinté</option>
+          </select>
+        </label>
+        <div class="deux">
+          <label>Couleur allumé<span class="coul"><input type="color" id="color" /><button type="button" class="lien" data-raz="color">Défaut</button></span></label>
+          <label>Couleur éteint<span class="coul"><input type="color" id="colorOff" /><button type="button" class="lien" data-raz="colorOff">Défaut</button></span></label>
+        </div>
       </div>
-      <div class="deux">
-        <label>Icône allumé<input id="icon" class="mono" placeholder="Celle de Home Assistant" list="icones" /></label>
-        <label>Icône éteint<input id="iconOff" class="mono" placeholder="Pareil" list="icones" /></label>
-      </div>
-      <datalist id="icones"></datalist>
-      <p class="aide">Nom d'icône Material Design, par exemple <code>mdi:lamp</code>. Vide : l'icône de l'entité dans Home Assistant.</p>
       <label>Nom affiché
         <span class="rang"><select id="titleMode"><option value="auto">Nom de l'entité</option><option value="custom">Personnalisé</option><option value="none">Aucun</option></select><input id="titleText" placeholder="Nom sur la touche" /></span>
       </label>
-      <label id="text-color-field">Couleur du texte
-        <span class="coul"><input type="color" id="textColor" /><button type="button" class="lien" data-raz="textColor">Automatique</button></span>
-      </label>
-      <p class="aide" id="native-text-help">Pour les images Stream Deck et les icônes de l’atelier, règle la couleur du titre dans Stream Deck avec les options du titre de la touche.</p>
-      <label>Valeur
-        <span class="rang"><select id="valueMode"><option value="auto">Automatique</option><option value="show">Toujours</option><option value="hide">Jamais</option></select><input id="decimals" type="number" min="0" max="4" placeholder="Décimales" /></span>
-      </label>
-      <label class="coche"><input type="checkbox" id="gauge" /> Jauge (luminosité, position, volume, batterie…)</label>
-      <label class="coche"><input type="checkbox" id="lightColor" /> Prendre la couleur réelle de la lampe</label>
-      <label class="coche"><input type="checkbox" id="art" /> Pochette de l'album pendant la lecture</label>
-    </section>
-
-    <section class="carte" id="rules-card">
-      <h3>Règles d'affichage</h3>
-      <p class="aide">La première règle qui correspond change la couleur, l'icône ou fait clignoter la touche.</p>
-      <div id="regles"></div>
-      <button type="button" class="btn" id="regle-plus">Ajouter une règle</button>
+      <details class="plus" id="plus">
+        <summary>Plus d'options</summary>
+        <label>Valeur
+          <select id="valueMode"><option value="auto">Automatique</option><option value="show">Toujours</option><option value="hide">Jamais</option></select>
+        </label>
+        <label class="coche"><input type="checkbox" id="gauge" /> Jauge (luminosité, position, volume…)</label>
+        <label class="coche"><input type="checkbox" id="lightColor" /> Prendre la couleur réelle de la lampe</label>
+        <label class="coche"><input type="checkbox" id="art" /> Pochette de l'album pendant la lecture</label>
+        <div id="rules-card">
+          <h3>Règles d'affichage</h3>
+          <p class="aide">La première règle qui correspond change la couleur ou fait clignoter la touche.</p>
+          <div id="regles"></div>
+          <button type="button" class="btn" id="regle-plus">Ajouter une règle</button>
+        </div>
+      </details>
     </section>
 
     <section class="carte" id="tools-card">
       <div class="rang">
         <button type="button" class="btn pri" id="tester">Tester</button>
-        <button type="button" class="btn" id="copier">Copier les réglages</button>
-        <button type="button" class="btn" id="coller">Coller</button>
+        <button type="button" class="btn" id="full-editor">Ouvrir en grand</button>
         <span class="etat" id="etat"></span>
       </div>
     </section>

@@ -1205,7 +1205,7 @@
   "desktop.set.enabled": "Activer les zones",
   "desktop.set.enabledSub": "Affiche les zones sur le bureau au démarrage de MultiOutils",
   "desktop.set.hideNative": "Masquer les icônes Windows",
-  "desktop.set.hideNativeSub": "Les zones affichent alors toutes les icônes. Elles reviennent dès que MultiOutils s'arrête.",
+  "desktop.set.hideNativeSub": "Désactive cette option pour sélectionner plusieurs icônes du bureau Windows par clic-glissé.",
   "desktop.set.opacity": "Opacité du fond",
   "desktop.set.opacitySub": "Fond en verre, aux couleurs de MultiOutils",
   "desktop.set.snap": "Aimantation",
