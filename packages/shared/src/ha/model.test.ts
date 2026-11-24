@@ -78,6 +78,9 @@ describe('états et actions', () => {
     expect(formatState(st('sensor.t', '21.46', { unit_of_measurement: '°C' }), 1)).toBe('21,5 °C');
     expect(formatState(st('sensor.b', '80', { unit_of_measurement: '%' }))).toBe('80 %');
     expect(formatState(st('light.a', 'on'))).toBe('Allumé');
+    expect(formatState(st('binary_sensor.porte', 'on', { device_class: 'door' }))).toBe('Ouvert');
+    expect(formatState(st('binary_sensor.porte', 'off', { device_class: 'door' }))).toBe('Fermé');
+    expect(formatState(st('binary_sensor.x', 'on'))).toBe('Allumé');
     expect(formatState(st('light.a', 'unavailable'))).toBe('Indisponible');
   });
 

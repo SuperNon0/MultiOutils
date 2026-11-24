@@ -82,6 +82,16 @@ describe('touches Home Assistant personnalisées', () => {
     await a.onSendToPlugin({ action: k, payload: { cmd: 'iconPair', id: 'ic_test' } }); await vi.advanceTimersByTimeAsync(0);
     expect(sentToPI()).toContainEqual(expect.objectContaining({ cmd: 'iconPair', id: 'ic_test', on: 'data:image/svg+xml,1', off: 'data:image/svg+xml,0' }));
   });
+  it('remplace le texte de l’état par celui choisi (porte : Ouvert / Fermé)', async () => {
+    const a = actions.get('com.supernon0.multioutils.ha.sensor'), k = key();
+    state = { entity_id: 'binary_sensor.porte', state: 'on', attributes: { friendly_name: 'Porte' } };
+    await a.onWillAppear(event(k, { entity: 'binary_sensor.porte', customIcon: true, stateOnText: 'Ouverte', stateOffText: 'Fermée' })); await vi.advanceTimersByTimeAsync(0);
+    expect(k.setTitle).toHaveBeenLastCalledWith('Porte\nOuverte');
+    state.state = 'off'; listeners.forEach((fn) => fn(['binary_sensor.porte'])); await vi.advanceTimersByTimeAsync(0);
+    expect(k.setTitle).toHaveBeenLastCalledWith('Porte\nFermée');
+    state.state = 'unavailable'; listeners.forEach((fn) => fn(['binary_sensor.porte'])); await vi.advanceTimersByTimeAsync(0);
+    expect(k.setTitle).toHaveBeenLastCalledWith('Porte\nIndisponible');
+  });
   it('annule une confirmation précédente lorsque les réglages changent', async () => {
     const a = actions.get('com.supernon0.multioutils.ha.light'), k = key();
     await a.onWillAppear(event(k, { entity: 'light.test', customIcon: true, confirm: true })); await vi.advanceTimersByTimeAsync(0);

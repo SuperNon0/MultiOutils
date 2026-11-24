@@ -740,6 +740,8 @@
   bindField('titleMode', 'titleMode');
   bindField('titleText', 'titleText');
   bindField('valueMode', 'valueMode');
+  bindField('stateOnText', 'stateOnText');
+  bindField('stateOffText', 'stateOffText');
   $('color').oninput = () => set('color', $('color').value);
   $('colorOff').oninput = () => set('colorOff', $('colorOff').value);
   document.querySelectorAll('[data-raz]').forEach((b) => (b.onclick = () => {
@@ -763,6 +765,10 @@
     $('titleText').value = settings.titleText || '';
     $('titleText').hidden = (settings.titleMode || 'auto') !== 'custom';
     $('valueMode').value = settings.valueMode || 'auto';
+    $('stateOnText').value = settings.stateOnText || '';
+    $('stateOffText').value = settings.stateOffText || '';
+    // États texte seulement : pas pour une valeur chiffrée (température, nombre…) ni sans entité.
+    $('stateText-row').hidden = !settings.entity || ['sensor', 'number', 'input_number', 'weather', 'climate', 'input_text', 'text', 'input_select', 'select', 'camera', 'scene', 'script', 'button', 'input_button'].includes(domainOf(settings.entity));
     const d = domainOf(settings.entity);
     $('gauge').checked = settings.gauge != null ? !!settings.gauge : ['light', 'cover', 'media_player', 'fan'].includes(d);
     $('gauge').parentElement.hidden = !!settings.customIcon || !!settings.libraryIcon;
