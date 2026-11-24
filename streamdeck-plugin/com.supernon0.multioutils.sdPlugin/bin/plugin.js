@@ -8629,8 +8629,36 @@ function formatState(s, decimals, lang = 'fr') {
         if (typeof cur === 'number')
             return `${new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(cur)} °`;
     }
+    if (d === 'binary_sensor' && (s.state === 'on' || s.state === 'off')) {
+        const pair = BINARY_FR[String(s.attributes?.device_class ?? '')];
+        if (pair)
+            return s.state === 'on' ? pair[0] : pair[1];
+    }
     return STATE_FR[s.state] ?? s.state;
 }
+/** Capteurs binaires : « actif / inactif » selon leur type (comme Home Assistant). */
+const BINARY_FR = {
+    door: ['Ouvert', 'Fermé'],
+    window: ['Ouvert', 'Fermé'],
+    opening: ['Ouvert', 'Fermé'],
+    garage_door: ['Ouvert', 'Fermé'],
+    lock: ['Déverrouillé', 'Verrouillé'],
+    motion: ['Mouvement', 'Calme'],
+    occupancy: ['Occupé', 'Libre'],
+    presence: ['Présent', 'Absent'],
+    moisture: ['Humide', 'Sec'],
+    smoke: ['Fumée', 'OK'],
+    gas: ['Gaz', 'OK'],
+    carbon_monoxide: ['CO', 'OK'],
+    plug: ['Branché', 'Débranché'],
+    power: ['Alimenté', 'Coupé'],
+    connectivity: ['Connecté', 'Déconnecté'],
+    battery: ['Faible', 'Normale'],
+    battery_charging: ['En charge', 'Pas en charge'],
+    problem: ['Problème', 'OK'],
+    vibration: ['Vibration', 'Calme'],
+    sound: ['Son', 'Calme']
+};
 const STATE_FR = {
     on: 'Allumé',
     off: 'Éteint',
@@ -10053,11 +10081,14 @@ function registerHaActions(env) {
         // textes
         const title = s.titleMode === 'none' ? '' : s.titleMode === 'custom' ? (s.titleText ?? '') : (st?.attributes?.friendly_name ?? (id ? id.split('.')[1] : 'Home Assistant'));
         let value = '';
-        const wantValue = s.valueMode === 'show' || (s.valueMode !== 'hide' && showsValueByDefault(id, mode));
+        const customState = (st && !isUnavailable(st) && !Number.isFinite(Number(st.state))
+            ? (isOnState(st) ? s.stateOnText : s.stateOffText) : undefined)?.trim();
+        const hasStateText = !!(s.stateOnText?.trim() || s.stateOffText?.trim());
+        const wantValue = s.valueMode === 'show' || (s.valueMode !== 'hide' && (hasStateText || showsValueByDefault(id, mode)));
         if (mode === 'template')
             value = e.templateValue ?? '…';
         else if (wantValue && st)
-            value = formatState(st, s.decimals ?? null);
+            value = customState || formatState(st, s.decimals ?? null);
         const gauge = (s.gauge ?? gaugeByDefault(id)) ? gaugePercent(st) : null;
         // image (caméra, pochette)
         let image = null;

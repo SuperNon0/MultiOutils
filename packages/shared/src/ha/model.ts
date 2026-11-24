@@ -249,8 +249,36 @@ export function formatState(s: HaRawState | undefined, decimals?: number | null,
     const cur = s.attributes?.current_temperature;
     if (typeof cur === 'number') return `${new Intl.NumberFormat(lang, { maximumFractionDigits: 1 }).format(cur)} °`;
   }
+  if (d === 'binary_sensor' && (s.state === 'on' || s.state === 'off')) {
+    const pair = BINARY_FR[String(s.attributes?.device_class ?? '')];
+    if (pair) return s.state === 'on' ? pair[0] : pair[1];
+  }
   return STATE_FR[s.state] ?? s.state;
 }
+
+/** Capteurs binaires : « actif / inactif » selon leur type (comme Home Assistant). */
+const BINARY_FR: Record<string, [string, string]> = {
+  door: ['Ouvert', 'Fermé'],
+  window: ['Ouvert', 'Fermé'],
+  opening: ['Ouvert', 'Fermé'],
+  garage_door: ['Ouvert', 'Fermé'],
+  lock: ['Déverrouillé', 'Verrouillé'],
+  motion: ['Mouvement', 'Calme'],
+  occupancy: ['Occupé', 'Libre'],
+  presence: ['Présent', 'Absent'],
+  moisture: ['Humide', 'Sec'],
+  smoke: ['Fumée', 'OK'],
+  gas: ['Gaz', 'OK'],
+  carbon_monoxide: ['CO', 'OK'],
+  plug: ['Branché', 'Débranché'],
+  power: ['Alimenté', 'Coupé'],
+  connectivity: ['Connecté', 'Déconnecté'],
+  battery: ['Faible', 'Normale'],
+  battery_charging: ['En charge', 'Pas en charge'],
+  problem: ['Problème', 'OK'],
+  vibration: ['Vibration', 'Calme'],
+  sound: ['Son', 'Calme']
+};
 
 const STATE_FR: Record<string, string> = {
   on: 'Allumé',
