@@ -168,3 +168,9 @@ details.plus > summary::before { content: '▸ '; }
 details.plus[open] > summary::before { content: '▾ '; }
 details.plus[open] { display: grid; gap: 8px; }
 details.plus #rules-card { display: grid; gap: 8px; margin-top: 4px; }
+
+/* Icône de l'atelier : ses deux versions côte à côte */
+.paire { display: flex; gap: 12px; margin: 4px 0 6px; }
+.paire figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.paire img { width: 56px; height: 56px; border-radius: 10px; background: #000; }
+.paire figcaption { font-size: 11px; opacity: .75; }

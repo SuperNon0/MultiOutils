@@ -11,6 +11,18 @@
     ]
   },
   {
+    "version": "0.14.1",
+    "date": "2026-11-24",
+    "titre": "Icônes de l’atelier allumées ou éteintes sur les touches Home Assistant",
+    "nouveautes": [
+      "Stream Deck Home Assistant : une icône de l’atelier choisie pour une touche affiche ses deux versions, allumée et éteinte (onglet « Éteint » de l’atelier), et la touche passe de l’une à l’autre selon l’état de l’entité. Tu peux aussi garder toujours la version allumée ou toujours la version éteinte.",
+      "La touche garde les couleurs dessinées dans l’atelier ; « Prendre la couleur réelle de la lampe » reste possible pour une lumière."
+    ],
+    "corrections": [
+      "Le plugin Stream Deck 0.11.1.0 est disponible dans Réglages → Mises à jour."
+    ]
+  },
+  {
     "version": "0.14.0",
     "date": "2026-11-24",
     "titre": "Atelier d’icônes et Home Assistant plus simples, zones sous les applications",

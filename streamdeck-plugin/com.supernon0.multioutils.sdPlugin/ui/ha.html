@@ -52,6 +52,21 @@
         </select>
       </label>
       <p class="aide" id="iconSource-help">Tes icônes de l'atelier MultiOutils apparaissent aussi dans cette liste.</p>
+      <div id="library-look" hidden>
+        <div class="paire">
+          <figure><img id="libOn" alt="" /><figcaption>Allumé</figcaption></figure>
+          <figure><img id="libOff" alt="" /><figcaption>Éteint</figcaption></figure>
+        </div>
+        <p class="aide" id="libHelp"></p>
+        <label>Version affichée
+          <select id="libraryState">
+            <option value="auto">Suivre l'état (allumé / éteint)</option>
+            <option value="on">Toujours la version allumée</option>
+            <option value="off">Toujours la version éteinte</option>
+          </select>
+        </label>
+        <label class="coche" id="libLampRow"><input type="checkbox" id="libraryLampColor" /> Prendre la couleur réelle de la lampe</label>
+      </div>
       <div id="auto-look">
         <label>Style
           <select id="style">

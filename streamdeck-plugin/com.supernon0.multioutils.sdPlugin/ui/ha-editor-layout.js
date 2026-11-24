@@ -90,7 +90,8 @@
       'titleMode': ['Nom affiché', 'Affiche le nom de l’entité, un nom personnalisé ou aucun nom. Le titre natif Stream Deck doit rester vide pour laisser le plugin le mettre à jour.'],
       'valueMode': ['Valeur', 'Affiche l’état ou la valeur de l’entité : température, luminosité, position, volume… Le mode automatique choisit selon son type.'],
       'gauge': ['Jauge', 'Ajoute une barre à l’icône automatique pour la luminosité, la position ou le volume.'],
-      'lightColor': ['Couleur de la lampe', 'Le symbole automatique ou de l’atelier suit la couleur réelle de la lumière. Les images personnalisées Stream Deck gardent leurs propres couleurs.'],
+      'lightColor': ['Couleur de la lampe', 'Le symbole automatique suit la couleur réelle de la lumière. Les images personnalisées Stream Deck gardent leurs propres couleurs.'],
+      'libraryState': ['Version affichée', 'Une icône de l’atelier peut avoir deux versions : allumée et éteinte (onglet « Éteint » de l’atelier). Par défaut, la touche suit l’état de l’entité ; tu peux aussi garder toujours la même version.'],
       'art': ['Pochette', 'Utilise la pochette de l’album pendant la lecture sur une icône automatique.'],
       'regles': ['Règles d’affichage', 'La première règle qui correspond peut changer la couleur ou faire clignoter une icône automatique.'],
       'direct': ['Connexion', 'La connexion principale est celle de MultiOutils. Les champs ci-dessous définissent seulement la connexion directe de secours du plugin ; ils sont partagés entre toutes ses touches.']
