@@ -1,5 +1,12 @@
 import { BrowserWindow, clipboard, ipcMain, screen } from 'electron';
 import type { Display, NativeImage } from 'electron';
+import {
+  cleanColorFolder,
+  cleanColorLibrary,
+  cleanSavedColor,
+  upsertById,
+  type ColorLibrary
+} from '../../../common/colors';
 import type { RegionShot } from '../../../common/types';
 import type { MainHostContext, MainToolModule } from '../../module-registry';
 import { captureDisplay, hideAppWindows } from '../../screen-utils';
@@ -18,6 +25,7 @@ export interface PickedColor {
 const FORMAT_KEY = 'colorpicker.format';
 const HISTORY_KEY = 'colorpicker.history';
 const HISTORY_MAX = 12;
+const LIBRARY_KEY = 'colorpicker.library';
 
 /**
  * Module « Pipette de couleur » (docs/00 §9.2) : loupe plein écran sur image
@@ -47,6 +55,21 @@ export function createColorPickerMainModule(): MainToolModule {
   const getFormat = (): 'hex' | 'rgb' | 'hsl' => {
     const value = kvGet(FORMAT_KEY);
     return value === 'rgb' || value === 'hsl' ? value : 'hex';
+  };
+
+  /** « Mes couleurs » : couleurs nommées, rangées en dossiers. */
+  const getLibrary = (): ColorLibrary => {
+    try {
+      return cleanColorLibrary(JSON.parse(kvGet(LIBRARY_KEY) ?? '{}'));
+    } catch {
+      return { colors: [], folders: [] };
+    }
+  };
+  const setLibrary = (lib: ColorLibrary): ColorLibrary => {
+    const clean = cleanColorLibrary(lib);
+    kvSet(LIBRARY_KEY, JSON.stringify(clean));
+    ctx.broadcast('colorpicker:historyChanged');
+    return clean;
   };
 
   const getHistory = (): PickedColor[] => {
@@ -167,12 +190,44 @@ export function createColorPickerMainModule(): MainToolModule {
         kvSet(HISTORY_KEY, '[]');
         ctx.broadcast('colorpicker:historyChanged');
       });
+      ipcMain.handle('colorpicker:library', () => getLibrary());
+      ipcMain.handle('colorpicker:saveColor', (_event, raw: unknown) => {
+        const lib = getLibrary();
+        const c = cleanSavedColor(raw, new Set(lib.folders.map((f) => f.id)));
+        if (!c) return null;
+        setLibrary({ ...lib, colors: upsertById(lib.colors, c) });
+        return c;
+      });
+      ipcMain.handle('colorpicker:removeColor', (_event, id: string) => {
+        const lib = getLibrary();
+        setLibrary({ ...lib, colors: lib.colors.filter((c) => c.id !== id) });
+      });
+      ipcMain.handle('colorpicker:saveFolder', (_event, raw: unknown) => {
+        const f = cleanColorFolder(raw);
+        if (!f) return null;
+        const lib = getLibrary();
+        setLibrary({ ...lib, folders: upsertById(lib.folders, f) });
+        return f;
+      });
+      // Supprimer un dossier garde ses couleurs (elles passent « sans dossier »).
+      ipcMain.handle('colorpicker:removeFolder', (_event, id: string) => {
+        const lib = getLibrary();
+        setLibrary({
+          folders: lib.folders.filter((f) => f.id !== id),
+          colors: lib.colors.map((c) => (c.folder === id ? { ...c, folder: null } : c))
+        });
+      });
       ipcMain.handle('colorpicker:getFormat', () => getFormat());
       ipcMain.handle('colorpicker:setFormat', (_event, format: string) => {
         kvSet(FORMAT_KEY, format === 'rgb' || format === 'hsl' ? format : 'hex');
       });
 
       ctx.registerLocalCommand('colorpicker.start', () => start());
+      // Plugin Stream Deck : couleurs prises à la pipette, pour les proposer dans ses réglages.
+      ctx.registerLocalRoute('GET', /^\/colorpicker\/colors$/, () => {
+        const history = getHistory().filter((c) => typeof c?.hex === 'string' && /^#[0-9a-f]{6}$/i.test(c.hex));
+        return { colors: history.map((c) => c.hex.toLowerCase()), last: history[0]?.pickedAt ?? null, library: getLibrary() };
+      });
     },
 
     trayMenuItems(hostCtx: MainHostContext) {

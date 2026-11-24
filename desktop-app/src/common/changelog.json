@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.18.2",
+    "date": "2026-11-24",
+    "titre": "Tes couleurs de la pipette partout",
+    "nouveautes": [
+      "Pipette : nouvelle section « Mes couleurs ». Le « + » sur une couleur de l’historique l’enregistre avec un nom (ex. Lavande), et tu peux les ranger dans des dossiers (ex. Fonds). Clic droit pour renommer, déplacer ou retirer.",
+      "Stream Deck Home Assistant : sous chaque choix de couleur, les dernières couleurs prises à la pipette en un clic, le bouton « Mes couleurs » (tes couleurs nommées, par dossier) et un bouton « Pipette » pour prendre une couleur à l’écran directement.",
+      "Le plugin Stream Deck 0.12.2.0 est disponible dans Réglages → Mises à jour."
+    ]
+  },
+  {
     "version": "0.18.1",
     "date": "2026-11-24",
     "titre": "Couleurs des touches Home Assistant",
