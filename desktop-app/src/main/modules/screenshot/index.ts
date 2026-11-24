@@ -62,7 +62,7 @@ export function createScreenshotMainModule(): MainToolModule {
           engine.saveImage(image);
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          ctx.notify(ctx.i18n.t('notif.captureError', { msg }));
+          ctx.notify(ctx.i18n.t('notif.captureError', { msg }), undefined, { error: true });
         }
       });
       picker = new WindowPickerFlow((image, appName) => {
@@ -70,7 +70,7 @@ export function createScreenshotMainModule(): MainToolModule {
           engine.saveImage(image, { appName });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          ctx.notify(ctx.i18n.t('notif.captureError', { msg }));
+          ctx.notify(ctx.i18n.t('notif.captureError', { msg }), undefined, { error: true });
         }
       });
       engine.setFlows({
@@ -89,7 +89,7 @@ export function createScreenshotMainModule(): MainToolModule {
             engine.importImage(payload.image, { createdAt: payload.createdAt });
           } catch (err) {
             const msg = err instanceof Error ? err.message : String(err);
-            ctx.notify(ctx.i18n.t('notif.captureError', { msg }));
+            ctx.notify(ctx.i18n.t('notif.captureError', { msg }), undefined, { error: true });
           }
         }
       );

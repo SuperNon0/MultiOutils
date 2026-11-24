@@ -39,6 +39,9 @@ export function applySettings(
   if (patch.appearance) {
     applyAppearance(next.appearance);
   }
+  if (patch.notifications) {
+    ctx.notifications.refresh();
+  }
   if (patch.delayedSeconds != null || patch.shortcuts) {
     ctx.events.emit('tray-refresh'); // libellés / accélérateurs affichés
   }

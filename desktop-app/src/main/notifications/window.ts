@@ -1,13 +1,13 @@
 /**
- * Fenêtres des pop-ups Home Assistant : transparentes, toujours au-dessus,
+ * Fenêtres des pop-ups de MultiOutils (et de Home Assistant) : transparentes, toujours au-dessus,
  * sans prendre le focus (on ne vole pas le clavier pendant qu'on tape).
  * Une fenêtre par emplacement utilisé (coins, haut, bas, centre de l'écran
  * principal) : chaque notification peut choisir le sien. Chaque fenêtre
  * prend la hauteur de sa pile et la largeur de sa plus grande carte.
  */
 import { BrowserWindow, screen } from 'electron';
-import type { HaNotification, HaToastMsg, HaToastPosition, HaToastSize } from '../../../../common/launcher';
-import { loadRenderer, preloadPath } from '../../../windows';
+import type { HaNotification, HaToastMsg, HaToastPosition, HaToastSize } from '../../common/launcher';
+import { loadRenderer, preloadPath } from '../windows';
 
 /** Largeur d'une carte + marge transparente pour l'ombre (px CSS, voir ha.css). */
 export const TOAST_WIDTHS: Record<HaToastSize, number> = { small: 340, normal: 420, large: 600 };
@@ -65,7 +65,7 @@ class StackWindow {
       skipTaskbar: true,
       alwaysOnTop: true,
       hasShadow: false,
-      title: 'MultiOutils — Home Assistant',
+      title: 'MultiOutils — Notifications',
       webPreferences: {
         preload: preloadPath(),
         contextIsolation: true,

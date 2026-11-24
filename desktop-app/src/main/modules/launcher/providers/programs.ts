@@ -187,7 +187,7 @@ export function createProgramsProvider(env: LauncherEnv, index: ProgramIndex): P
       return { kind: 'hide' };
     }
     void env.openPath(e.path).then((err) => {
-      if (err) env.notify(env.t('launcher.error.open'), err);
+      if (err) env.notify(env.t('launcher.error.open'), err, { error: true });
     });
     return { kind: 'hide' };
   };

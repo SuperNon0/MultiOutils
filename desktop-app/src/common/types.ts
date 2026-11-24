@@ -3,6 +3,7 @@
  * Les types partagés app ↔ serveur restent dans @multioutils/shared.
  */
 import type { Capture, Folder, Tag } from '@multioutils/shared';
+import type { NotifSettings } from './notifications';
 
 export type Language = 'fr' | 'en';
 
@@ -72,6 +73,8 @@ export interface AppSettings {
   aiPrices: Record<string, AiPrice>;
   /** Traduction IA : clé Gemini sur l'offre gratuite d'AI Studio (coût 0). */
   aiGeminiFreeTier: boolean;
+  /** Notifications (pop-ups) : emplacement, son, familles activées. */
+  notifications: NotifSettings;
 }
 
 // ── Extraire le texte / Traduction IA ─────────────────────────────────────
