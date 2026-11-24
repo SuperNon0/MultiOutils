@@ -113,6 +113,12 @@
     if (m.cmd === 'iconLibrary') {
       libraryDesigns = m.designs || [];
       fillIconSource();
+      pairFor = ''; // la liste arrive une fois la connexion ouverte : on (re)demande l'aperçu
+      renderLibraryLook();
+    } else if (m.cmd === 'iconPair') {
+      if (m.id !== settings.libraryIcon) return;
+      $('libOn').src = m.on || BLANK;
+      $('libOff').src = m.off || BLANK;
     } else if (m.cmd === 'status') renderStatus(m);
     else if (m.cmd === 'catalog') {
       catalog = m.catalog;
@@ -680,7 +686,7 @@
     add('__sd', 'Mes images Stream Deck (éteint / allumé)');
     if (libraryDesigns.length) {
       const group = document.createElement('optgroup'); group.label = 'Atelier MultiOutils';
-      for (const d of libraryDesigns) add(d.id, d.name, group);
+      for (const d of libraryDesigns) add(d.id, d.twoStates ? d.name + ' · allumé / éteint' : d.name, group);
       select.appendChild(group);
     }
     // icône de l'atelier supprimée depuis : on la garde visible pour ne pas la perdre en silence
@@ -693,9 +699,34 @@
     if (v === '__sd') { settings.customIcon = true; delete settings.libraryIcon; }
     else if (v) { settings.libraryIcon = v; delete settings.customIcon; }
     else { delete settings.customIcon; delete settings.libraryIcon; }
+    if (!settings.libraryIcon) { delete settings.libraryState; delete settings.libraryLampColor; }
     save(true);
     renderLook();
   };
+
+  /** Icône de l'atelier : aperçu des deux versions et version affichée. */
+  const BLANK = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+  let pairFor = '';
+  function renderLibraryLook() {
+    const id = settings.libraryIcon || '';
+    $('library-look').hidden = !id;
+    if (!id) { pairFor = ''; return; }
+    if (pairFor !== id) {
+      pairFor = id;
+      $('libOn').src = $('libOff').src = BLANK;
+      toPlugin({ cmd: 'iconPair', id });
+    }
+    const d = libraryDesigns.find((x) => x.id === id);
+    const two = !!d && !!d.twoStates;
+    $('libHelp').textContent = !d ? ''
+      : two ? 'La touche passe de la version allumée à la version éteinte selon l’état de l’entité.'
+      : 'Cette icône n’a qu’une version. Pour lui en donner une éteinte, ouvre-la dans l’atelier, onglet « Éteint ».';
+    $('libraryState').value = settings.libraryState || 'auto';
+    $('libraryLampColor').checked = !!settings.libraryLampColor;
+    $('libLampRow').hidden = domainOf(settings.entity) !== 'light';
+  }
+  $('libraryState').onchange = () => set('libraryState', $('libraryState').value === 'auto' ? undefined : $('libraryState').value);
+  $('libraryLampColor').onchange = () => set('libraryLampColor', $('libraryLampColor').checked ? true : undefined);
 
   function bindField(id, key) {
     const el = $(id);
@@ -722,6 +753,7 @@
 
   function renderLook() {
     fillIconSource();
+    renderLibraryLook();
     // Images Stream Deck et icônes de l'atelier gardent leur propre dessin : pas de style ni de couleurs.
     $('auto-look').hidden = !!settings.customIcon || !!settings.libraryIcon;
     $('style').value = settings.style || 'accent';
@@ -735,7 +767,7 @@
     $('gauge').checked = settings.gauge != null ? !!settings.gauge : ['light', 'cover', 'media_player', 'fan'].includes(d);
     $('gauge').parentElement.hidden = !!settings.customIcon || !!settings.libraryIcon;
     $('lightColor').checked = settings.lightColor !== false;
-    $('lightColor').parentElement.hidden = d !== 'light' || !!settings.customIcon;
+    $('lightColor').parentElement.hidden = d !== 'light' || !!settings.customIcon || !!settings.libraryIcon;
     $('art').checked = settings.art !== false;
     $('art').parentElement.hidden = d !== 'media_player' || !!settings.customIcon || !!settings.libraryIcon;
     $('confirm').checked = !!settings.confirm;
