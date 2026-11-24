@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.18.1",
+    "date": "2026-11-24",
+    "titre": "Couleurs des touches Home Assistant",
+    "corrections": [
+      "Stream Deck Home Assistant : la « Couleur éteint » s’applique vraiment au symbole quand l’entité est éteinte (avant, il restait gris dans le style classique).",
+      "Le plugin Stream Deck 0.12.1.0 est disponible dans Réglages → Mises à jour."
+    ],
+    "nouveautes": [
+      "Stream Deck Home Assistant : nouvelle « Couleur de fond » pour les icônes automatiques ; le texte s’adapte pour rester lisible.",
+      "Les règles d’affichage sont retirées du panneau des touches Home Assistant (et effacées des touches existantes à l’ouverture du panneau)."
+    ]
+  },
+  {
     "version": "0.18.0",
     "date": "2026-11-24",
     "titre": "Tes playlists Spotify dans le lanceur",

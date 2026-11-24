@@ -67,9 +67,6 @@ select { text-overflow: ellipsis; }
 .champ { display: grid; gap: 4px; }
 .champ .ligne { display: flex; gap: 6px; align-items: center; }
 .champ .ligne input[type="number"] { width: 80px; flex: none; }
-.regle { display: grid; grid-template-columns: 1.1fr 0.9fr auto auto auto; gap: 5px; align-items: center; }
-.regle input[type="color"] { width: 34px; }
-.regle .x { color: var(--danger); background: none; border: 0; cursor: pointer; font-size: 16px; }
 #mode-zone { display: grid; gap: 8px; }
 
 /* Fenêtre unique Encre : navigation, formulaire et aperçu, sans sous-fenêtre. */
@@ -167,7 +164,6 @@ details.plus > summary::-webkit-details-marker { display: none; }
 details.plus > summary::before { content: '▸ '; }
 details.plus[open] > summary::before { content: '▾ '; }
 details.plus[open] { display: grid; gap: 8px; }
-details.plus #rules-card { display: grid; gap: 8px; margin-top: 4px; }
 
 /* Icône de l'atelier : ses deux versions côte à côte */
 .paire { display: flex; gap: 12px; margin: 4px 0 6px; }

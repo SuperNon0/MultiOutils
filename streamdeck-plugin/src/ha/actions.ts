@@ -23,7 +23,6 @@ import {
   isOnState,
   isUnavailable,
   lightColor,
-  matchRule,
   searchEntities
 } from '../../../packages/shared/src/ha/model';
 import type { HaRawState } from '../../../packages/shared/src/ha/socket';
@@ -121,7 +120,6 @@ interface GlobalSettings extends JsonObject {
 export function registerHaActions(env: Env): void {
   const hub = new HaHub((...a) => streamDeck.logger.debug(a.map(String).join(' ')));
   const entries = new Map<string, Entry>();
-  let blink = false;
   let globals: GlobalSettings = {};
 
   const applyGlobals = (g: GlobalSettings): void => {
@@ -155,12 +153,11 @@ export function registerHaActions(env: Env): void {
     const offline = hub.status.state !== 'connected';
     const mode = s.mode ?? 'auto';
     const on = mode === 'template' || mode === 'event' || mode === 'service' ? true : isOnState(st) || ['scene', 'button', 'input_button'].includes(domain);
-    const rule = matchRule(s.rules, st);
 
     await e.key.setState(on ? 1 : 0);
 
     // icône
-    let iconName = rule?.icon || (on ? s.icon : s.iconOff || s.icon) || '';
+    let iconName = (on ? s.icon : s.iconOff || s.icon) || '';
     if (!iconName) {
       if (mode === 'template') iconName = 'mdi:code-braces';
       else if (mode === 'event') iconName = 'mdi:lightning-bolt';
@@ -171,9 +168,9 @@ export function registerHaActions(env: Env): void {
 
     // couleur
     let color = HEX.test(s.color ?? '') ? (s.color as string) : t.accent;
-    if (!on && HEX.test(s.colorOff ?? '')) color = s.colorOff as string;
     if (s.lightColor !== false) color = lightColor(st) ?? color;
-    if (rule?.color && HEX.test(rule.color)) color = rule.color;
+    // Couleur « éteint » choisie : appliquée telle quelle (sinon le symbole est simplement atténué).
+    const offColor = HEX.test(s.colorOff ?? '') ? (s.colorOff as string) : undefined;
 
     // textes
     const title =
@@ -226,6 +223,8 @@ export function registerHaActions(env: Env): void {
       background: t.background,
       dark: t.theme === 'dark',
       color,
+      offColor,
+      bgColor: HEX.test(s.bgColor ?? '') ? s.bgColor : undefined,
       on,
       iconPath: iconPath ?? null,
       fallback: mode === 'template' ? FALLBACK.template : mode === 'event' ? FALLBACK.event : fallbackFor(domain),
@@ -236,7 +235,6 @@ export function registerHaActions(env: Env): void {
       unavailable: !!id && mode !== 'event' && mode !== 'template' && isUnavailable(st) && !offline,
       offline,
       image,
-      dimmed: !!rule?.blink && blink,
       confirm: e.confirmUntil && e.confirmUntil > Date.now() ? 'Confirmer ?' : undefined
     });
     if (revision !== e.drawRevision) return;
@@ -438,11 +436,9 @@ export function registerHaActions(env: Env): void {
     void draw(e);
   };
 
-  // Rafraîchissements périodiques : clignotement, caméras, modèles.
+  // Rafraîchissements périodiques : confirmation, caméras, modèles.
   setInterval(() => {
-    blink = !blink;
     for (const e of entries.values()) {
-      if (e.s.rules?.some((r) => r?.blink)) void draw(e);
       if (e.confirmUntil && e.confirmUntil < Date.now()) {
         e.confirmUntil = 0;
         void draw(e);

@@ -6,8 +6,7 @@ import {
   defaultPress,
   haDomainOf,
   isOnState,
-  parseServiceData,
-  type HaRule
+  parseServiceData
 } from '../../../packages/shared/src/ha/model';
 import type { HaRawState } from '../../../packages/shared/src/ha/socket';
 
@@ -76,7 +75,8 @@ export interface HaKeySettings {
   color?: string;
   colorOff?: string;
   style?: 'accent' | 'plein' | 'symbole' | 'teinte';
-  rules?: HaRule[];
+  /** Couleur de fond des icônes automatiques ; absente = fond du thème. */
+  bgColor?: string;
   /** Lumière : un appui long ouvre le panneau lumière (profil Stream Deck). */
   panel?: boolean;
   /** Panneau lumière : 16 teintes ({ c: '#rrggbb' } ou { k: kelvins }), absentes = selon l'ampoule. */
