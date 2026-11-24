@@ -10,6 +10,7 @@ import streamDeck, {
   type JsonObject,
   type JsonValue,
   type KeyDownEvent,
+  type KeyUpEvent,
   type SendToPluginEvent,
   type WillAppearEvent,
   type WillDisappearEvent
@@ -29,7 +30,26 @@ import type { HaRawState } from '../../../packages/shared/src/ha/socket';
 import { HaHub, type DirectConfig } from './hub';
 import { HA_KINDS, type HaKind } from './kinds';
 import { fallbackFor, FALLBACK, renderKey, type KeyStyle } from './render';
-import { gaugeByDefault, planPress, showsValueByDefault, type HaKeySettings } from './settings';
+import { gaugeByDefault, planPress, showsValueByDefault, type HaKeySettings, type PressPlan } from './settings';
+import {
+  LONG_PRESS_MS,
+  PANEL_ACTION,
+  PANEL_PROFILE,
+  PAGES,
+  SLOTS_PER_PAGE,
+  currentLevel,
+  levelPlan,
+  lightCaps,
+  renderBack,
+  renderLevel,
+  renderPage,
+  renderSlot,
+  resolveLevels,
+  resolveSlots,
+  slotActive,
+  slotPlan,
+  type PanelKeySettings
+} from './light-panel';
 
 export interface PluginTheme {
   theme: 'dark' | 'light';
@@ -44,6 +64,7 @@ interface Env {
 
 interface SdKey {
   id: string;
+  device?: { id: string };
   setTitle(title?: string): Promise<void>;
   setImage(image?: string, options?: { state: 0 | 1 }): Promise<void>;
   setState(state: 0 | 1): Promise<void>;
@@ -68,6 +89,25 @@ interface Entry {
   editorPolling?: string;
   /** L'icône de l'atelier était indisponible au dernier dessin (alerte déjà montrée). */
   libraryFailed?: boolean;
+  /** Appui long en cours (panneau lumière). */
+  holdTimer?: ReturnType<typeof setTimeout>;
+  held?: boolean;
+}
+
+/** Panneau lumière ouvert sur un Stream Deck. */
+interface PanelState {
+  entity: string;
+  name: string;
+  slots: unknown;
+  levels: unknown;
+  page: number;
+}
+
+interface PanelKey {
+  key: SdKey;
+  s: PanelKeySettings;
+  device: string;
+  lastSvg?: string;
 }
 
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -210,7 +250,120 @@ export function registerHaActions(env: Env): void {
         void draw(e);
       }
     }
+    for (const [device, p] of panels) if (!ids || ids.includes(p.entity)) drawPanel(device);
   });
+
+  /* ───────── panneau lumière (appui long) ───────── */
+
+  const panels = new Map<string, PanelState>();
+  const panelKeys = new Map<string, PanelKey>();
+
+  const drawPanelKey = async (k: PanelKey): Promise<void> => {
+    const t = env.theme();
+    const look = { dark: t.theme === 'dark', background: t.background, accent: t.accent };
+    const p = panels.get(k.device);
+    const st = p ? hub.get(p.entity) : undefined;
+    const caps = lightCaps(st);
+    const lamp = lightColor(st);
+    const role = k.s.role;
+    const i = Number(k.s.index) || 0;
+    let svg: string;
+    if (role === 'back') svg = renderBack(look, p ? p.name : 'Retour');
+    else if (role === 'page') svg = renderPage(look, p?.page ?? 0, caps, lamp, hub.status.state !== 'connected');
+    else if (role === 'slot') {
+      const slot = p ? resolveSlots(p.slots, caps)[(p.page * SLOTS_PER_PAGE) + i] ?? null : null;
+      svg = renderSlot(look, slot, slotActive(slot, st));
+    } else if (role === 'level') {
+      const levels = resolveLevels(p?.levels);
+      const cur = currentLevel(st);
+      svg = renderLevel(look, levels[i], i, !!p && cur > 0 && Math.abs(cur - levels[i]) <= 2, lamp);
+    } else return;
+    if (svg === k.lastSvg) return;
+    k.lastSvg = svg;
+    await k.key.setTitle('');
+    await k.key.setImage(svg);
+  };
+  const drawPanel = (device: string): void => {
+    for (const k of panelKeys.values()) if (k.device === device) void drawPanelKey(k);
+  };
+
+  const openPanel = async (e: Entry): Promise<void> => {
+    const device = e.key.device?.id;
+    const entity = e.s.entity ?? '';
+    if (!device || !entity) return void e.key.showAlert();
+    const prev = panels.get(device);
+    if (prev) hub.unwatch(prev.entity);
+    hub.watch(entity);
+    const st = hub.get(entity);
+    const name = e.s.titleMode === 'custom' && e.s.titleText ? e.s.titleText : ((st?.attributes?.friendly_name as string) ?? entity.split('.')[1]);
+    panels.set(device, { entity, name, slots: e.s.panelSlots, levels: e.s.panelLevels, page: 0 });
+    for (const k of panelKeys.values()) if (k.device === device) k.lastSvg = undefined;
+    try {
+      await streamDeck.profiles.switchToProfile(device, PANEL_PROFILE);
+    } catch (err) {
+      streamDeck.logger.warn('[ha] panneau lumière', err);
+      await e.key.showAlert();
+    }
+    drawPanel(device);
+  };
+
+  const closePanel = async (device: string): Promise<void> => {
+    const p = panels.get(device);
+    if (p) hub.unwatch(p.entity);
+    panels.delete(device);
+    await streamDeck.profiles.switchToProfile(device);
+  };
+
+  const pressPanelKey = async (k: PanelKey): Promise<void> => {
+    const p = panels.get(k.device);
+    if (k.s.role === 'back') return closePanel(k.device);
+    if (!p) return k.key.showAlert();
+    if (k.s.role === 'page') {
+      p.page = (p.page + 1) % PAGES;
+      drawPanel(k.device);
+      return;
+    }
+    const st = hub.get(p.entity);
+    const caps = lightCaps(st);
+    const i = Number(k.s.index) || 0;
+    let plan: PressPlan;
+    if (k.s.role === 'slot') plan = slotPlan(p.entity, resolveSlots(p.slots, caps)[p.page * SLOTS_PER_PAGE + i] ?? null, caps);
+    else if (k.s.role === 'level') plan = levelPlan(p.entity, resolveLevels(p.levels)[i]);
+    else return;
+    if (plan.kind !== 'service') return k.key.showAlert();
+    try {
+      await hub.call(plan.domain, plan.service, plan.data, plan.target);
+    } catch (err) {
+      streamDeck.logger.warn('[ha] panneau lumière', err);
+      await k.key.showAlert();
+    }
+  };
+
+  class LightPanelKey extends SingletonAction<JsonObject> {
+    override readonly manifestId = PANEL_ACTION;
+    override onWillAppear(ev: WillAppearEvent<JsonObject>): void {
+      const key = ev.action as unknown as SdKey;
+      const k: PanelKey = { key, s: (ev.payload.settings ?? {}) as PanelKeySettings, device: key.device?.id ?? '' };
+      panelKeys.set(key.id, k);
+      hub.start();
+      void drawPanelKey(k);
+    }
+    override onWillDisappear(ev: WillDisappearEvent<JsonObject>): void {
+      panelKeys.delete((ev.action as unknown as SdKey).id);
+    }
+    override onDidReceiveSettings(ev: DidReceiveSettingsEvent<JsonObject>): void {
+      const k = panelKeys.get((ev.action as unknown as SdKey).id);
+      if (!k) return;
+      k.s = (ev.payload.settings ?? {}) as PanelKeySettings;
+      k.lastSvg = undefined;
+      void drawPanelKey(k);
+    }
+    override async onKeyDown(ev: KeyDownEvent<JsonObject>): Promise<void> {
+      const k = panelKeys.get((ev.action as unknown as SdKey).id);
+      if (k) await pressPanelKey(k);
+    }
+  }
+  streamDeck.actions.registerAction(new LightPanelKey());
 
   /** Image de caméra / pochette, rafraîchie à intervalle. */
   const refreshImage = async (e: Entry, force = false): Promise<void> => {
@@ -301,6 +454,8 @@ export function registerHaActions(env: Env): void {
   }, 2000);
 
   /* ───────── appui ───────── */
+
+  const usesPanel = (e: Entry): boolean => e.s.panel === true && haDomainOf(e.s.entity ?? '') === 'light';
 
   const press = async (e: Entry): Promise<void> => {
     const s = e.s;
@@ -413,6 +568,9 @@ export function registerHaActions(env: Env): void {
         reply({ cmd, results: list as unknown as JsonValue });
       } else if (cmd === 'services') {
         reply({ cmd, services: (await hub.services()) as unknown as JsonValue });
+      } else if (cmd === 'openPanel' && e) {
+        await openPanel(e);
+        reply({ cmd, ok: true });
       } else if (cmd === 'state') {
         const id = String(msg.id ?? '');
         reply({ cmd, id, state: (hub.get(id) ?? null) as unknown as JsonValue });
@@ -487,7 +645,26 @@ export function registerHaActions(env: Env): void {
       }
       override async onKeyDown(ev: KeyDownEvent<JsonObject>): Promise<void> {
         const e = entries.get((ev.action as unknown as SdKey).id);
-        if (e) await press(e);
+        if (!e) return;
+        // Panneau lumière : l'appui court agit au relâchement, l'appui long ouvre le panneau.
+        if (usesPanel(e)) {
+          clearTimeout(e.holdTimer);
+          e.held = false;
+          e.holdTimer = setTimeout(() => {
+            e.holdTimer = undefined;
+            e.held = true;
+            void openPanel(e);
+          }, LONG_PRESS_MS);
+          return;
+        }
+        await press(e);
+      }
+      override async onKeyUp(ev: KeyUpEvent<JsonObject>): Promise<void> {
+        const e = entries.get((ev.action as unknown as SdKey).id);
+        if (!e || !e.holdTimer) return;
+        clearTimeout(e.holdTimer);
+        e.holdTimer = undefined;
+        if (!e.held) await press(e);
       }
       override async onSendToPlugin(ev: SendToPluginEvent<JsonValue, JsonObject>): Promise<void> {
         const e = entries.get((ev.action as unknown as SdKey).id);

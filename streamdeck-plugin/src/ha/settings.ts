@@ -74,6 +74,12 @@ export interface HaKeySettings {
   colorOff?: string;
   style?: 'accent' | 'plein' | 'symbole' | 'teinte';
   rules?: HaRule[];
+  /** Lumière : un appui long ouvre le panneau lumière (profil Stream Deck). */
+  panel?: boolean;
+  /** Panneau lumière : 16 teintes ({ c: '#rrggbb' } ou { k: kelvins }), absentes = selon l'ampoule. */
+  panelSlots?: Array<{ c?: string; k?: number } | null>;
+  /** Panneau lumière : 5 luminosités en %. */
+  panelLevels?: number[];
 }
 
 export type PressPlan =
