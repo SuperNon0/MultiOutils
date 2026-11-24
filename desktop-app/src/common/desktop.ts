@@ -81,6 +81,23 @@ export interface Zone {
   shelfDays: number;
   /** Nombre maximal d'éléments affichés (0 = tous), ex. « Dernières captures ». */
   maxItems: number;
+  /**
+   * Pastille en haut à gauche de la zone : 'auto' (point, ou icône du dossier /
+   * du widget), 'dot', 'none', ou le nom d'une icône de ZONE_BADGE_ICONS.
+   * Elle prend la couleur de la zone (color).
+   */
+  badge: string;
+}
+
+/** Icônes proposées pour la pastille d'une zone. */
+export const ZONE_BADGE_ICONS = [
+  'folder', 'star', 'pin', 'image', 'file', 'clipboard', 'tag', 'grid', 'list', 'clock', 'phone', 'keyboard', 'mouse', 'screen', 'settings', 'check'
+] as const;
+
+/** Valeur de pastille acceptée (sinon 'auto'). */
+export function cleanBadge(v: unknown): string {
+  if (v === 'dot' || v === 'none' || v === 'auto') return v;
+  return typeof v === 'string' && (ZONE_BADGE_ICONS as readonly string[]).includes(v) ? v : 'auto';
 }
 
 /** Entité Home Assistant pilotable, pour la zone Home Assistant. */
@@ -869,6 +886,7 @@ export function newZone(
     chartHours: 24,
     shelfDays: 0,
     maxItems: 0,
+    badge: 'auto',
     ...extra
   };
 }
@@ -917,7 +935,8 @@ export function normalizeZone(raw: Partial<Zone> & { id: string }): Zone {
     widgetLayout: raw.widgetLayout === 'compact' ? 'compact' : 'cards',
     chartHours: raw.chartHours === 168 ? 168 : 24,
     shelfDays: kind === 'folder' ? Math.max(0, Math.min(365, Math.round(Number(raw.shelfDays) || 0))) : 0,
-    maxItems: Math.max(0, Math.min(500, Math.round(Number(raw.maxItems) || 0)))
+    maxItems: Math.max(0, Math.min(500, Math.round(Number(raw.maxItems) || 0))),
+    badge: cleanBadge(raw.badge)
   };
 }
 
