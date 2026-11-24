@@ -179,9 +179,12 @@ export function registerHaActions(env: Env): void {
     const title =
       s.titleMode === 'none' ? '' : s.titleMode === 'custom' ? (s.titleText ?? '') : ((st?.attributes?.friendly_name as string) ?? (id ? id.split('.')[1] : 'Home Assistant'));
     let value = '';
-    const wantValue = s.valueMode === 'show' || (s.valueMode !== 'hide' && showsValueByDefault(id, mode));
+    const customState = (st && !isUnavailable(st) && !Number.isFinite(Number(st.state))
+      ? (isOnState(st) ? s.stateOnText : s.stateOffText) : undefined)?.trim();
+    const hasStateText = !!(s.stateOnText?.trim() || s.stateOffText?.trim());
+    const wantValue = s.valueMode === 'show' || (s.valueMode !== 'hide' && (hasStateText || showsValueByDefault(id, mode)));
     if (mode === 'template') value = e.templateValue ?? '…';
-    else if (wantValue && st) value = formatState(st, s.decimals ?? null);
+    else if (wantValue && st) value = customState || formatState(st, s.decimals ?? null);
     const gauge = (s.gauge ?? gaugeByDefault(id)) ? gaugePercent(st) : null;
 
     // image (caméra, pochette)

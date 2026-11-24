@@ -64,6 +64,9 @@ export interface HaKeySettings {
   /** Icône de l'atelier : remplacer la couleur du symbole par celle de la lampe (sinon ses couleurs d'origine). */
   libraryLampColor?: boolean;
   valueMode?: 'auto' | 'show' | 'hide';
+  /** Texte affiché à la place de l'état quand l'entité est active / inactive (ex. « Ouvert » / « Fermé »). */
+  stateOnText?: string;
+  stateOffText?: string;
   decimals?: number | null;
   gauge?: boolean;
   lightColor?: boolean;
