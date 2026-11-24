@@ -10,7 +10,9 @@ vi.mock('@elgato/streamdeck', () => ({
   SingletonAction: class {}
 }));
 vi.mock('./hub', () => ({ HaHub: class { constructor() { return Object.assign(hub, { onChange: (fn: (ids: string[] | null) => void) => listeners.push(fn) }); } } }));
+import streamDeck from '@elgato/streamdeck';
 import { registerHaActions } from './actions';
+const sentToPI = (): unknown[] => vi.mocked(streamDeck.ui.current!.sendToPropertyInspector).mock.calls.map((c) => c[0]);
 const key = (id = 'key') => ({ id, setState: vi.fn(async () => {}), setImage: vi.fn(async () => {}), setTitle: vi.fn(async () => {}), showAlert: vi.fn(async () => {}), showOk: vi.fn(async () => {}), setSettings: vi.fn(async () => {}) });
 const event = (action: ReturnType<typeof key>, settings: Record<string, unknown> = {}) => ({ action, payload: { settings } }) as never;
 let state: { entity_id: string; state: string; attributes: Record<string, unknown> };
@@ -54,14 +56,31 @@ describe('touches Home Assistant personnalisées', () => {
     await a.onKeyDown(event(k));
     expect(k.setTitle).toHaveBeenLastCalledWith('Confirmer ?'); expect(k.showAlert).toHaveBeenCalled(); expect(hub.call).not.toHaveBeenCalled();
   });
-  it('alimente l’icône de l’atelier avec la couleur réelle de la lampe', async () => {
+  it('dessine l’icône de l’atelier avec ses propres couleurs, version selon l’état', async () => {
     const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ image: 'data:image/svg+xml,custom' }) })); vi.stubGlobal('fetch', fetchMock);
     const a = actions.get('com.supernon0.multioutils.ha.light'), k = key();
     await a.onWillAppear(event(k, { entity: 'light.test', libraryIcon: 'ic_test', gauge: false })); await vi.advanceTimersByTimeAsync(0);
     const url = new URL(fetchMock.mock.calls[0][0] as string);
-    expect(url.searchParams.get('color')).toBe('#ff0000'); expect(url.searchParams.has('value')).toBe(false);
+    expect(url.searchParams.get('on')).toBe('1'); expect(url.searchParams.has('color')).toBe(false); expect(url.searchParams.has('value')).toBe(false);
     expect(k.setImage).toHaveBeenLastCalledWith('data:image/svg+xml,custom');
     expect(k.setTitle).toHaveBeenLastCalledWith('Salon');
+  });
+  it('peut forcer la version éteinte ou prendre la couleur de la lampe', async () => {
+    const fetchMock = vi.fn(async () => ({ ok: true, json: async () => ({ image: 'data:image/svg+xml,custom' }) })); vi.stubGlobal('fetch', fetchMock);
+    const a = actions.get('com.supernon0.multioutils.ha.light');
+    const k1 = key('k1');
+    await a.onWillAppear(event(k1, { entity: 'light.test', libraryIcon: 'ic_test', libraryState: 'off' })); await vi.advanceTimersByTimeAsync(0);
+    expect(new URL(fetchMock.mock.calls.at(-1)![0] as string).searchParams.get('on')).toBe('0');
+    const k2 = key('k2');
+    await a.onWillAppear(event(k2, { entity: 'light.test', libraryIcon: 'ic_test', libraryLampColor: true })); await vi.advanceTimersByTimeAsync(0);
+    expect(new URL(fetchMock.mock.calls.at(-1)![0] as string).searchParams.get('color')).toBe('#ff0000');
+  });
+  it('renvoie au panneau les deux versions d’une icône de l’atelier', async () => {
+    const fetchMock = vi.fn(async (u: string) => ({ ok: true, json: async () => ({ image: `data:image/svg+xml,${new URL(u).searchParams.get('on')}` }) })); vi.stubGlobal('fetch', fetchMock);
+    const a = actions.get('com.supernon0.multioutils.ha.light'), k = key();
+    await a.onWillAppear(event(k, { entity: 'light.test' })); await vi.advanceTimersByTimeAsync(0);
+    await a.onSendToPlugin({ action: k, payload: { cmd: 'iconPair', id: 'ic_test' } }); await vi.advanceTimersByTimeAsync(0);
+    expect(sentToPI()).toContainEqual(expect.objectContaining({ cmd: 'iconPair', id: 'ic_test', on: 'data:image/svg+xml,1', off: 'data:image/svg+xml,0' }));
   });
   it('annule une confirmation précédente lorsque les réglages changent', async () => {
     const a = actions.get('com.supernon0.multioutils.ha.light'), k = key();

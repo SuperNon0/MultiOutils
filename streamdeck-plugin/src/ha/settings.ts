@@ -59,6 +59,10 @@ export interface HaKeySettings {
   textColor?: string;
   customIcon?: boolean;
   libraryIcon?: string;
+  /** Icône de l'atelier : suivre l'état de l'entité (défaut), ou toujours la version allumée / éteinte. */
+  libraryState?: 'auto' | 'on' | 'off';
+  /** Icône de l'atelier : remplacer la couleur du symbole par celle de la lampe (sinon ses couleurs d'origine). */
+  libraryLampColor?: boolean;
   valueMode?: 'auto' | 'show' | 'hide';
   decimals?: number | null;
   gauge?: boolean;
