@@ -150,8 +150,6 @@ export function registerHaActions(env: Env): void {
         const q = new URLSearchParams({ id: s.libraryIcon, on: on ? '1' : '0' });
         q.set('color', lightColor(st) ?? color);
         q.set('recolor', s.lightColor === false ? '0' : '1');
-        const liveValue = gaugePercent(st);
-        if (liveValue !== null) q.set('value', String(liveValue));
         const res = await fetch(`http://127.0.0.1:41320/icons/render?${q}`, { signal: AbortSignal.timeout(2500) });
         if (!res.ok) throw new Error('Icône indisponible');
         const data = await res.json() as { image?: string };
