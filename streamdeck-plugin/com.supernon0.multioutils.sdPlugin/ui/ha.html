@@ -42,6 +42,20 @@
       <label class="coche"><input type="checkbox" id="confirm" /> Demander une confirmation (appuyer deux fois)</label>
     </section>
 
+    <section class="carte" id="panel-card" hidden>
+      <h3>Panneau lumière (appui long)</h3>
+      <label class="coche"><input type="checkbox" id="panel" /> Rester appuyé ouvre le panneau de cette lumière</label>
+      <p class="aide">Un appui court garde l’action ci-dessus (au relâchement). Le panneau remplace les touches du Stream Deck : retour, page de teintes, 8 teintes par page et 5 luminosités.</p>
+      <div id="panel-zone">
+        <p class="panneau-info" id="panel-type"></p>
+        <div class="panneau-sd" id="panel-grid"></div>
+        <div class="rang">
+          <button type="button" class="btn mini" id="panel-raz">Teintes selon l’ampoule</button>
+          <button type="button" class="btn mini" id="panel-open">Ouvrir sur le Stream Deck</button>
+        </div>
+      </div>
+    </section>
+
     <section class="carte" id="look-card">
       <h3>Apparence</h3>
       <div class="apercu"><img id="apercu" alt="" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" /><p class="aide">Aperçu de la touche, avec l'état actuel.</p></div>

@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.17.0",
+    "date": "2026-11-24",
+    "titre": "Panneau lumière sur le Stream Deck",
+    "nouveautes": [
+      "Stream Deck Home Assistant : sur une touche « HA : Lumière », rester appuyé ouvre un panneau réglé sur cette lumière. Il remplace les touches du Stream Deck : un bouton Retour, deux pages de 8 teintes et 5 luminosités.",
+      "Les teintes s’adaptent à l’ampoule : couleurs puis blancs pour une ampoule couleur, nuances de blanc de sa plage (en kelvins) pour une ampoule blanche. Chaque teinte et chaque luminosité se change dans les réglages de la touche (Action → Panneau lumière).",
+      "La teinte et la luminosité actuelles sont cochées sur le panneau, en direct. Un appui court garde l’action habituelle de la touche."
+    ],
+    "corrections": [
+      "Le plugin Stream Deck 0.12.0.0 est disponible dans Réglages → Mises à jour. À la première ouverture du panneau, Stream Deck peut demander d’installer le profil « MultiOutils Lumière »."
+    ]
+  },
+  {
     "version": "0.16.1",
     "date": "2026-11-24",
     "titre": "Texte de l’état sur les touches Home Assistant",

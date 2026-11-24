@@ -20,7 +20,7 @@
     const nav = shell.querySelector('nav'), content = shell.querySelector('main'), preview = shell.querySelector('aside');
     const sections = [
       ['entity', 'Entité', 'home', ['entity-card']],
-      ['action', 'Action', 'play', ['action-card']],
+      ['action', 'Action', 'play', ['action-card', 'panel-card']],
       ['look', 'Apparence', 'palette', ['look-card']],
       ['connection', 'Connexion', 'plug', ['direct']]
     ];
