@@ -4,16 +4,20 @@ import type { AppSettings, NavigateMsg } from '../common/types';
 
 /** Fond « encre » (= --bg de design-encre/encre.css) des deux thèmes. */
 export const INK_BACKGROUND = { sombre: '#0b0f17', clair: '#f5f3ee' } as const;
+/** Fond du style « Verre » (= --bg de renderer/src/encre/verre.css). */
+export const GLASS_BACKGROUND = { sombre: '#08102a', clair: '#e7eefc' } as const;
 /** Ancien fond (thème doré) encore posé par certaines fenêtres des modules. */
 const LEGACY_BACKGROUNDS = ['#0E0F11', '#FF0E0F11'];
 
 let appearanceTheme: AppSettings['appearance']['theme'] = 'auto';
+let appearanceStyle: AppSettings['appearance']['style'] = 'encre';
 
 /** Fond à donner aux fenêtres selon le réglage (et le système en automatique). */
 export function inkBackground(): string {
   const dark =
     appearanceTheme === 'auto' ? nativeTheme.shouldUseDarkColors : appearanceTheme === 'sombre';
-  return dark ? INK_BACKGROUND.sombre : INK_BACKGROUND.clair;
+  const bg = appearanceStyle === 'verre' ? GLASS_BACKGROUND : INK_BACKGROUND;
+  return dark ? bg.sombre : bg.clair;
 }
 
 /**
@@ -23,6 +27,7 @@ export function inkBackground(): string {
  */
 export function applyAppearance(appearance: AppSettings['appearance']): void {
   appearanceTheme = appearance.theme;
+  appearanceStyle = appearance.style;
   nativeTheme.themeSource =
     appearance.theme === 'sombre' ? 'dark' : appearance.theme === 'clair' ? 'light' : 'system';
   const win = getMainWindow();

@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.19.0",
+    "date": "2026-11-26",
+    "titre": "Style « Verre » et tes couleurs de la pipette partout",
+    "nouveautes": [
+      "Réglages → Apparence → Style : choisis « Verre » pour un habillage en verre dépoli, avec un menu de gauche flottant, des reflets clairs et l’onglet actif en pastille.",
+      "Le style Verre marche en clair et en sombre, avec toutes les couleurs d’accent. Il habille la fenêtre principale, la recherche rapide (Ctrl K) et le lanceur. « Encre » reste le style par défaut.",
+      "Pipette : nouvelle section « Mes couleurs ». Le « + » sur une couleur de l’historique l’enregistre avec un nom (ex. Lavande), et tu peux les ranger dans des dossiers (ex. Fonds). Clic droit pour renommer, déplacer ou retirer.",
+      "Stream Deck Home Assistant : sous chaque choix de couleur, les dernières couleurs prises à la pipette en un clic, le bouton « Mes couleurs » (tes couleurs nommées, par dossier) et un bouton « Pipette » pour prendre une couleur à l’écran directement.",
+      "Le plugin Stream Deck 0.12.2.0 est disponible dans Réglages → Mises à jour."
+    ]
+  },
+  {
     "version": "0.18.1",
     "date": "2026-11-24",
     "titre": "Couleurs des touches Home Assistant",

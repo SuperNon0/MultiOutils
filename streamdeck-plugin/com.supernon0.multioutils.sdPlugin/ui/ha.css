@@ -188,3 +188,15 @@ details.plus[open] { display: grid; gap: 8px; }
 .panneau-sd .niveau input::-webkit-inner-spin-button { -webkit-appearance: none; }
 .panneau-sd .edite { display: grid; gap: 8px; background: var(--pop); border: 1px solid var(--border); border-radius: 8px; padding: 8px 9px; }
 .panneau-sd .edite .rang select { flex: 0 0 auto; width: auto; }
+
+/* Couleurs de la pipette MultiOutils sous chaque choix de couleur */
+.pipette { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-top: 4px; }
+.pipette .pastille { width: 18px; height: 18px; border-radius: 5px; border: 1px solid rgba(255,255,255,.25); padding: 0; cursor: pointer; }
+.pipette .pastille:hover { transform: scale(1.12); }
+.pipette .prendre { font-size: 11px; }
+.pipette .mes { font-size: 11px; }
+.mes-couleurs { flex-basis: 100%; display: grid; gap: 4px; padding: 6px 8px; border-radius: 8px; background: rgba(255,255,255,.04); }
+.mes-couleurs .mc-dossier { margin: 2px 0 0; font-size: 11px; opacity: .7; }
+.mes-couleurs .mc-ligne { display: flex; flex-wrap: wrap; gap: 5px; }
+.mes-couleurs .mc-couleur { display: inline-flex; align-items: center; gap: 5px; padding: 3px 7px 3px 4px; border-radius: 6px; border: 1px solid rgba(255,255,255,.14); background: none; color: inherit; font-size: 11px; cursor: pointer; }
+.mes-couleurs .mc-couleur .pastille { width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(255,255,255,.25); }

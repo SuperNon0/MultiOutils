@@ -1,0 +1,250 @@
+/* =========================================================================
+   verre.css — style « Verre » : habillage verre dépoli par-dessus le design
+   « encre » (Réglages → Apparence → Style). Actif quand <html data-style="verre">,
+   posé par encre/appearance.ts. Ne change que les jetons et l'habillage :
+   aucune structure, aucune fonction. Clair et sombre, toutes les couleurs d'accent.
+   ========================================================================= */
+
+/* ------------------------------------------------------------ sombre */
+:root[data-style="verre"] {
+  --bg: #08102a;
+  --surface: rgba(255, 255, 255, .055);
+  --card: rgba(255, 255, 255, .075);
+  --pop: rgba(22, 34, 72, .92);
+  --line: rgba(255, 255, 255, .10);
+  --line2: rgba(255, 255, 255, .17);
+  --creux: rgba(4, 10, 30, .35);
+  --text: #f2f5ff; --soft: #c3cbe3; --muted: #97a3c4;
+  --glass: rgba(26, 40, 84, .55);
+  --scrim: rgba(3, 6, 20, .5);
+  --v-fond:
+    radial-gradient(1100px 620px at 8% -8%, rgba(88, 132, 255, .55), transparent 60%),
+    radial-gradient(900px 560px at 100% 0%, rgba(140, 96, 255, .30), transparent 62%),
+    radial-gradient(900px 700px at 70% 115%, rgba(38, 110, 220, .40), transparent 60%),
+    linear-gradient(180deg, #0d1c4d 0%, #081233 55%, #060b20 100%);
+  --v-verre: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .06));
+  --v-carte: linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .045));
+  --v-bord: rgba(255, 255, 255, .20);
+  --v-reflet: inset 0 1px 0 rgba(255, 255, 255, .28), inset 0 -1px 0 rgba(255, 255, 255, .04);
+  --v-ombre: 0 24px 60px rgba(2, 6, 24, .55);
+  --v-actif: #ffffff; --v-actif-ink: #0d1636;
+  --v-pill: rgba(255, 255, 255, .07);
+  --v-flou: blur(22px) saturate(1.6);
+  --r-lg: 22px; --r-md: 16px; --r-sm: 12px; --r-btn: 14px; --r-po: 16px;
+}
+
+/* ------------------------------------------------------------- clair */
+:root[data-style="verre"][data-theme="light"] {
+  --bg: #e7eefc;
+  --surface: rgba(255, 255, 255, .55);
+  --card: rgba(255, 255, 255, .62);
+  --pop: rgba(255, 255, 255, .94);
+  --line: rgba(40, 60, 120, .10);
+  --line2: rgba(40, 60, 120, .16);
+  --creux: rgba(40, 60, 120, .07);
+  --text: #141a33; --soft: #3d4665; --muted: #5f6889;
+  --glass: rgba(255, 255, 255, .62);
+  --scrim: rgba(30, 40, 80, .28);
+  --v-fond:
+    radial-gradient(1000px 600px at 5% -10%, rgba(120, 160, 255, .55), transparent 60%),
+    radial-gradient(900px 560px at 105% 5%, rgba(214, 170, 255, .50), transparent 62%),
+    radial-gradient(900px 700px at 65% 115%, rgba(130, 210, 255, .50), transparent 60%),
+    linear-gradient(180deg, #eef3ff 0%, #e6ecfb 60%, #f1ecfb 100%);
+  --v-verre: linear-gradient(180deg, rgba(255, 255, 255, .78), rgba(255, 255, 255, .48));
+  --v-carte: linear-gradient(180deg, rgba(255, 255, 255, .80), rgba(255, 255, 255, .55));
+  --v-bord: rgba(255, 255, 255, .95);
+  --v-reflet: inset 0 1px 0 rgba(255, 255, 255, 1), inset 0 -1px 0 rgba(40, 60, 120, .05);
+  --v-ombre: 0 24px 60px rgba(50, 70, 140, .18);
+  --v-actif: #141a33; --v-actif-ink: #ffffff;
+  --v-pill: rgba(255, 255, 255, .55);
+  --shadow: 0 18px 50px rgba(50, 70, 140, .18);
+  --shadow-s: 0 8px 24px rgba(50, 70, 140, .14);
+}
+
+/* ------------------------------------------------------------- fond */
+:root[data-style="verre"] body:not([data-fenetre]) {
+  background: var(--v-fond) fixed, var(--bg);
+}
+
+/* ------------------------------------------- menu de gauche flottant */
+@media (min-width: 1000px) {
+  :root[data-style="verre"] .app { grid-template-columns: calc(var(--side-w) + 14px) minmax(0, 1fr); }
+  :root[data-style="verre"] .side {
+    margin: 14px 0 14px 14px; height: calc(100vh - 28px); top: 14px;
+    border-radius: 30px; border: 1px solid var(--v-bord);
+    background: var(--v-verre);
+    -webkit-backdrop-filter: var(--v-flou); backdrop-filter: var(--v-flou);
+    box-shadow: var(--v-reflet), var(--v-ombre);
+    padding: 16px 12px 12px;
+  }
+}
+:root[data-style="verre"] .marque {
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 25%, rgba(255, 255, 255, .55), transparent 55%), var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 4px 14px color-mix(in srgb, var(--accent) 45%, transparent);
+}
+:root[data-style="verre"] .side .ver { border-radius: 99px; border-color: var(--v-bord); background: var(--v-pill); }
+:root[data-style="verre"] .side-search {
+  border-radius: 99px; background: var(--v-pill); border-color: var(--v-bord); box-shadow: var(--v-reflet);
+}
+:root[data-style="verre"] .side-search .kbd { border-radius: 99px; background: var(--v-pill); }
+:root[data-style="verre"] .side-foot { border-top: 0; }
+
+/* -------------------------------------------- cartes, panneaux, barres */
+:root[data-style="verre"] .carte,
+:root[data-style="verre"] .lib-sidebar,
+:root[data-style="verre"] .shot-card,
+:root[data-style="verre"] .liste-r,
+:root[data-style="verre"] .tabbar {
+  background: var(--v-carte);
+  border: 1px solid var(--v-bord);
+  -webkit-backdrop-filter: var(--v-flou); backdrop-filter: var(--v-flou);
+  box-shadow: var(--v-reflet), var(--shadow-s);
+}
+
+/* boutons : pastilles en verre */
+:root[data-style="verre"] .btn {
+  border-radius: 99px; background: var(--v-carte); border-color: var(--v-bord);
+  box-shadow: var(--v-reflet);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+}
+:root[data-style="verre"] .btn.dn { background: var(--danger-dim); }
+:root[data-style="verre"] .btn.gh { background: transparent; box-shadow: none; border-color: transparent; }
+:root[data-style="verre"] textarea.input { border-radius: 16px; }
+:root[data-style="verre"] .seg { border-radius: 99px; background: var(--creux); border-color: var(--v-bord); }
+:root[data-style="verre"] .seg button { border-radius: 99px; }
+:root[data-style="verre"] .seg button.on { background: var(--v-actif); color: var(--v-actif-ink); box-shadow: 0 4px 12px rgba(0, 0, 0, .18); }
+:root[data-style="verre"] .chip { border-radius: 99px; }
+:root[data-style="verre"] .kbd { border-radius: 99px; }
+:root[data-style="verre"] .ib { border-radius: 99px; }
+
+/* menus, feuilles, recherche rapide : verre plus opaque pour rester lisible */
+:root[data-style="verre"] .pop,
+:root[data-style="verre"] .feuille,
+:root[data-style="verre"] .palette,
+:root[data-style="verre"] .toast {
+  -webkit-backdrop-filter: blur(28px) saturate(1.6); backdrop-filter: blur(28px) saturate(1.6);
+  border-color: var(--v-bord); box-shadow: var(--v-reflet), var(--shadow);
+}
+
+/* recherche rapide et lanceur : ligne choisie en pastille */
+:root[data-style="verre"] .palette { background: var(--v-verre), color-mix(in srgb, var(--pop) 55%, transparent); border-radius: 28px; }
+:root[data-style="verre"] .pal-it { border-radius: 18px; }
+:root[data-style="verre"] .pal-it.on { background: var(--v-actif); color: var(--v-actif-ink); box-shadow: 0 6px 18px rgba(0, 0, 0, .2); }
+:root[data-style="verre"] .pal-it.on :is(.muted, .soft, small, span) { color: color-mix(in srgb, var(--v-actif-ink) 70%, transparent); }
+:root[data-style="verre"] .palette.lz {
+  background: var(--v-verre), color-mix(in srgb, var(--pop) 45%, transparent);
+  border-color: var(--v-bord); box-shadow: var(--v-reflet), var(--v-ombre);
+  -webkit-backdrop-filter: blur(30px) saturate(1.7); backdrop-filter: blur(30px) saturate(1.7);
+}
+
+/* --------------------------------------------- étoiles, reflets, finitions */
+:root[data-style="verre"] {
+  --v-etoiles:
+    radial-gradient(1px 1px at 12% 22%, rgba(255, 255, 255, .55), transparent 60%),
+    radial-gradient(1px 1px at 34% 68%, rgba(255, 255, 255, .35), transparent 60%),
+    radial-gradient(1.5px 1.5px at 58% 14%, rgba(255, 255, 255, .45), transparent 60%),
+    radial-gradient(1px 1px at 77% 41%, rgba(255, 255, 255, .4), transparent 60%),
+    radial-gradient(1px 1px at 91% 83%, rgba(255, 255, 255, .35), transparent 60%),
+    radial-gradient(1.5px 1.5px at 46% 92%, rgba(255, 255, 255, .3), transparent 60%),
+    radial-gradient(1px 1px at 23% 47%, rgba(255, 255, 255, .3), transparent 60%),
+    radial-gradient(1px 1px at 68% 58%, rgba(255, 255, 255, .25), transparent 60%);
+  --v-pill-doux: rgba(255, 255, 255, .045);
+}
+:root[data-style="verre"][data-theme="light"] {
+  --v-etoiles: none;
+  --v-pill-doux: rgba(255, 255, 255, .35);
+}
+:root[data-style="verre"] body:not([data-fenetre])::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background: var(--v-etoiles); background-size: 520px 520px;
+}
+
+/* Surfaces en verre : bord plus clair en haut (reflet), plus discret en bas */
+:root[data-style="verre"] :is(.side, .carte, .lib-sidebar, .shot-card, .liste-r, .palette, .feuille, .pop, .capture-bar, .style-carte) {
+  border: 1px solid var(--v-bord-bas); border-top-color: var(--v-bord-haut);
+}
+:root[data-style="verre"] { --v-bord-haut: rgba(255, 255, 255, .34); --v-bord-bas: rgba(255, 255, 255, .09); }
+:root[data-style="verre"][data-theme="light"] { --v-bord-haut: #ffffff; --v-bord-bas: rgba(255, 255, 255, .55); }
+
+/* Menu de gauche : plus calme, seul l'onglet actif est une vraie pastille */
+:root[data-style="verre"] .side-listes { gap: 4px; }
+:root[data-style="verre"] .side-it {
+  background: transparent; box-shadow: none; border: 1px solid transparent; min-height: 42px;
+}
+:root[data-style="verre"] .side-it:hover { background: var(--v-pill-doux); border-color: color-mix(in srgb, var(--v-bord) 50%, transparent); }
+:root[data-style="verre"] .side-it svg.i { opacity: .85; }
+:root[data-style="verre"] .side-it.on {
+  background: linear-gradient(180deg, #ffffff, #eef2ff);
+  color: #0d1636; border-color: transparent;
+  box-shadow: 0 10px 24px rgba(4, 10, 40, .35), inset 0 1px 0 #fff;
+}
+:root[data-style="verre"][data-theme="light"] .side-it.on {
+  background: linear-gradient(180deg, #1d2547, #111734); color: #fff;
+  box-shadow: 0 10px 24px rgba(20, 30, 80, .28), inset 0 1px 0 rgba(255, 255, 255, .15);
+}
+:root[data-style="verre"] .side-it.on svg.i { color: var(--accent); opacity: 1; }
+:root[data-style="verre"]:not([data-theme="light"]) .side-it.on svg.i { color: var(--acc-l); }
+:root[data-style="verre"] .side-lbl { margin: 18px 12px 8px; opacity: .8; }
+:root[data-style="verre"] .side-foot { padding-top: 12px; position: relative; }
+:root[data-style="verre"] .side-foot::before {
+  content: ""; position: absolute; top: 0; left: 12px; right: 12px; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--v-bord), transparent);
+}
+
+/* Barre d'actions du haut : regroupée dans un plateau de verre */
+:root[data-style="verre"] .capture-bar {
+  padding: 5px; gap: 4px; border-radius: 99px;
+  background: var(--v-carte);
+  -webkit-backdrop-filter: var(--v-flou); backdrop-filter: var(--v-flou);
+  box-shadow: var(--v-reflet), var(--shadow-s);
+}
+:root[data-style="verre"] .capture-bar .btn:not(.pri) { background: transparent; border-color: transparent; box-shadow: none; height: 40px; -webkit-backdrop-filter: none; backdrop-filter: none; }
+:root[data-style="verre"] .capture-bar .btn:not(.pri):hover { background: var(--v-pill-doux); }
+:root[data-style="verre"] .capture-bar .btn.pri { height: 40px; }
+
+/* Galerie : vignette posée dans la carte, coins arrondis */
+:root[data-style="verre"] .shot-card { padding: 6px; }
+:root[data-style="verre"] .shot-thumb { border-radius: 16px; overflow: hidden; box-shadow: 0 1px 0 rgba(255, 255, 255, .08) inset; }
+:root[data-style="verre"] .shot-meta { padding: 10px 8px 6px; }
+:root[data-style="verre"] .shot-card:hover { transform: translateY(-3px); box-shadow: var(--v-reflet), var(--v-ombre); }
+:root[data-style="verre"] :is(.shot-check, .shot-fav, .shot-menu-btn) {
+  border-radius: 50%; background: rgba(10, 16, 40, .45); border: 1px solid rgba(255, 255, 255, .3);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+
+/* Panneau Bibliothèque : lignes sans cadre, pastilles de couleur qui brillent */
+:root[data-style="verre"] .lib-item { min-height: 36px; }
+:root[data-style="verre"] .lib-item:hover { background: var(--v-pill-doux); }
+:root[data-style="verre"] .lib-sidebar .lib-item.active {
+  background: linear-gradient(180deg, #ffffff, #eef2ff) !important; color: #0d1636 !important;
+  box-shadow: 0 8px 20px rgba(4, 10, 40, .3) !important;
+}
+:root[data-style="verre"][data-theme="light"] .lib-sidebar .lib-item.active {
+  background: linear-gradient(180deg, #1d2547, #111734) !important; color: #fff !important;
+}
+:root[data-style="verre"] .lib-sidebar .lib-item.active svg.i { color: var(--accent); }
+
+/* Listes des réglages : icônes en bulles rondes, ligne active marquée */
+:root[data-style="verre"] .li { border-top-color: color-mix(in srgb, var(--v-bord) 45%, transparent); }
+:root[data-style="verre"] .li:hover { background: var(--v-pill-doux); }
+:root[data-style="verre"] .li.on { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+:root[data-style="verre"] .li-ic { border-radius: 50%; background: var(--v-pill-doux); border-color: var(--v-bord); box-shadow: var(--v-reflet); }
+:root[data-style="verre"] .li-ic.acc { background: var(--accent); color: var(--ink); border-color: transparent; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .5), 0 4px 12px color-mix(in srgb, var(--accent) 40%, transparent); }
+
+/* Presse-papiers : actions discrètes, visibles au survol */
+:root[data-style="verre"] .clip-actions .ib { border-radius: 50%; border-color: transparent; background: transparent; opacity: .7; }
+:root[data-style="verre"] .clip-row:hover .clip-actions .ib { opacity: 1; background: var(--v-pill-doux); border-color: color-mix(in srgb, var(--v-bord) 60%, transparent); }
+:root[data-style="verre"] .clip-row.pinned { box-shadow: var(--v-reflet), 0 0 0 1px var(--acc-line), 0 10px 30px color-mix(in srgb, var(--accent) 18%, transparent); }
+
+/* Champs : léger creux intérieur au lieu du reflet */
+:root[data-style="verre"] :is(.champ, .input, .select) { background: var(--creux); box-shadow: inset 0 1px 3px rgba(0, 0, 0, .18); }
+:root[data-style="verre"][data-theme="light"] :is(.champ, .input, .select) { background: rgba(255, 255, 255, .6); box-shadow: inset 0 1px 2px rgba(40, 60, 120, .08); }
+
+/* Bouton principal : reflet plus fin */
+:root[data-style="verre"] .btn.pri {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .28), rgba(255, 255, 255, 0) 55%), var(--accent);
+}
+:root[data-style="verre"] .style-carte { background: var(--v-carte); box-shadow: var(--v-reflet); }
+:root[data-style="verre"] .style-carte.on { border-color: var(--accent); box-shadow: var(--v-reflet), 0 0 0 3px var(--acc-dim), 0 10px 30px color-mix(in srgb, var(--accent) 20%, transparent); }
+:root[data-style="verre"] .palette:not(.lz) { background: var(--v-verre), color-mix(in srgb, var(--pop) 88%, transparent); }

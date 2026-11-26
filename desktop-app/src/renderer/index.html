@@ -17,6 +17,8 @@
         var p = JSON.parse(localStorage.getItem('encre-apparence') || '{}'),
           h = document.documentElement;
         h.dataset.accent = p.accent || 'lavande';
+        /* style « Verre » : fenêtre principale et lanceur seulement (voir appearance.ts) */
+        if (p.style === 'verre' && /^(#\/?)?$|^#\/launcher/.test(location.hash)) h.dataset.style = 'verre';
         if (p.theme === 'sombre') h.dataset.theme = 'dark';
         else if (p.theme === 'clair') h.dataset.theme = 'light';
         else {

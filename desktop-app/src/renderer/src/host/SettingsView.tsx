@@ -8,6 +8,7 @@ import {
 } from 'react';
 import {
   APPEARANCE_ACCENTS,
+  APPEARANCE_STYLES,
   APPEARANCE_THEMES,
   DEFAULT_SHORTCUTS,
   type AppSettings,
@@ -367,6 +368,30 @@ export function AppearanceSection({
   };
   return (
     <>
+      <div className="reg-sec">
+        <div className="lbl-mono">{t('appearance.style')}</div>
+        <div className="style-choix" role="radiogroup" aria-label={t('appearance.style')}>
+          {APPEARANCE_STYLES.map((style) => (
+            <button
+              key={style}
+              type="button"
+              role="radio"
+              className={`style-carte st-${style}${appearance.style === style ? ' on' : ''}`}
+              aria-checked={appearance.style === style}
+              onClick={() => choose({ style })}
+            >
+              <span className="style-ap" aria-hidden="true">
+                <i />
+                <b />
+                <b />
+                <b />
+              </span>
+              <span className="style-nom">{t(`appearance.style.${style}`)}</span>
+              <span className="style-sous">{t(`appearance.style.${style}.sub`)}</span>
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="reg-sec">
         <div className="lbl-mono">{t('appearance.accent')}</div>
         <div className="pastilles" role="radiogroup" aria-label={t('appearance.accent')}>

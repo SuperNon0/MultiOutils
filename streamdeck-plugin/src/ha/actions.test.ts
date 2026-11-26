@@ -128,3 +128,30 @@ describe('touches Home Assistant personnalisées', () => {
   });
 
 });
+
+describe('couleurs de la pipette MultiOutils', () => {
+  it('envoie au panneau les couleurs enregistrées, sans erreur si l’app est fermée', async () => {
+    const library = { colors: [{ id: 'col_1', hex: '#a99bff', name: 'Lavande', folder: 'fcol_1' }, { id: 'col_2', hex: 'bleu', name: 'X' }], folders: [{ id: 'fcol_1', name: 'Fonds' }] };
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ colors: ['#ff0000', 'pas-une-couleur', '#00ff00'], last: 't1', library }) })));
+    const a = actions.get('com.supernon0.multioutils.ha.light'), k = key();
+    await a.onWillAppear(event(k, { entity: 'light.test' })); await vi.advanceTimersByTimeAsync(0);
+    await a.onSendToPlugin({ action: k, payload: { cmd: 'savedColors' } }); await vi.advanceTimersByTimeAsync(0);
+    expect(sentToPI()).toContainEqual({ cmd: 'savedColors', colors: ['#ff0000', '#00ff00'], library: { colors: [{ hex: '#a99bff', name: 'Lavande', folder: 'fcol_1' }], folders: [{ id: 'fcol_1', name: 'Fonds' }] } });
+    vi.stubGlobal('fetch', vi.fn(async () => { throw new Error('refusé'); }));
+    await a.onSendToPlugin({ action: k, payload: { cmd: 'savedColors' } }); await vi.advanceTimersByTimeAsync(0);
+    expect(sentToPI()).toContainEqual({ cmd: 'savedColors', colors: [], library: { colors: [], folders: [] } });
+  });
+  it('lance la pipette et renvoie la couleur prise pour le bon champ', async () => {
+    let last = 't1', colors = ['#111111'];
+    const fetchMock = vi.fn(async (url: string) => ({ ok: true, json: async () => (url.includes('/colorpicker/colors') ? { colors, last } : {}) }));
+    vi.stubGlobal('fetch', fetchMock);
+    const a = actions.get('com.supernon0.multioutils.ha.light'), k = key();
+    await a.onWillAppear(event(k, { entity: 'light.test' })); await vi.advanceTimersByTimeAsync(0);
+    const done = a.onSendToPlugin({ action: k, payload: { cmd: 'pickColor', target: 'c2' } });
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith('/command/colorpicker.start'))).toBe(true);
+    last = 't2'; colors = ['#abcdef', '#111111'];
+    await vi.advanceTimersByTimeAsync(1500); await done;
+    expect(sentToPI()).toContainEqual(expect.objectContaining({ cmd: 'savedColors', colors: ['#abcdef', '#111111'], picked: '#abcdef', target: 'c2' }));
+  });
+});
