@@ -1,0 +1,27 @@
+{
+  "name": "mon-appli-encre",
+  "productName": "Mon appli",
+  "version": "1.0.0",
+  "description": "Un site au design encre (styles Encre et Verre) empaqueté pour Windows et Mac",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "preparer": "node preparer.js",
+    "start": "node preparer.js && electron .",
+    "windows": "node preparer.js && electron-builder --win",
+    "mac": "node preparer.js && electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "fr.exemple.monappli",
+    "productName": "Mon appli",
+    "files": ["main.js", "preload.js", "site/**/*"],
+    "directories": { "output": "dist" },
+    "win": { "target": "nsis" },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
+    "mac": { "target": "dmg", "category": "public.app-category.productivity" }
+  }
+}

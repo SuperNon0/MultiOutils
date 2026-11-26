@@ -1,0 +1,86 @@
+{
+  "$description": "Jetons du design « encre » v2.0 (styles Encre et Verre). Copie lisible par une machine des valeurs de encre.css et verre.css : pour une appli native, Figma, Flutter, SwiftUI… Sur le web, utilise les fichiers CSS, pas ce fichier.",
+  "version": "2.0",
+  "attributs_html": {
+    "data-style": { "valeurs": ["(absent) = encre", "verre"], "defaut": "encre" },
+    "data-theme": { "valeurs": ["dark", "light"], "note": "toujours posé ; en automatique il suit l'appareil et data-encre-auto est présent" },
+    "data-accent": { "valeurs": ["or", "ambre", "corail", "menthe", "lavande"], "defaut": "lavande" }
+  },
+  "preference_enregistree": {
+    "cle_localStorage": "encre-apparence",
+    "forme": { "style": "encre | verre", "theme": "auto | clair | sombre", "accent": "or | ambre | corail | menthe | lavande" }
+  },
+  "polices": {
+    "titre": { "famille": "DM Serif Display", "graisses": [400], "italique": true, "repli": "Georgia, serif" },
+    "texte": { "famille": "Archivo", "graisses": [400, 500, 600, 700], "repli": "system-ui, sans-serif" },
+    "mono": { "famille": "DM Mono", "graisses": [400, 500], "repli": "ui-monospace, monospace" },
+    "tailles_px": { "titre_page": 27, "titre_page_ordinateur": 30, "titre_section": 19, "grand_chiffre": 27, "texte": 15, "bouton": 14, "petit": 12.5, "libelle_mono": 11, "onglet": 10.5, "champ_min": 16 },
+    "echelle_titres": 1.05
+  },
+  "mesures_px": {
+    "menu_gauche": 248, "barre_onglets_hauteur": 62, "marge_telephone": 16, "marge_ordinateur": 34,
+    "bouton_hauteur": 44, "bouton_rond": 40, "ligne_min": 54,
+    "points_de_rupture": { "tablette": 640, "fenetres_centrees": 760, "ordinateur": 1000 }
+  },
+  "mouvement": { "courbe": "cubic-bezier(.2, .8, .2, 1)", "durees_s": [0.12, 0.45], "appui": "scale(.97)" },
+  "styles": {
+    "encre": {
+      "formes_px": { "r_lg": 14, "r_md": 10, "r_sm": 8, "r_btn": 10, "r_po": 10, "feuille": 24, "fenetre": 20, "barre_flottante": 26 },
+      "sombre": {
+        "bg": "#0b0f17", "surface": "#0f1520", "card": "#141b28", "pop": "#182131",
+        "line": "#1e2737", "line2": "#2b3549", "creux": "#0f1520",
+        "text": "#e7ebf3", "soft": "#aab3c5", "muted": "#8a94aa",
+        "ok": "#4fc0ad", "ok_ink": "#04130f", "prog": "#8f9cf0", "prog_ink": "#0b0d24", "danger": "#ef7d6b", "warn": "#efb36b",
+        "glass": "rgba(24, 28, 40, .74)", "scrim": "rgba(3, 5, 9, .62)",
+        "shadow": "0 18px 50px rgba(0, 0, 0, .45)", "shadow_s": "0 8px 24px rgba(0, 0, 0, .35)"
+      },
+      "clair": {
+        "bg": "#f5f3ee", "surface": "#ffffff", "card": "#ffffff", "pop": "#ffffff",
+        "line": "#e7e2d7", "line2": "#d5cfc1", "creux": "#ebe7de",
+        "text": "#1b1d22", "soft": "#454a55", "muted": "#666b77",
+        "ok": "#17725f", "ok_ink": "#ffffff", "prog": "#5159c9", "prog_ink": "#ffffff", "danger": "#bf3f2c", "warn": "#94560a",
+        "glass": "rgba(255, 255, 255, .8)", "scrim": "rgba(20, 18, 12, .42)",
+        "shadow": "0 18px 50px rgba(40, 34, 20, .16)", "shadow_s": "0 8px 24px rgba(40, 34, 20, .12)"
+      }
+    },
+    "verre": {
+      "note": "Les états (ok, prog, danger, warn) et les accents restent ceux d'encre. Seuls les fonds, traits, textes, formes et matières changent.",
+      "formes_px": { "r_lg": 22, "r_md": 16, "r_sm": 12, "r_btn": 14, "r_po": 16, "menu_gauche": 30, "boutons_puces_segments_barres": "pilule (99)" },
+      "flou": { "surfaces": "blur(22px) saturate(1.6)", "menus_fenetres": "blur(28px) saturate(1.6)" },
+      "sombre": {
+        "bg": "#08102a", "surface": "rgba(255, 255, 255, .055)", "card": "rgba(255, 255, 255, .075)", "pop": "rgba(22, 34, 72, .92)",
+        "line": "rgba(255, 255, 255, .10)", "line2": "rgba(255, 255, 255, .17)", "creux": "rgba(4, 10, 30, .35)",
+        "text": "#f2f5ff", "soft": "#c3cbe3", "muted": "#97a3c4",
+        "glass": "rgba(26, 40, 84, .55)", "scrim": "rgba(3, 6, 20, .5)",
+        "fond": "radial-gradient(1100px 620px at 8% -8%, rgba(88,132,255,.55), transparent 60%), radial-gradient(900px 560px at 100% 0%, rgba(140,96,255,.30), transparent 62%), radial-gradient(900px 700px at 70% 115%, rgba(38,110,220,.40), transparent 60%), linear-gradient(180deg, #0d1c4d 0%, #081233 55%, #060b20 100%)",
+        "verre": "linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.06))",
+        "verre_carte": "linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.045))",
+        "bord": "rgba(255, 255, 255, .20)", "bord_haut": "rgba(255, 255, 255, .34)", "bord_bas": "rgba(255, 255, 255, .09)",
+        "reflet": "inset 0 1px 0 rgba(255,255,255,.28), inset 0 -1px 0 rgba(255,255,255,.04)",
+        "ombre": "0 24px 60px rgba(2, 6, 24, .55)",
+        "actif": "#ffffff", "actif_texte": "#0d1636", "actif_fond": "linear-gradient(180deg, #ffffff, #eef2ff)"
+      },
+      "clair": {
+        "bg": "#e7eefc", "surface": "rgba(255, 255, 255, .55)", "card": "rgba(255, 255, 255, .62)", "pop": "rgba(255, 255, 255, .94)",
+        "line": "rgba(40, 60, 120, .10)", "line2": "rgba(40, 60, 120, .16)", "creux": "rgba(40, 60, 120, .07)",
+        "text": "#141a33", "soft": "#3d4665", "muted": "#5f6889",
+        "glass": "rgba(255, 255, 255, .62)", "scrim": "rgba(30, 40, 80, .28)",
+        "fond": "radial-gradient(1000px 600px at 5% -10%, rgba(120,160,255,.55), transparent 60%), radial-gradient(900px 560px at 105% 5%, rgba(214,170,255,.50), transparent 62%), radial-gradient(900px 700px at 65% 115%, rgba(130,210,255,.50), transparent 60%), linear-gradient(180deg, #eef3ff 0%, #e6ecfb 60%, #f1ecfb 100%)",
+        "verre": "linear-gradient(180deg, rgba(255,255,255,.78), rgba(255,255,255,.48))",
+        "verre_carte": "linear-gradient(180deg, rgba(255,255,255,.80), rgba(255,255,255,.55))",
+        "bord": "rgba(255, 255, 255, .95)", "bord_haut": "#ffffff", "bord_bas": "rgba(255, 255, 255, .55)",
+        "reflet": "inset 0 1px 0 #ffffff, inset 0 -1px 0 rgba(40,60,120,.05)",
+        "ombre": "0 24px 60px rgba(50, 70, 140, .18)",
+        "actif": "#141a33", "actif_texte": "#ffffff", "actif_fond": "linear-gradient(180deg, #1d2547, #111734)"
+      }
+    }
+  },
+  "accents": {
+    "lavande": { "sombre": "#a99bff", "texte_dessus_sombre": "#120d2e", "clair": "#5a48d0", "texte_dessus_clair": "#ffffff", "defaut": true },
+    "or": { "sombre": "#e8c547", "texte_dessus_sombre": "#1b1504", "clair": "#8a6400", "texte_dessus_clair": "#ffffff" },
+    "ambre": { "sombre": "#f0a64a", "texte_dessus_sombre": "#1a1206", "clair": "#995400", "texte_dessus_clair": "#ffffff" },
+    "corail": { "sombre": "#ff7a59", "texte_dessus_sombre": "#2a0d05", "clair": "#b23c1d", "texte_dessus_clair": "#ffffff" },
+    "menthe": { "sombre": "#4fd1b5", "texte_dessus_sombre": "#05211b", "clair": "#0b7562", "texte_dessus_clair": "#ffffff" }
+  },
+  "teintes_derivees": { "acc_dim": "accent à 14 %", "acc_line": "accent à 45 %", "ok_dim": "ok à 14 %", "prog_dim": "prog à 16 %", "danger_dim": "danger à 12 %" }
+}
