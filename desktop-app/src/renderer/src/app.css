@@ -2036,3 +2036,20 @@ body[data-fenetre='launcher'] #root {
 .nouveautes-actions .esp {
   flex: 1;
 }
+
+/* Réglages → Apparence : choix du style (aperçus miniatures, mêmes couleurs dans les deux thèmes) */
+.style-choix { display: grid; grid-template-columns: repeat(2, minmax(0, 220px)); gap: 12px; margin-top: 8px; }
+.style-carte { display: grid; gap: 4px; text-align: left; padding: 10px; border-radius: var(--r-lg); border: 1px solid var(--line2); background: var(--card); }
+.style-carte.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--acc-dim); }
+.style-ap { position: relative; height: 86px; border-radius: 12px; overflow: hidden; display: block; margin-bottom: 6px; }
+.style-ap i { position: absolute; left: 8px; top: 8px; bottom: 8px; width: 34%; border-radius: 8px; }
+.style-ap b { position: absolute; left: 44%; right: 10px; height: 16px; border-radius: 6px; }
+.style-ap b:nth-of-type(1) { top: 12px; } .style-ap b:nth-of-type(2) { top: 36px; } .style-ap b:nth-of-type(3) { top: 60px; right: 40%; }
+.st-encre .style-ap { background: #0b0f17; }
+.st-encre .style-ap i { background: #0f1520; border-right: 1px solid #1e2737; border-radius: 0; left: 0; top: 0; bottom: 0; }
+.st-encre .style-ap b { background: #141b28; border: 1px solid #1e2737; }
+.st-verre .style-ap { background: radial-gradient(120px 80px at 10% 0%, rgba(88,132,255,.8), transparent 70%), linear-gradient(180deg, #0d1c4d, #060b20); }
+.st-verre .style-ap i { background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.08)); border: 1px solid rgba(255,255,255,.3); border-radius: 14px; }
+.st-verre .style-ap b { background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22); border-radius: 99px; }
+.style-nom { font-weight: 600; font-size: 14px; }
+.style-sous { font-size: 12.5px; color: var(--muted); }

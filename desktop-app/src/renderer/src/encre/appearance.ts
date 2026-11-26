@@ -1,5 +1,5 @@
 /**
- * Apparence « encre » côté renderer : pose data-accent / data-theme sur <html>
+ * Apparence « encre » côté renderer : pose data-accent / data-theme / data-style sur <html>
  * (toutes les fenêtres : principale et satellites) d'après AppSettings.appearance,
  * et suit le thème du système en mode automatique.
  *
@@ -15,6 +15,16 @@ import { DEFAULT_APPEARANCE } from '../../../common/types';
 export type Appearance = AppSettings['appearance'];
 
 const STORAGE_KEY = 'encre-apparence';
+
+/**
+ * Le style « Verre » ne s'applique qu'à la fenêtre principale et au lanceur.
+ * Les autres fenêtres (zones du Bureau, pop-ups, capture…) gardent « encre » :
+ * posées sur le bureau sans flou derrière, un verre transparent y serait illisible.
+ */
+function glassWindow(): boolean {
+  const route = window.location.hash.match(/^#\/([a-z-]+)/)?.[1];
+  return !route || route === 'launcher';
+}
 const lightQuery = (): MediaQueryList => window.matchMedia('(prefers-color-scheme: light)');
 
 let current: Appearance = readCached();
@@ -39,6 +49,8 @@ export function applyAppearance(appearance: Appearance): void {
   const h = document.documentElement;
   h.dataset.accent = current.accent;
   h.dataset.theme = resolvedTheme(current) === 'clair' ? 'light' : 'dark';
+  if (current.style === 'verre' && glassWindow()) h.dataset.style = 'verre';
+  else delete h.dataset.style;
   if (current.theme === 'auto') h.dataset.encreAuto = '';
   else delete h.dataset.encreAuto;
   try {

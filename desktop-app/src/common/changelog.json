@@ -1,5 +1,15 @@
 [
   {
+    "version": "0.19.0",
+    "date": "2026-11-26",
+    "titre": "Nouveau style « Verre »",
+    "nouveautes": [
+      "Réglages → Apparence → Style : choisis « Verre » pour un habillage en verre dépoli, avec un menu de gauche flottant, des reflets clairs et l’onglet actif en pastille.",
+      "Le style Verre marche en clair et en sombre, avec toutes les couleurs d’accent. Il habille la fenêtre principale, la recherche rapide (Ctrl K) et le lanceur.",
+      "Rien ne change dans les outils : seul l’habillage est différent. « Encre » reste le style par défaut."
+    ]
+  },
+  {
     "version": "0.18.1",
     "date": "2026-11-24",
     "titre": "Couleurs des touches Home Assistant",

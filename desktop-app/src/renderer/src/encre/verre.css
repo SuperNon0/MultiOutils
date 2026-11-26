@@ -1,7 +1,8 @@
 /* =========================================================================
-   verre.css — style « Verre » (essai) : habillage verre dépoli par-dessus
-   le design « encre ». Actif quand <html data-style="verre">.
-   Ne change que les jetons et l'habillage : aucune structure, aucune fonction.
+   verre.css — style « Verre » : habillage verre dépoli par-dessus le design
+   « encre » (Réglages → Apparence → Style). Actif quand <html data-style="verre">,
+   posé par encre/appearance.ts. Ne change que les jetons et l'habillage :
+   aucune structure, aucune fonction. Clair et sombre, toutes les couleurs d'accent.
    ========================================================================= */
 
 /* ------------------------------------------------------------ sombre */
@@ -87,19 +88,6 @@
   border-radius: 99px; background: var(--v-pill); border-color: var(--v-bord); box-shadow: var(--v-reflet);
 }
 :root[data-style="verre"] .side-search .kbd { border-radius: 99px; background: var(--v-pill); }
-:root[data-style="verre"] .side-listes { gap: 6px; }
-:root[data-style="verre"] .side-it {
-  border-radius: 99px; min-height: 40px; padding: 0 14px;
-  background: var(--v-pill); box-shadow: var(--v-reflet);
-  border: 1px solid color-mix(in srgb, var(--v-bord) 60%, transparent);
-}
-:root[data-style="verre"] .side-it:hover { background: color-mix(in srgb, var(--v-actif) 14%, transparent); }
-:root[data-style="verre"] .side-it.on {
-  background: var(--v-actif); color: var(--v-actif-ink); font-weight: 600;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, .22), inset 0 1px 0 rgba(255, 255, 255, .6);
-  border-color: transparent;
-}
-:root[data-style="verre"] .side-it.on svg.i { color: var(--v-actif-ink); }
 :root[data-style="verre"] .side-foot { border-top: 0; }
 
 /* -------------------------------------------- cartes, panneaux, barres */
@@ -120,17 +108,8 @@
   box-shadow: var(--v-reflet);
   -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
 }
-:root[data-style="verre"] .btn.pri {
-  background: radial-gradient(120% 140% at 30% 0%, rgba(255, 255, 255, .45), transparent 55%), var(--accent);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55), 0 8px 22px color-mix(in srgb, var(--accent) 40%, transparent);
-}
 :root[data-style="verre"] .btn.dn { background: var(--danger-dim); }
 :root[data-style="verre"] .btn.gh { background: transparent; box-shadow: none; border-color: transparent; }
-:root[data-style="verre"] .champ,
-:root[data-style="verre"] .input,
-:root[data-style="verre"] .select {
-  border-radius: 99px; background: var(--v-pill); border-color: var(--v-bord); box-shadow: var(--v-reflet);
-}
 :root[data-style="verre"] textarea.input { border-radius: 16px; }
 :root[data-style="verre"] .seg { border-radius: 99px; background: var(--creux); border-color: var(--v-bord); }
 :root[data-style="verre"] .seg button { border-radius: 99px; }
@@ -148,31 +127,6 @@
   border-color: var(--v-bord); box-shadow: var(--v-reflet), var(--shadow);
 }
 
-/* galerie : items du panneau de gauche en pastilles, item actif blanc */
-:root[data-style="verre"] .lib-sidebar button { border-radius: 99px; }
-:root[data-style="verre"] .lib-item.active,
-:root[data-style="verre"] .lib-sidebar .lib-item.active {
-  background: var(--v-actif) !important; color: var(--v-actif-ink) !important; box-shadow: 0 6px 16px rgba(0, 0, 0, .2) !important; border-color: transparent !important;
-}
-:root[data-style="verre"] .lib-item.active svg.i { color: var(--v-actif-ink); }
-
-/* Réglages → Apparence : choix du style (aperçus miniatures) */
-.style-choix { display: grid; grid-template-columns: repeat(2, minmax(0, 220px)); gap: 12px; margin-top: 8px; }
-.style-carte { display: grid; gap: 4px; text-align: left; padding: 10px; border-radius: var(--r-lg); border: 1px solid var(--line2); background: var(--card); }
-.style-carte.on { border-color: var(--accent); box-shadow: 0 0 0 3px var(--acc-dim); }
-.style-ap { position: relative; height: 86px; border-radius: 12px; overflow: hidden; display: block; margin-bottom: 6px; }
-.style-ap i { position: absolute; left: 8px; top: 8px; bottom: 8px; width: 34%; border-radius: 8px; }
-.style-ap b { position: absolute; left: 44%; right: 10px; height: 16px; border-radius: 6px; }
-.style-ap b:nth-of-type(1) { top: 12px; } .style-ap b:nth-of-type(2) { top: 36px; } .style-ap b:nth-of-type(3) { top: 60px; right: 40%; }
-.st-encre .style-ap { background: #0b0f17; }
-.st-encre .style-ap i { background: #0f1520; border-right: 1px solid #1e2737; border-radius: 0; left: 0; top: 0; bottom: 0; }
-.st-encre .style-ap b { background: #141b28; border: 1px solid #1e2737; }
-.st-verre .style-ap { background: radial-gradient(120px 80px at 10% 0%, rgba(88,132,255,.8), transparent 70%), linear-gradient(180deg, #0d1c4d, #060b20); }
-.st-verre .style-ap i { background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.08)); border: 1px solid rgba(255,255,255,.3); border-radius: 14px; }
-.st-verre .style-ap b { background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22); border-radius: 99px; }
-.style-nom { font-weight: 600; font-size: 14px; }
-.style-sous { font-size: 12.5px; color: var(--muted); }
-
 /* recherche rapide et lanceur : ligne choisie en pastille */
 :root[data-style="verre"] .palette { background: var(--v-verre), color-mix(in srgb, var(--pop) 55%, transparent); border-radius: 28px; }
 :root[data-style="verre"] .pal-it { border-radius: 18px; }
@@ -184,12 +138,8 @@
   -webkit-backdrop-filter: blur(30px) saturate(1.7); backdrop-filter: blur(30px) saturate(1.7);
 }
 
-/* =====================================================================
-   Version retravaillée (v2) : mêmes couleurs, finitions plus soignées.
-   ===================================================================== */
+/* --------------------------------------------- étoiles, reflets, finitions */
 :root[data-style="verre"] {
-  /* bord « reflet » : clair en haut, qui s'efface vers le bas */
-  --v-liseré: linear-gradient(180deg, rgba(255, 255, 255, .42), rgba(255, 255, 255, .08) 40%, rgba(255, 255, 255, .04));
   --v-etoiles:
     radial-gradient(1px 1px at 12% 22%, rgba(255, 255, 255, .55), transparent 60%),
     radial-gradient(1px 1px at 34% 68%, rgba(255, 255, 255, .35), transparent 60%),
@@ -202,7 +152,6 @@
   --v-pill-doux: rgba(255, 255, 255, .045);
 }
 :root[data-style="verre"][data-theme="light"] {
-  --v-liseré: linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(255, 255, 255, .6) 45%, rgba(255, 255, 255, .35));
   --v-etoiles: none;
   --v-pill-doux: rgba(255, 255, 255, .35);
 }

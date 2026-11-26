@@ -8,6 +8,7 @@ import {
 } from 'react';
 import {
   APPEARANCE_ACCENTS,
+  APPEARANCE_STYLES,
   APPEARANCE_THEMES,
   DEFAULT_SHORTCUTS,
   type AppSettings,
@@ -368,19 +369,25 @@ export function AppearanceSection({
   return (
     <>
       <div className="reg-sec">
-        <div className="lbl-mono">Style</div>
-        <div className="style-choix" role="radiogroup" aria-label="Style">
-          {(['encre', 'verre'] as const).map((st) => (
+        <div className="lbl-mono">{t('appearance.style')}</div>
+        <div className="style-choix" role="radiogroup" aria-label={t('appearance.style')}>
+          {APPEARANCE_STYLES.map((style) => (
             <button
-              key={st}
+              key={style}
               type="button"
               role="radio"
-              className={`style-carte st-${st}${(document.documentElement.dataset.style ?? 'encre') === st ? ' on' : ''}`}
-              aria-checked={(document.documentElement.dataset.style ?? 'encre') === st}
+              className={`style-carte st-${style}${appearance.style === style ? ' on' : ''}`}
+              aria-checked={appearance.style === style}
+              onClick={() => choose({ style })}
             >
-              <span className="style-ap"><i /><b /><b /><b /></span>
-              <span className="style-nom">{st === 'encre' ? 'Encre' : 'Verre'}</span>
-              <span className="style-sous">{st === 'encre' ? 'Mat et net, le style actuel' : 'Verre dépoli, reflets et pastilles'}</span>
+              <span className="style-ap" aria-hidden="true">
+                <i />
+                <b />
+                <b />
+                <b />
+              </span>
+              <span className="style-nom">{t(`appearance.style.${style}`)}</span>
+              <span className="style-sous">{t(`appearance.style.${style}.sub`)}</span>
             </button>
           ))}
         </div>

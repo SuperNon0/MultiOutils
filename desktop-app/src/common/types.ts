@@ -21,23 +21,27 @@ export const DEFAULT_SHORTCUTS: Record<ShortcutId, string> = {
 export type AppearanceAccent = 'lavande' | 'or' | 'ambre' | 'corail' | 'menthe';
 /** Thème : automatique (suit le système), sombre ou clair forcé. */
 export type AppearanceTheme = 'auto' | 'sombre' | 'clair';
+/** Style : « encre » (mat, d'origine) ou « verre » (verre dépoli, encre/verre.css). */
+export type AppearanceStyle = 'encre' | 'verre';
 
 /** Apparence partagée par toutes les fenêtres (et lue par le module Lanceur). */
 export interface AppearanceSettings {
   accent: AppearanceAccent;
   theme: AppearanceTheme;
+  style: AppearanceStyle;
 }
 
 export const APPEARANCE_ACCENTS: AppearanceAccent[] = ['lavande', 'or', 'ambre', 'corail', 'menthe'];
 export const APPEARANCE_THEMES: AppearanceTheme[] = ['auto', 'sombre', 'clair'];
-export const DEFAULT_APPEARANCE: AppearanceSettings = { accent: 'lavande', theme: 'auto' };
+export const APPEARANCE_STYLES: AppearanceStyle[] = ['encre', 'verre'];
+export const DEFAULT_APPEARANCE: AppearanceSettings = { accent: 'lavande', theme: 'auto', style: 'encre' };
 
 export interface AppSettings {
   language: Language;
   /** Ancien réglage (sombre seul) : remplacé par `appearance`, gardé pour la migration. */
   theme: 'dark';
   /** Apparence « encre » : couleur d'accent + thème. */
-  appearance: { accent: 'lavande' | 'or' | 'ambre' | 'corail' | 'menthe'; theme: 'auto' | 'sombre' | 'clair' };
+  appearance: AppearanceSettings;
   autostart: boolean;
   startMinimized: boolean;
   closeToTray: boolean;

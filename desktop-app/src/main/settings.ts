@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3';
 import { DEFAULT_FILENAME_TEMPLATE } from '@multioutils/shared';
 import {
   APPEARANCE_ACCENTS,
+  APPEARANCE_STYLES,
   APPEARANCE_THEMES,
   DEFAULT_APPEARANCE,
   DEFAULT_SHORTCUTS,
@@ -25,7 +26,10 @@ export function normalizeAppearance(value: unknown): AppSettings['appearance'] {
       : DEFAULT_APPEARANCE.accent,
     theme: APPEARANCE_THEMES.includes(v.theme as never)
       ? (v.theme as AppSettings['appearance']['theme'])
-      : DEFAULT_APPEARANCE.theme
+      : DEFAULT_APPEARANCE.theme,
+    style: APPEARANCE_STYLES.includes(v.style as never)
+      ? (v.style as AppSettings['appearance']['style'])
+      : DEFAULT_APPEARANCE.style
   };
 }
 
