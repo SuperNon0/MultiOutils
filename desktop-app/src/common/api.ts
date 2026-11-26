@@ -3,6 +3,7 @@
  * Implémentée dans src/preload/index.ts via contextBridge (docs/01 §5).
  */
 import type { Capture, CaptureType, Folder, Tag } from '@multioutils/shared';
+import type { ColorFolder, ColorLibrary, SavedColor } from './colors';
 import type {
   AppSettings,
   AutoclickProfile,
@@ -243,6 +244,12 @@ export interface PreloadApi {
       Array<{ r: number; g: number; b: number; hex: string; formatted: string; pickedAt: string }>
     >;
     clearHistory(): Promise<void>;
+    /** « Mes couleurs » : couleurs nommées, rangées en dossiers. */
+    library(): Promise<ColorLibrary>;
+    saveColor(c: SavedColor): Promise<SavedColor | null>;
+    removeColor(id: string): Promise<void>;
+    saveFolder(f: ColorFolder): Promise<ColorFolder | null>;
+    removeFolder(id: string): Promise<void>;
     getFormat(): Promise<'hex' | 'rgb' | 'hsl'>;
     setFormat(format: 'hex' | 'rgb' | 'hsl'): Promise<void>;
     onHistoryChanged(cb: () => void): Unsubscribe;

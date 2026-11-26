@@ -141,6 +141,27 @@ export function registerHaActions(env: Env): void {
     return data.image;
   };
 
+  /** Couleurs prises avec la pipette de MultiOutils (la plus récente d'abord). */
+  type NamedColor = { hex: string; name: string; folder: string | null };
+  type ColorFolder = { id: string; name: string };
+  const savedColors = async (): Promise<{ colors: string[]; last: string | null; library: { colors: NamedColor[]; folders: ColorFolder[] } }> => {
+    const res = await fetch('http://127.0.0.1:41320/colorpicker/colors', { signal: AbortSignal.timeout(2500) });
+    if (!res.ok) throw new Error('Ouvre MultiOutils pour retrouver tes couleurs.');
+    const data = await res.json() as { colors?: unknown; last?: unknown; library?: { colors?: unknown; folders?: unknown } };
+    const colors = Array.isArray(data.colors) ? data.colors.filter((c): c is string => typeof c === 'string' && HEX.test(c)) : [];
+    // « Mes couleurs » : couleurs nommées et leurs dossiers (pipette de MultiOutils).
+    const lib = data.library ?? {};
+    const named = (Array.isArray(lib.colors) ? lib.colors : [])
+      .map((c) => c as Record<string, unknown>)
+      .filter((c) => typeof c?.hex === 'string' && HEX.test(c.hex))
+      .map((c) => ({ hex: String(c.hex), name: typeof c.name === 'string' ? c.name.slice(0, 40) : String(c.hex), folder: typeof c.folder === 'string' ? c.folder : null }));
+    const folders = (Array.isArray(lib.folders) ? lib.folders : [])
+      .map((f) => f as Record<string, unknown>)
+      .filter((f) => typeof f?.id === 'string' && typeof f?.name === 'string')
+      .map((f) => ({ id: String(f.id), name: String(f.name).slice(0, 40) }));
+    return { colors, last: typeof data.last === 'string' ? data.last : null, library: { colors: named, folders } };
+  };
+
   /* ───────── dessin ───────── */
 
   const draw = async (e: Entry): Promise<void> => {
@@ -551,6 +572,23 @@ export function registerHaActions(env: Env): void {
         const id = String(msg.id ?? '');
         const [onImg, offImg] = await Promise.all([libraryImage(id, true, null), libraryImage(id, false, null)]);
         reply({ cmd, id, on: onImg, off: offImg });
+      } else if (cmd === 'savedColors') {
+        // App fermée : pas d'erreur, simplement aucune couleur proposée.
+        const saved = await savedColors().catch(() => null);
+        reply({ cmd, colors: saved?.colors ?? [], library: saved?.library ?? { colors: [], folders: [] } });
+      } else if (cmd === 'pickColor') {
+        // Lance la pipette de MultiOutils et attend la couleur prise (1 min au plus).
+        const before = (await savedColors()).last;
+        const res = await fetch('http://127.0.0.1:41320/command/colorpicker.start', { method: 'POST', signal: AbortSignal.timeout(3000) });
+        if (!res.ok) throw new Error('Ouvre MultiOutils pour utiliser la pipette.');
+        const target = String(msg.target ?? '');
+        for (let waited = 0; waited < 60_000; waited += 700) {
+          await new Promise((r) => setTimeout(r, 700));
+          const now = await savedColors().catch(() => null);
+          if (now && now.last && now.last !== before) return reply({ cmd: 'savedColors', colors: now.colors, library: now.library, picked: now.colors[0] ?? '', target });
+        }
+        const end = await savedColors();
+        reply({ cmd: 'savedColors', colors: end.colors, library: end.library });
       } else if (cmd === 'iconLibrary') {
         const res = await fetch('http://127.0.0.1:41320/icons/library', { signal: AbortSignal.timeout(2500) });
         if (!res.ok) throw new Error('Ouvre MultiOutils pour accéder à l’atelier.');

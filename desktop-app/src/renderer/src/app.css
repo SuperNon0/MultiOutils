@@ -1094,6 +1094,20 @@ input[type='radio'] {
   font: 500 12.5px var(--f-mono);
   color: var(--soft);
 }
+/* Mes couleurs : couleurs nommées, rangées en dossiers */
+.cp-mine { margin-bottom: 22px; }
+.cp-mine-vide { margin: 0; }
+.cp-group { margin-bottom: 14px; }
+.cp-group-h { display: flex; align-items: center; gap: 7px; margin: 4px 0 8px; font-weight: 600; color: var(--soft); }
+.cp-name { display: block; padding: 8px 11px 0; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cp-name + .cp-code { padding-top: 2px; }
+.cp-color { position: relative; }
+.cp-save {
+  position: absolute; top: 6px; right: 6px; width: 24px; height: 24px; border-radius: 8px;
+  display: grid; place-items: center; background: rgba(0, 0, 0, 0.45); color: #fff;
+  opacity: 0; transition: opacity 0.15s;
+}
+.cp-swatch:hover .cp-save, .cp-save:focus-visible { opacity: 1; }
 
 /* ------------------------------- Extraire le texte / Traduire (IA) */
 .feuille.large.texte-feuille {

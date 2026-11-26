@@ -87,6 +87,7 @@
       toPlugin({ cmd: 'catalog' });
       toPlugin({ cmd: 'services' });
       toPlugin({ cmd: 'iconLibrary' });
+      toPlugin({ cmd: 'savedColors' });
       toPlugin({ cmd: 'preview' });
       if (settings.entity) toPlugin({ cmd: 'state', id: settings.entity });
     };
@@ -106,8 +107,19 @@
   function onPlugin(m) {
     if (m.error) {
       if (m.cmd === 'pick') $('grand').disabled = false;
+      if (m.cmd === 'pickColor') renderSavedColors();
       etat(m.error, 'err');
       if (m.cmd === 'catalog') $('res').innerHTML = '<p class="aide">' + esc(m.error) + '</p>';
+      return;
+    }
+    if (m.cmd === 'savedColors') {
+      savedColors = Array.isArray(m.colors) ? m.colors.filter((c) => /^#[0-9a-f]{6}$/i.test(c)) : [];
+      savedLibrary = m.library && Array.isArray(m.library.colors) ? m.library : { colors: [], folders: [] };
+      if (m.picked && m.target) {
+        const input = document.querySelector('input[type=color][data-pick="' + m.target + '"]');
+        if (input) applyColor(input, m.picked);
+      }
+      renderSavedColors();
       return;
     }
     if (m.cmd === 'iconLibrary') {
@@ -819,6 +831,89 @@
   $('panel-raz').onclick = () => { panelEdit = -1; delete settings.panelSlots; delete settings.panelLevels; save(true); renderPanel(); };
   $('panel-open').onclick = () => { save(true); toPlugin({ cmd: 'openPanel' }); etat('Panneau ouvert sur le Stream Deck.', 'ok'); };
 
+  /* ───────── couleurs de la pipette MultiOutils ───────── */
+
+  /** Couleurs prises avec la pipette de MultiOutils, proposées sous chaque choix de couleur. */
+  let savedColors = [];
+  /** « Mes couleurs » : couleurs nommées rangées en dossiers dans MultiOutils. */
+  let savedLibrary = { colors: [], folders: [] };
+  let pickSeq = 0;
+  function applyColor(input, hex) {
+    input.value = hex;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  function decorateColor(input) {
+    if (input.dataset.pick) return;
+    input.dataset.pick = 'c' + (++pickSeq);
+    const strip = document.createElement('span');
+    strip.className = 'pipette';
+    strip.dataset.for = input.dataset.pick;
+    const wrap = input.closest('.coul') || input.parentElement;
+    wrap.after(strip);
+    fillStrip(strip, input);
+  }
+  function swatch(hex, title, input) {
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'pastille'; b.style.background = hex; b.title = title;
+    b.onclick = () => applyColor(input, hex);
+    return b;
+  }
+  /** Liste « Mes couleurs » : un groupe par dossier, chaque couleur avec son nom. */
+  function libraryBox(input) {
+    const box = document.createElement('div');
+    box.className = 'mes-couleurs';
+    const groups = [{ id: null, name: 'Sans dossier' }].concat(savedLibrary.folders || []);
+    for (const g of groups) {
+      const list = savedLibrary.colors.filter((c) => (c.folder || null) === g.id);
+      if (!list.length) continue;
+      const h = document.createElement('p'); h.className = 'mc-dossier'; h.textContent = g.name;
+      box.appendChild(h);
+      const row = document.createElement('div'); row.className = 'mc-ligne';
+      for (const c of list) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'mc-couleur'; b.title = c.hex;
+        const dot = document.createElement('span'); dot.className = 'pastille'; dot.style.background = c.hex;
+        b.appendChild(dot); b.appendChild(document.createTextNode(c.name));
+        b.onclick = () => applyColor(input, c.hex);
+        row.appendChild(b);
+      }
+      box.appendChild(row);
+    }
+    return box;
+  }
+  function fillStrip(strip, input) {
+    const open = !!strip.querySelector('.mes-couleurs');
+    strip.replaceChildren();
+    for (const hex of savedColors.slice(0, 6)) strip.appendChild(swatch(hex, hex + ' (récente)', input));
+    if (savedLibrary.colors.length) {
+      const m = document.createElement('button');
+      m.type = 'button'; m.className = 'lien mes'; m.textContent = 'Mes couleurs';
+      m.onclick = () => {
+        const box = strip.querySelector('.mes-couleurs');
+        if (box) box.remove(); else strip.appendChild(libraryBox(input));
+      };
+      strip.appendChild(m);
+    }
+    const p = document.createElement('button');
+    p.type = 'button'; p.className = 'lien prendre'; p.textContent = 'Pipette';
+    p.title = 'Prendre une couleur à l’écran avec la pipette de MultiOutils';
+    p.onclick = () => { p.textContent = 'Clique sur l’écran…'; toPlugin({ cmd: 'pickColor', target: input.dataset.pick }); };
+    strip.appendChild(p);
+    if (open && savedLibrary.colors.length) strip.appendChild(libraryBox(input));
+  }
+  function renderSavedColors() {
+    document.querySelectorAll('.pipette').forEach((strip) => {
+      const input = document.querySelector('input[type=color][data-pick="' + strip.dataset.for + '"]');
+      if (input && input.isConnected) fillStrip(strip, input); else strip.remove();
+    });
+  }
+  function decorateAllColors() {
+    document.querySelectorAll('.coul input[type=color]').forEach(decorateColor);
+  }
+  new MutationObserver(decorateAllColors).observe(document.body, { childList: true, subtree: true });
+  decorateAllColors();
+
   /* ───────── apparence ───────── */
 
   /** Icônes de l'atelier MultiOutils, proposées dans la liste « Icône ». */
@@ -976,7 +1071,7 @@
       kindId = (/^com\.supernon0\.multioutils\.ha\.([a-z]+)$/.exec(actionUUID || '') || [])[1] || '';
       settings = data.settings || {}; renderAll();
       layout.setTitle('Home Assistant · ' + (kind()?.t || 'votre touche'));
-      for (const cmd of ['status', 'catalog', 'services', 'preview', 'iconLibrary']) toPlugin({ cmd });
+      for (const cmd of ['status', 'catalog', 'services', 'preview', 'iconLibrary', 'savedColors']) toPlugin({ cmd });
       if (settings.entity) toPlugin({ cmd: 'state', id: settings.entity });
     }).catch((error) => etat(String(error), 'err'));
     const timer = setInterval(() => { toPlugin({ cmd: 'preview' }); if (settings.entity) toPlugin({ cmd: 'state', id: settings.entity }); }, 2000);
